@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.turbo/
+*.log
+.env
+.env.*
+*.pem
+*.key
+coverage/
+.nyc_output/
+calibration/reports/*.json

@@ -1,0 +1,26 @@
+{
+  "name": "@synergy/judge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch dist/index.js",
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@synergy/schemas": "workspace:*",
+    "@synergy/shared": "workspace:*",
+    "@synergy/rubric": "workspace:*",
+    "@anthropic-ai/sdk": "^0.20.0",
+    "bullmq": "^5.4.0",
+    "zod": "^3.22.0",
+    "pino": "^8.19.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}

@@ -1,0 +1,31 @@
+# Dependencies & build
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+
+# Lock files (Claude doesn't need to read them, but they're huge)
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Secrets & env
+.env
+.env.*
+*.pem
+*.key
+.claude/credentials.json
+
+# OS / editor noise
+.DS_Store
+.vscode/settings.json
+.idea/
+
+# Test artifacts & coverage
+coverage/
+.nyc_output/
+*.log
+
+# Gold standard transcripts are intentionally NOT ignored — Claude Code should see them.
+# But if any contain real student PII, move those to a separate private repo.
