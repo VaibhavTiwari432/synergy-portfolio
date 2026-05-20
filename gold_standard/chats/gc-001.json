@@ -1,0 +1,39 @@
+{
+  "id": "gc-001",
+  "platform": "chatgpt",
+  "turns": [
+    {
+      "role": "user",
+      "content": "[Full transcript not pasted into this file. Chat source: Career - Google PM Strategy (ChatGPT) — career strategy session where user sought guidance on targeting a Google PM role, covering profile positioning, APM acceptance rates, and transition planning. Scoring was performed against the original chat session by sangillence.]",
+      "turn_index": 0,
+      "timestamp_ms": null
+    }
+  ],
+  "annotations": [
+    {
+      "scorer_id": "sangillence",
+      "bands": {
+        "AL": "low",
+        "PR": "low",
+        "AUI": "mid",
+        "EC": "low",
+        "CS": "mid",
+        "CD": "low",
+        "ES": "not_applicable",
+        "CA": "low"
+      },
+      "notes": {
+        "AL": "Accepted ChatGPT's claims like '< 0.1% APM acceptance' without asking for source.",
+        "PR": "Prompts were short, casual, no constraints or format spec.",
+        "AUI": "Used AI for strategic career thinking, which is a reasonable AI fit.",
+        "EC": "Did not catch hallucinated numbers or unverified claims.",
+        "CS": "Brought own context (Sangillence, IIITM, profile) but did not push back on AI synthesis.",
+        "CD": "Mostly validated a preset aspiration (Google PM) rather than exploring alternatives.",
+        "ES": "No ethical content in chat.",
+        "CA": "Let ChatGPT lead the conversation, didn't push back or redirect."
+      },
+      "scored_at": "2026-05-20T00:00:00Z"
+    }
+  ],
+  "rubric_version": "0.1"
+}
