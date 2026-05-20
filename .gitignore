@@ -10,3 +10,4 @@ build/
 coverage/
 .nyc_output/
 calibration/reports/*.json
+.claude/
