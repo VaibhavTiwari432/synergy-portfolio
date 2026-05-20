@@ -1,0 +1,39 @@
+{
+  "id": "gc-002",
+  "platform": "chatgpt",
+  "turns": [
+    {
+      "role": "user",
+      "content": "[Full transcript not pasted into this file. Chat source: Pratik_ChatGPT — academic presentation session involving a PPT, an IEEE base paper on micro-Doppler signal processing, and CNN vs. Transformer architecture questions. Scoring was performed against the original chat session by sangillence.]",
+      "turn_index": 0,
+      "timestamp_ms": null
+    }
+  ],
+  "annotations": [
+    {
+      "scorer_id": "sangillence",
+      "bands": {
+        "AL": "low",
+        "PR": "mid",
+        "AUI": "mid",
+        "EC": "low",
+        "CS": "mid",
+        "CD": "low",
+        "ES": "not_applicable",
+        "CA": "low"
+      },
+      "notes": {
+        "AL": "Demonstrates reliance on AI as infallible authority; asks model to explain own work without skepticism or cross-verification of potential inaccuracies.",
+        "PR": "Provides contextual artifacts (PPT, IEEE paper) but prompts lack clarity and decomposition; relies on AI to structure the interaction rather than breaking the problem down logically.",
+        "AUI": "Strongest dimension; uses AI to bridge a general theoretical concept (micro-Doppler) to a specific practical application, showing an instinct for cognitive augmentation.",
+        "EC": "No behavioral evidence of validating outputs independently or challenging the AI's technical reasoning; accepts deep explanations and generated architectures without scrutiny.",
+        "CS": "Provides multiple sources but relies entirely on AI to integrate contexts and maintain coherence; the model does the balancing between CNN and Transformer approaches.",
+        "CD": "Follows highly predictable convergent paths; prompts are standard academic questions rather than demonstrating unconventional thinking or alternative explorations.",
+        "ES": "Not applicable to this academic presentation and technical signal processing query.",
+        "CA": "Low cognitive leadership; allows AI to dictate the entire narrative and structure; passively consumes outputs rather than orchestrating the collaboration."
+      },
+      "scored_at": "2026-05-20T00:00:00Z"
+    }
+  ],
+  "rubric_version": "0.1"
+}

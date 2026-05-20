@@ -1,0 +1,39 @@
+{
+  "id": "gc-003",
+  "platform": "gemini",
+  "turns": [
+    {
+      "role": "user",
+      "content": "[Full transcript not pasted into this file. Chat source: Ritesh_Gemini — university physics exam prep session covering Lorentz transformations, time dilation, relativistic energy, and the invariant spacetime interval, using text, mathematical derivations, and slide images. Scoring was performed against the original chat session by sangillence.]",
+      "turn_index": 0,
+      "timestamp_ms": null
+    }
+  ],
+  "annotations": [
+    {
+      "scorer_id": "sangillence",
+      "bands": {
+        "AL": "high",
+        "PR": "high",
+        "AUI": "high",
+        "EC": "high",
+        "CS": "high",
+        "CD": "mid",
+        "ES": "not_applicable",
+        "CA": "high"
+      },
+      "notes": {
+        "AL": "Actively questions AI outputs when they conflict with own materials; demonstrates robust skepticism and cross-verification rather than treating AI as absolute authority.",
+        "PR": "Highly effective framing with strict constraints and clear persona from the start; uses structured iterative prompts to demand deeper analysis.",
+        "AUI": "Naturally uses AI to extend cognitive reach; leverages AI to build deeper mental models rather than just obtaining final answers.",
+        "EC": "Exceptional independent validation; repeatedly audits AI reasoning and pushes back immediately when AI deviates from professor's specific logic or produces incorrect equations.",
+        "CS": "Successfully manages complex multi-modal context integrating text, mathematical derivations, and slide images to build coherent understanding of interwoven physics concepts.",
+        "CD": "Moderate due to domain constraints; academic physics exam prep requires convergent thinking; some divergent learning strategies present but mostly converging on standard scientific truths.",
+        "ES": "Ethical considerations regarding bias or societal implications are not applicable to understanding relativistic physics mechanics for a university exam.",
+        "CA": "Exceptional cognitive leadership; acts as director of the session, dictating pace, redirecting AI when it skips steps, and maintaining complete ownership of the learning process."
+      },
+      "scored_at": "2026-05-20T00:00:00Z"
+    }
+  ],
+  "rubric_version": "0.1"
+}
