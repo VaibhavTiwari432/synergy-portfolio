@@ -1,0 +1,39 @@
+{
+  "id": "gc-004",
+  "platform": "chatgpt",
+  "turns": [
+    {
+      "role": "user",
+      "content": "[Full transcript not pasted into this file. Chat source: Kartikeya_ChatGPT — academic cybersecurity presentation session covering phishing, ransomware, password cracking (brute force scripts, ZIP cracking), fault injection, and hardware microprobing. Includes Python/Flask code generation and statistical slide content. Scoring was performed against the original chat session by sangillence.]",
+      "turn_index": 0,
+      "timestamp_ms": null
+    }
+  ],
+  "annotations": [
+    {
+      "scorer_id": "sangillence",
+      "bands": {
+        "AL": "mid",
+        "PR": "high",
+        "AUI": "high",
+        "EC": "low",
+        "CS": "high",
+        "CD": "mid",
+        "ES": "low",
+        "CA": "high"
+      },
+      "notes": {
+        "AL": "Treats AI as a highly capable assistant but exhibits no cross-verification or skepticism; accepts generated Python scripts, Flask code, and statistical data points (e.g., '79 million phishing attacks') without hallucination detection.",
+        "PR": "Excellent decomposition and constraint-setting; explicitly dictates output architecture with structured subtopics and slide formats rather than vague requests.",
+        "AUI": "Actively amplifies real-world academic inputs — integrates a senior's suggestion on brute force attacks and a professor's hardware lecture to translate environmental concepts into practical classroom demonstrations.",
+        "EC": "No behavioral evidence of independently verifying generated brute force scripts, debugging HTML/CSS payloads, or checking cited industry report accuracy; outputs accepted blindly.",
+        "CS": "Successfully synthesizes peer advice, a specific hardware vulnerability lecture, and strict presentation formatting rules into one cohesive multi-faceted instructional narrative.",
+        "CD": "Moderate branching — diverges from standard software-attack curricula to explore hardware security and microprobing, but overall topic selection remains within predictable cybersecurity presentation territory.",
+        "ES": "Requests operational password-cracking and ZIP brute-force scripts without setting explicit safety or ethical boundaries; relies entirely on AI to self-enforce classroom-demo constraints and generate its own safety checklist.",
+        "CA": "Strong cognitive leader throughout — strategically dictates scope and exact deliverable structure, delegates content generation to AI while retaining complete architectural control over the project."
+      },
+      "scored_at": "2026-05-20T00:00:00Z"
+    }
+  ],
+  "rubric_version": "0.1"
+}
