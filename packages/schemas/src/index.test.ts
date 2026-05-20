@@ -181,7 +181,7 @@ describe("TaskFrameSchema", () => {
   });
 
   it("rejects invalid platform", () => {
-    expect(() => TaskFrameSchema.parse({ ...VALID_FRAME, platform: "gemini" })).toThrow();
+    expect(() => TaskFrameSchema.parse({ ...VALID_FRAME, platform: "perplexity" })).toThrow();
   });
 
   it("rejects malformed UUID for id", () => {
@@ -429,6 +429,6 @@ describe("GoldChatSchema", () => {
   });
 
   it("rejects invalid platform", () => {
-    expect(() => GoldChatSchema.parse({ ...valid, platform: "gemini" })).toThrow();
+    expect(() => GoldChatSchema.parse({ ...valid, platform: "perplexity" })).toThrow();
   });
 });

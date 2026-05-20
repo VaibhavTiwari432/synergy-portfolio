@@ -79,7 +79,7 @@ export type Turn = z.infer<typeof TurnSchema>;
 export const TaskFrameSchema = z.object({
   id: z.string().uuid(),
   chat_id: z.string().min(1),
-  platform: z.enum(["chatgpt", "claude.ai"]),
+  platform: z.enum(["chatgpt", "claude.ai", "gemini"]),
   user_id: z.string().min(1),
   turns: z.array(TurnSchema).min(2),
   chunk_index: z.number().int().min(0),
@@ -170,7 +170,7 @@ export type GoldChatAnnotation = z.infer<typeof GoldChatAnnotationSchema>;
 
 export const GoldChatSchema = z.object({
   id: z.string().min(1),
-  platform: z.enum(["chatgpt", "claude.ai"]),
+  platform: z.enum(["chatgpt", "claude.ai", "gemini"]),
   turns: z.array(TurnSchema).min(1),
   annotations: z.array(GoldChatAnnotationSchema).min(1),
   rubric_version: z.string().min(1),

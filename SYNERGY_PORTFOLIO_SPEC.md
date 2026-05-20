@@ -95,7 +95,7 @@ export interface Turn {
 export interface TaskFrame {
   id: string;                    // UUID v4, assigned by API on receipt
   chat_id: string;               // platform-native conversation ID
-  platform: "chatgpt" | "claude.ai";
+  platform: "chatgpt" | "claude.ai" | "gemini";
   user_id: string;               // see §9
   turns: Turn[];                 // minimum 2 (at least 1 user + 1 assistant turn)
   chunk_index: number;           // 0-based; position of this chunk in the conversation
@@ -177,7 +177,7 @@ export interface GoldChatAnnotation {
 // reliability analysis (Cohen's κ across scorers) without a schema migration.
 export interface GoldChat {
   id: string;                    // short slug, e.g. "gc-001"
-  platform: "chatgpt" | "claude.ai";
+  platform: "chatgpt" | "claude.ai" | "gemini";
   turns: Turn[];
   annotations: GoldChatAnnotation[];  // length ≥ 1
   rubric_version: string;
