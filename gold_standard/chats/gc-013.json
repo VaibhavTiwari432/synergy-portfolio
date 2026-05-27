@@ -1,0 +1,1771 @@
+{
+  "id": "gc-013",
+  "platform": "chatgpt",
+  "turns": [
+    {
+      "role": "user",
+      "content": "5/21/26, 2:49 PM\n\nHCI Exam Preparation\n\nCopy of e3-chap-07-0906... Copy of e3-chap-08-0906...",
+      "turn_index": 0,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey buddy i am having exam of Human computer\ninteraction (HCI) in which these pdf as syllabus of exam.",
+      "turn_index": 1,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "| have not seen them yet,cause i know that you as my\nbuddy would prepare me for my exam and so that i would\ntop in my class.",
+      "turn_index": 2,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "So hey buddy i am asking a favor and explain me (teach\nme) each and everything in these pdfs so that i can get a\nvery good grades in exam please",
+      "turn_index": 3,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Remember don't forget any topic cause those small topics\nwould only be tie breaker in a path to become toper .\nExplain me in easy understanding words yet in detailed",
+      "turn_index": 4,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Show more v\n\naf61-6ca4-8324-a055-bdc7cdcf58df\n\n5/21/26, 2:49 PM HCI Exam Preparation",
+      "turn_index": 5,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "4 2. Types of Design Rules (IMPORTANT THEORY)\n\nType Authority Generality\nPrinciples Low High\nGuidelines Medium Medium\nStandards High Low",
+      "turn_index": 6,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@& Easy memory:\n\ne Principles = idea\n\ne Guidelines = advice\n\ne Standards = rules (must follow)",
+      "turn_index": 7,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ 3. Principles of Usability (VERY IMPORTANT)\n\n(A) Learnability\n\n@ How easy system is to learn",
+      "turn_index": 8,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Sub-points:\ne Predictability\ne Future action effect from past\ne Synthesizability\ne Understand past actions effect\ne Familiarity\ne Uses user's prior knowledge\ne Generalizability\ne Apply knowledge to new situations\ne Consistency",
+      "turn_index": 9,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Same actions — same results\n\n(B) Flexibility\n\n@ Different ways to interact\n\naf61-6ca4-8324-a055-bdc7cdcf58df 2/48",
+      "turn_index": 10,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\nSub-points:\ne Dialogue initiative\ne User vs system control\ne Multithreading\ne Multiple tasks at once\ne Task migratability\ne Task shifts (user — system)\ne Substitutivity\ne Different ways for same task\ne Customizability",
+      "turn_index": 11,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Ulcan be modified\n\n(C) Robustness\n\n@ System support for users\n\nSub-points:\ne Observability",
+      "turn_index": 12,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e See system state\ne Recoverability\n\ne Fix errors easily\ne Responsiveness\n\ne Speed of system\ne Task conformance",
+      "turn_index": 13,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Supports all user tasks\n\n= 4. Standards\n\ne Defined by organizations (e.g. ISO)\ne Must be followed strictly\ne Example:",
+      "turn_index": 14,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e ISO 9241 - usability = effectiveness + efficiency + satisfaction\n\n@ Key point:\ne High authority",
+      "turn_index": 15,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Less flexible\n\naf61-6ca4-8324-a055-bdc7cdcf58df 3/48\n\n5/21/26, 2:49 PM HCI Exam Preparation",
+      "turn_index": 16,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "— 5. Guidelines\n\ne General suggestions\ne Flexible\ne Used in:\ne Early design — abstract",
+      "turn_index": 17,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Later — detailed (style guides)\n\n& Important:\n\ne Helps resolve design conflicts",
+      "turn_index": 18,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "W 6. Golden Rules & Heuristics\n\nShneiderman’s 8 Golden Rules (VERY IMPORTANT)\n\n. Consistency",
+      "turn_index": 19,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": ". Shortcuts for experts\n\n. Closure (task completion feeling)\n. Error prevention\n\nUndo (reversal)",
+      "turn_index": 20,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": ". User control\n\noN AU RP WD =\n\n. Reduce memory load\n\nNorman's 7 Principles\n. Knowledge in world + head\n. Simplify tasks",
+      "turn_index": 21,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": ". Visibility\n\n. Correct mapping\n\n. Constraints\n\n. Design for error\n\nNn GO wu bh WN =",
+      "turn_index": 22,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": ". Standardize\n\n% 7. Design Patterns\n\naf61-6ca4-8324-a055-bdc7cdcf58df 4/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\ne Reusable solutions\ne Example:",
+      "turn_index": 23,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e \"Go back to safe place”\n\ne Based on practice (not theory)\ne Work at multiple levels\ne Easy to understand",
+      "turn_index": 24,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Help in communication\n\n# 8. Key Summary (Exam Line)\n\ne Good design = Creativity + Principles + Rules",
+      "turn_index": 25,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Mi CHAPTER 8: IMPLEMENTATION SUPPORT\n\n(From your PDF Copy of e3-chap-08-090601111226... )",
+      "turn_index": 26,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ 1. What is Implementation Support?\nTools to build UI:\n\n1. Windowing systems\n2. Toolkits\n3. UIMS",
+      "turn_index": 27,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "MI 2. Windowing Systems\n\n@ Functions:\n\ne Device independence\ne Multiple windows\n\ne Resource sharing",
+      "turn_index": 28,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 5/48\n\n5/21/26, 2:49 PM\n\nElements:\nPixels / graphics models\nDrivers",
+      "turn_index": 29,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Independent processes\n\nHCI Exam Preparation\n\nArchitectures (VERY IMPORTANT)\n\n. Application-controlled",
+      "turn_index": 30,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Hard to manage\ne Low portability\n\n. OS-controlled\n\ne Dependent on OS\nSeparate manager (best)",
+      "turn_index": 31,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e High portability\n\nClient-Server Architecture\nFrom diagram (page 7)\nClient — application",
+      "turn_index": 32,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Server > Manages resources\n\nDevices > keyboard, mouse\n\nX Window System\nUses client-server model",
+      "turn_index": 33,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Window manager controls UI behavior\n\nB 3. Programming Styles\n\n(A) Read-Evaluation Loop",
+      "turn_index": 34,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "read event\nprocess event\nnd\n\naf61-6ca4-8324-a055-bdc7cdcf58df\n\n5/21/26, 2:49 PM HCI Exam Preparation\n@ Features:\ne Simple",
+      "turn_index": 35,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Central control\n\n(B) Notification-Based (Event-driven)\n\ne Uses callbacks\n\ne Example: button click triggers function",
+      "turn_index": 36,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Features:\n\ne Modern UI uses this\n\nA Important Concept:\n\n€ “Implementation should NOT drive design”",
+      "turn_index": 37,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ 4. Toolkits\n\ne Provide Ul components (buttons, menus)\ne Called:\ne Widgets / gadgets",
+      "turn_index": 38,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Advantages:\n\ne Consistency\ne Reusability\ne Object-oriented\n\n@ Java Example:\ne AWT (basic)\ne Swing (advanced, MVC)",
+      "turn_index": 39,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ 5. UIMS (User Interface Management System)\n\naf61-6ca4-8324-a055-bdc7cdcf58df 7/48",
+      "turn_index": 40,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\n@ Definition:\n\ne Manages UI + application separation",
+      "turn_index": 41,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "¢ Benefits:\ne Portability\ne Reusability\n\ne Multiple interfaces\n\ne Customization\n\nfs 6. UIMS Architecture Models",
+      "turn_index": 42,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Seeheim Model (VERY IMPORTANT)\n\n1. Presentation\n2. Dialogue control\n\n3. Application\n@ From diagram (page 18)",
+      "turn_index": 43,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Linguistic Levels:\ne Lexical — input (mouse move)\ne Syntactic > structure (menu)",
+      "turn_index": 44,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Semantic — meaning (result)\n\n@ Arch / Slinky Model\n\ne More layers\ne Flexible importance of layers",
+      "turn_index": 45,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "4 7. Semantic Feedback\nTypes:\n\naf61-6ca4-8324-a055-bdc7cdcf58df 8/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\ne Lexical - mouse movement\ne Syntactic — menu highlight\ne Semantic — actual result\n& Important:",
+      "turn_index": 46,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Semantic is slower but important\n\n8. Bypass / Switch Concept\n@ Direct communication between:\ne Application ~— Presentation",
+      "turn_index": 47,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Ww Used for fast feedback\nwv Controlled by dialogue\n\n9. MVC Model (VERY IMPORTANT)",
+      "turn_index": 48,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Model — data\ne View - UI\n\ne Controller — input handling\n\ninput > controller + model > view ~ output",
+      "turn_index": 49,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Controller needs view info (not fully separate)\n\n4 10. PAC Model\n\ne Presentation\ne Abstraction",
+      "turn_index": 50,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Better structure than MVC\n@ Used in complex systems\n\naf61-6ca4-8324-a055-bdc7cdcf58df 9/48",
+      "turn_index": 51,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\n# 11. Dialogue Control Techniques\n\ne Menu networks\ne State diagrams\ne Event languages",
+      "turn_index": 52,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Constraints\n\n12. Graphical Specification\n\ne UI designed visually\ne Example:\n\ne Visual Basic\n@ Problem:",
+      "turn_index": 53,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Hard to track full system flow\n\n&) 13. Control Types\n\ne Internal control — loop\ne External control — separate",
+      "turn_index": 54,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Presentation control — UI driven\n\n3#® FINAL SUMMARY (IMPORTANT FOR EXAM)\n\nChapter 7:\ne Principles = Learnability + Flexibility + Robustness\ne Golden Rules = must revise",
+      "turn_index": 55,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Standards vs Guidelines\n\nChapter 8:\ne Windowing systems\ne Programming styles\ne Toolkits\ne UIMS + Models (Seeheim, MVC, PAC)",
+      "turn_index": 56,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 10/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\n@ LAST TIP (TOPPER STRATEGY)",
+      "turn_index": 57,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Most asked topics:\ne Learnability/Flexibility/Robustness\n\ne Shneiderman rules\ne Seeheim model\ne MVC vs PAC",
+      "turn_index": 58,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Windowing architecture\n\nIf you want next level prep, | can:\nGive 1-page revision sheet\nGive MCQs (100% exam type)",
+      "turn_index": 59,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Give important long questions with answers\n\nJust tell me &\n\nO) 6) a) SG ow (0 sources",
+      "turn_index": 60,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Copy of e3-chap-13-0906... Copy of e3-chap-12-0906...\nPDF PDF\n\nDo the same for this one",
+      "turn_index": 61,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Alright Jay @\nSame style — complete syllabus, structured short-notes, no topic skipped",
+      "turn_index": 62,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Now covering:\n\n@ Chapter 12 (Cognitive Models) + Chapter 13 (Socio-organizational Issues)",
+      "turn_index": 63,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "ME CHAPTER 12: COGNITIVE MODELS\n\n(From your PDF Copy of e3-chap-12-090601111300... )",
+      "turn_index": 64,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 11/48\n\n5/21/26, 2:49 PM\n\n@ 1. What are Cognitive Models?",
+      "turn_index": 65,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Models of how users think\n\nHCI Exam Preparation\n\ne Focus on:\ne Understanding\ne Knowledge\ne Intentions",
+      "turn_index": 66,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Processing\n\n@ 2. Types of Cognitive Models\ne Goal & task models\n\ne Linguistic models",
+      "turn_index": 67,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Physical/device models\n\ne Architectural models\n\n{a 3. Competence vs Performance",
+      "turn_index": 68,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Competence — what user knows\n\ne Performance — what user does\n\n& Important:\n\ne User may know but still perform poorly",
+      "turn_index": 69,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ 4. Goal & Task Hierarchies (VERY IMPORTANT)\n\ne Break big task > smaller tasks\n\n@ Divide & conquer approach",
+      "turn_index": 70,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Example (from PDF page 4):\ne Goal: Produce report\n\ne Gather data\n\ne Search database",
+      "turn_index": 71,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 12/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\ne Write description",
+      "turn_index": 72,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Goals vs Tasks\n\ne Goal = intention\n\ne Task — action\n\ne Goal = WHAT\ne Task = HOW\nA Ilssues:",
+      "turn_index": 73,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Granularity (start/end?)\ne Multiple ways (conflict)\ne Errors possible\n\ne Works for routine tasks (not complex thinking)",
+      "turn_index": 74,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5. Techniques (IMPORTANT)\n\n@¢ GOMS Model\n(GOALS, OPERATORS, METHODS, SELECTION)\n\ne Goals — what to achieve",
+      "turn_index": 75,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Operators — basic actions\n\ne Methods = steps\n\ne Selection — choose best method",
+      "turn_index": 76,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Goal: Close window\n\ne Method 1 — menu\ne Method 2 — Ctrl+W\n\n@ Selection rule decides",
+      "turn_index": 77,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 13/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\n@ 6. Cognitive Complexity Theory (CCT)",
+      "turn_index": 78,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Uses IF-THEN rules\n\ne Parallel processing model\n\n@ Structure:\n\ne Production rules (user behavior)",
+      "turn_index": 79,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Transition networks (system)\n\n@ Key Points:\ne Models novice vs expert\ne Can represent errors",
+      "turn_index": 80,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Uses working memory\n\nA Problems:\n\ne Complex\ne Hard to apply\n\n®. 7. Linguistic Models",
+      "turn_index": 81,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Study interaction as language\n\n@ BNE (Backus-Naur Form)\n\ne Syntax of interaction",
+      "turn_index": 82,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Terms:\ne Terminal — basic action (click)\n\ne Non-terminal — higher task\n\naf61-6ca4-8324-a055-bdc7cdcf58df 14/48",
+      "turn_index": 83,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\ndraw line ::= select + choose points + end",
+      "turn_index": 84,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "A Problems:\n\ne Only syntax (no meaning)\n\ne No user perception\n\n@ TAG (Task Action Grammar)",
+      "turn_index": 85,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Improved version of BNF\n\ne Includes semantics\ne Ensures consistency\n@ Example:",
+      "turn_index": 86,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Same structure for copy, move, link\n\n4% 8. Physical & Device Models\n\ne Study physical interaction",
+      "turn_index": 87,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Keystroke Level Model (KLM) (VERY IMPORTANT)\n\ne K = keystroke\n\ne P= pointing\n\ne H- hand movement\ne D- drawing",
+      "turn_index": 88,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e M- mental prep\n\ne R-system response\n\naf61-6ca4-8324-a055-bdc7cdcf58df 15/48\n\n5/21/26, 2:49 PM HCI Exam Preparation",
+      "turn_index": 89,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "T = TK + TP + TH + TD + TM + TR\n\ne Compare methods\n\n@ Faster interaction = better design",
+      "turn_index": 90,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ 9. Architectural Models\n\ne Describe human brain structure\n\ne Long-term / short-term memory\ne Problem space\ne ACT model",
+      "turn_index": 91,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Connectionist models\n\nA 10. Limitations\n\ne Ignore perception (seeing Ul)\n\ne Hard to model real behavior",
+      "turn_index": 92,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "x CHAPTER 12 SUMMARY\n\ne GOMS, KLM = most important\ne Goals vs Tasks\ne BNF vs TAG difference",
+      "turn_index": 93,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Cognitive models = predict user behavior\n\nME CHAPTER 13: SOCIO-ORGANIZATIONAL ISSUES",
+      "turn_index": 94,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 16/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\n(From your PDF Copy of e3-chap-13-090601111212... )",
+      "turn_index": 95,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ 1. Core Idea\n\n@ System success depends on:\ne People\ne Organization\n\ne Social factors",
+      "turn_index": 96,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "NOT just technology !\n\n& 2. Organizational Issues (VERY IMPORTANT)\n\ne System used in larger context\ne Must consider:",
+      "turn_index": 97,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Who benefits?\n\ne Who does work?\n\ne Power balance\n@ Key line:\n\ne System can fail even if technically perfect",
+      "turn_index": 98,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "™® 3. Conflict & Power\n\ne People have different goals\n\ne Systems assuming cooperation — FAIL\n@ Example:",
+      "turn_index": 99,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Stock system — worker loses control — rejects system\n\nE 4. Organizational Structure\ne Technology changes:\ne Communication",
+      "turn_index": 100,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Power hierarchy\n\naf61-6ca4-8324-a055-bdc7cdcf58df 17/48\n\n5/21/26, 2:49 PM HCI Exam Preparation",
+      "turn_index": 101,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Email — breaks hierarchy\n\ntf, 5. Invisible Workers\ne Remote work / teleworking",
+      "turn_index": 102,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Less travel\n\ne Hard to manage\n\ne Less recognition\n\nss 6. Unequal Benefits Problem",
+      "turn_index": 103,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Effort # Benefit\nExample:\n\ne Secretary inputs data\n\ne Manager benefits\n\n@ Result — system unused",
+      "turn_index": 104,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "#4 7. Free Rider Problem\n\ne People take benefit without contributing\n\n€ Solution:",
+      "turn_index": 105,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Social pressure\n\n%% 8. Critical Mass (VERY IMPORTANT)\n@ From graph (page 9-10):",
+      "turn_index": 106,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 18/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\ne Few users — no benefit\ne Many users — high benefit",
+      "turn_index": 107,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Need minimum users = critical mass\n\n@ Solution:\n\ne Start with small group\n\ne Increase early benefit",
+      "turn_index": 108,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "iif 9. Evaluating Systems\n\nHard to measure:\n\ne Job satisfaction\n\ne Information flow",
+      "turn_index": 109,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Easy to measure:\n\n@ Problem — benefits unclear\n\n# 10. Stakeholders (VERY IMPORTANT)",
+      "turn_index": 110,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Definition:\n\nAnyone affected by system\n\nTypes:\nPrimary — direct users\nSecondary — indirect users",
+      "turn_index": 111,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Tertiary — indirectly affected\n\nFacilitating — developers\n\naf61-6ca4-8324-a055-bdc7cdcf58df 19/48",
+      "turn_index": 112,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\nAirline system (page 14)\n\nA Important:\ne Needs often conflict",
+      "turn_index": 113,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Must prioritize\n\n@ 11. Socio-Technical Models\n@ Combine:\n\ne Technical + Social aspects",
+      "turn_index": 114,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Methods:\ne Interviews\ne Observation\n\ne Focus groups\n\n@ Approaches:\n\n(A) CUSTOM (VERY IMPORTANT)",
+      "turn_index": 115,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": ". Org context\n. Stakeholders\n. Workgroups\nTasks\n\n. Validation\n\ne Focus on tasks\n\naf61-6ca4-8324-a055-bdc7cdcf58df 20/48",
+      "turn_index": 116,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\ne Analyze environment, system, performance",
+      "turn_index": 117,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "12. Soft Systems Methodology (SSM)\n\ne Focus on understanding problem\n\n. Identify problem\n. Describe situation\n. Root definition",
+      "turn_index": 118,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": ". Conceptual model\nCompare\n\nN Ou BR WND =\n\n. Implement\n\n@ CATWOE (VERY IMPORTANT)\ne C= Clients",
+      "turn_index": 119,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e A - Actors\n\ne T= Transformation\n\ne W > Worldview\n\ne —E — Environment\n\ng@ 13. Participatory Design",
+      "turn_index": 120,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Users are part of design team\n\ne Collaborative\n\ne |terative\n\ne Brainstorming\n\naf61-6ca4-8324-a055-bdc7cdcf58df",
+      "turn_index": 121,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\ne Storyboarding\n\nsls 14. ETHICS Approach\n\ne Focus on job satisfaction\ne Participation levels:",
+      "turn_index": 122,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Consultative\n\ne Representative\n\ne Consensus\n\n@ 15. Ethnography\n\ne Study users in real environment",
+      "turn_index": 123,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e No interference\n\ne Understand real behavior\n\n@ 16. Contextual Inquiry\n\ne Designer learns from user (like apprentice)",
+      "turn_index": 124,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Observation\ne Interviews\n\ne Workplace study\n\ne Physical\ne Flow\n\ne Cultural\ne Artefact",
+      "turn_index": 125,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 22/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\nx FINAL SUMMARY (EXAM FOCUS)",
+      "turn_index": 126,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Chapter 12:\ne GOMS\n\ne BNF vs TAG\n\ne Goal vs Task\n\nChapter 13:\ne Stakeholders\ne Critical mass\ne CATWOE\ne Participatory design",
+      "turn_index": 127,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Organizational issues\n\n@ TOPPER STRATEGY (IMPORTANT)\n\n@ Most asked:\ne GOMS + KLM",
+      "turn_index": 128,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Critical mass\n\ne Stakeholder types\ne CATWOE\n\ne CUSTOM vs OSTA\n\nIf you want next level prep:\n1-page revision sheet (ultra short)\n50+ MCQs (exam level)",
+      "turn_index": 129,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Expected long questions with answers\n\nJust tell me &\n\noO) & a) SG oe (0 sources\n\naf61-6ca4-8324-a055-bdc7cdcf58df 23/48",
+      "turn_index": 130,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\naf61-6ca4-8324-a055-bdc7cdcf58df 24/48\n\n5/21/26, 2:49 PM HCI Exam Preparation",
+      "turn_index": 131,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 25/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\naf61-6ca4-8324-a055-bdc7cdcf58df 26/48",
+      "turn_index": 132,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\nCopy of e3-chap-07-0906... Copy of e3-chap-08-0906...",
+      "turn_index": 133,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 27/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\nPDF PDF\nCopy of e3-chap-12-0906... Copy of e3-chap-15-0906...\nPDF PDF",
+      "turn_index": 134,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Actually ch 13 is not there\n\nGive me complete short note cheat note for these\n\nGot it Jay @ (no Chapter 13)\nSo your syllabus = Ch 7 + Ch 8 + Ch 12 + Ch 15",
+      "turn_index": 135,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Now I'll give you @ FINAL CHEAT SHEET (ULTRA SHORT NOTES)\n@ This is what toppers revise 5 mins before exam\n@ Covers EVERYTHING from your PDFs Copy of e3-chap-07-090601111335...",
+      "turn_index": 136,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Copy of e3-chap-08-090601111226... Copy of e3-chap-12-090601111300... Copy of e3-chap-15-090601111158...",
+      "turn_index": 137,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ HCI FINAL CHEAT NOTES (EXAM REVISION)\n\n@® CHAPTER 7 — DESIGN RULES\n@ Core Idea",
+      "turn_index": 138,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "ill Types of Design Rules\n\ne Principles — general, low authority\ne Guidelines — flexible",
+      "turn_index": 139,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Standards — strict, high authority\n\n@ Principles of Usability\n1. Learnability\n\naf61-6ca4-8324-a055-bdc7cdcf58df 28/48",
+      "turn_index": 140,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\ne Predictability —- future actions known\ne Synthesizability - past actions understood\ne Familiarity - uses prior knowledge\ne Generalizability - apply knowledge",
+      "turn_index": 141,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Consistency — same actions — same result\n\n2. Flexibility\n\ne Dialogue initiative > user control\ne Multithreading — multiple tasks",
+      "turn_index": 142,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Task migratability - user @ system\ne Substitutivity - multiple ways\n\ne Customizability - Ul changes",
+      "turn_index": 143,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "3. Robustness\n\ne Observability — see system state\ne Recoverability — fix errors\ne Responsiveness — system speed",
+      "turn_index": 144,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Task conformance — supports tasks\n\nW Golden Rules (IMP)\ne Consistency\n\ne Error prevention",
+      "turn_index": 145,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e User control\n\n# Norman Principles\ne Visibility\n\ne Constraints\n\ne Error handling",
+      "turn_index": 146,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 29/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\n»# Key Line",
+      "turn_index": 147,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Usability = effectiveness + efficiency + satisfaction\n\n@® CHAPTER 8 — IMPLEMENTATION SUPPORT",
+      "turn_index": 148,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Windowing System\n\n@ Supports:\ne Multiple windows\n\ne Device independence\n\ne Resou rce sharing Copy of e3-chap-08-090601111226...",
+      "turn_index": 149,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "% Architectures\n\n1. App-controlled X\n2. OS-controlled A&\n3. Separate manager @ (best)",
+      "turn_index": 150,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "© Client-Server\n\ne Client > request\ne Server — resource manager\n\nProgramming Styles",
+      "turn_index": 151,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "1. Read-Evaluation Loop\n\ne Read — Process — Repeat\n\n2. Notification-Based\n\ne Event-driven (callbacks)",
+      "turn_index": 152,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Used in modern Ul\n\naf61-6ca4-8324-a055-bdc7cdcf58df 30/48\n\n5/21/26, 2:49 PM HCI Exam Preparation",
+      "turn_index": 153,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@& Toolkits\n\ne Provide UI elements (buttons etc.)\n\ne Improve consistency\n\n@ Separates:",
+      "turn_index": 154,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Application\nBenefits:\n\ne Reusability\ne Portability\n\ne Customization\n\n% Models (VERY IMPORTANT)",
+      "turn_index": 155,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Seeheim Model\n\ne Presentation\ne Dialogue control\n\ne Application\n\n@ MVC\ne Model - data",
+      "turn_index": 156,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e View - Ul\n\ne Controller > input\n\ne Presentation\ne Abstraction\n\naf61-6ca4-8324-a055-bdc7cdcf58df 31/48",
+      "turn_index": 157,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\n4 Feedback Types\n\ne Lexical - mouse movement\ne Syntactic — menu highlight",
+      "turn_index": 158,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Semantic — actual result\n\n@® CHAPTER 12 — COGNITIVE MODELS\n\n@ Definition\n\n@ Models of how users think & process Copy of e3-chap-12-090601111300...",
+      "turn_index": 159,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "sls Competence vs Performance\n\ne Competence — knowledge\n\ne Performance — actual action",
+      "turn_index": 160,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Goal vs Task\n\ne Goal — WHAT\ne Task —- HOW\n\ns GOMS (VERY IMPORTANT)\n\ne Goals\ne Operators\ne Methods",
+      "turn_index": 161,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Selection\n\n@ Used to model user interaction\n\nme KLM (VERY IMPORTANT)\n\naf61-6ca4-8324-a055-bdc7cdcf58df",
+      "turn_index": 162,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n@ Predicts task time\n\ne K-— keystroke\ne P= pointing\ne H- homing\ne D-= drawing\ne M- mental",
+      "turn_index": 163,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e R- response\n\nT = sum of all operators\n\n@ CCT\ne Uses IF—THEN rules\n\ne Models novice vs expert",
+      "turn_index": 164,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "®. Linguistic Models\n\nBNF\ne Syntax only\n\ne Terminals + Non-terminals\n\ne Adds semantics",
+      "turn_index": 165,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Ensures consistency\n\nEB Types of Models\ne Goal/task\n\ne Linguistic\n\ne Architectural",
+      "turn_index": 166,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 33/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\n@® CHAPTER 15 — TASK MODELS",
+      "turn_index": 167,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Task Analysis\n@ Study:\n\ne What users do\ne What they use\n\ne What they know Copy of e3-chap-15-090601111158...\n@ Methods",
+      "turn_index": 168,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Observation\n\ne List tasks\n\ne Organize into structure\n\n4 Approaches\n\n1. Task decomposition\n2. Knowledge-based\n3. Entity-based",
+      "turn_index": 169,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "x HTA (VERY IMPORTANT)\n@ Break task into:\n\ne Tasks\ne Subtasks\ne Plans\n\niff HTA Components\ne Hierarchy (tasks)",
+      "turn_index": 170,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Plans (order of tasks)\n\n@ Important:\n\naf61-6ca4-8324-a055-bdc7cdcf58df\n\n5/21/26, 2:49 PM HCI Exam Preparation",
+      "turn_index": 171,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Only plans define sequence\n\nTypes of Plans\n\nDiscretionary\n\n@ Knowledge-Based Analysis",
+      "turn_index": 172,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Focus:\ne Objects\ne Actions\n\ne Relationships\n\nGe Entity Model\n\ne Actors (people)\ne Tools",
+      "turn_index": 173,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Agent — who\ne Patient — affected\n\ne Instrument — used\n\ne Action events\n\ne Spontaneous",
+      "turn_index": 174,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 35/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\n& Relationships\ne Object — Object\ne Action — Object",
+      "turn_index": 175,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Action @ Event\n\n»# Key Difference\n\ne Cognitive models = internal thinking\n\ne Task models — external actions",
+      "turn_index": 176,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ © FINAL ULTRA-IMPORTANT (JUST MEMORIZE THIS)\n\nIf only 5 min left — revise:\n\n@ Learnability / Flexibility / Robustness\n@ Golden Rules",
+      "turn_index": 177,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Seeheim + MVC\n\n@ GOMS + KLM\n\n@ Goal vs Task\n\n@ HIA (tasks + plans)\n\n4 FINAL EXAM HACK",
+      "turn_index": 178,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Write answers like:\ne 1 line definition\n\ne 2 keywords\n\nExample:\nGOMS\n— Interaction model",
+      "turn_index": 179,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "— Goals, Operators, Methods, Selection\n\naf61-6ca4-8324-a055-bdc7cdcf58df 36/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\nIf you want next level:",
+      "turn_index": 180,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ | can compress this into 1-page printable cheat sheet\n\n@® Or give last-minute rapid revision questions",
+      "turn_index": 181,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "O 0 9) & Gow (0 sources\n\nCopy of e3-chap-15-0906...\nPDF\n\nGive me detailed short summery for this",
+      "turn_index": 182,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Alright Jay @ ®\n\nNow I'll give you DETAILED SHORT SUMMARY (structured + exam ready)\n@ This is for Chapter 15 - Task Models",
+      "turn_index": 183,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Covers ALL topics but still short-notes style (no long paragraphs)\n\né& Based fully on your PDF Copy of e3-chap-15-090601111158...",
+      "turn_index": 184,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "MB CHAPTER 15 — TASK MODELS (DETAILED SHORT\nNOTES)\n\n@ 1. What is Task Analysis?\n@ Study of:",
+      "turn_index": 185,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e What users do\ne What they use\n\ne What they must know Copy of e3-chap-15-090601111158...\n@ Example (page 3):",
+      "turn_index": 186,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Clean house:\n\ne Take vacuum\n\naf61-6ca4-8324-a055-bdc7cdcf58df 37/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\ne Clean rooms",
+      "turn_index": 187,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Empty dust bag\n\n@ 2. General Method of Task Analysis\nSteps:\n1. Observe users\n\n2. Collect actions/words",
+      "turn_index": 188,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "3. Organize into structure/diagram\n@ Key idea:\n\ne Start messy — organize later\n\nss 3. Difference from Other Models",
+      "turn_index": 189,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Model Focus\n\nSystem analysis System\n\nCognitive models Internal thinking\n\nTask analysis User actions (external)",
+      "turn_index": 190,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Important exam line:\n\ne Task models focus on real-world work, not thinking\n\n4 4. Approaches to Task Analysis",
+      "turn_index": 191,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "(A) Task Decomposition\n\n@ Break task — subtasks\n\n(B) Knowledge-Based\n\n@ Focus on:",
+      "turn_index": 192,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Objects\n af61-6ca4-8324-a055-bdc7cdcf58df 38/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\ne Actions",
+      "turn_index": 193,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Knowledge\n\n(C) Entity-Based\n@ Focus on:\n\ne Objects + relationships\n\n% 5. Task Decomposition (CORE)\n& Aim:\ne Describe tasks",
+      "turn_index": 194,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Structure them\n\ne Define order\n\n@ Techniques:\n\ne HTA (Hierarchical Task Analysis) # MOST IMPORTANT\ne CTT (less important)",
+      "turn_index": 195,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ 6. Hierarchical Task Analysis (HTA)\n@ Structure:\n\ne Tasks — Subtasks — Sub-subtasks",
+      "turn_index": 196,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "iff Example (page 8)\n. Clean house\n. Get vacuum\n. Attach tools\n\n. Clean rooms\n\n. Empty bag\n5. Store tools",
+      "turn_index": 197,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Plans define order:\n\naf61-6ca4-8324-a055-bdc7cdcf58df 39/48\n\n5/21/26, 2:49 PM HCI Exam Preparation",
+      "turn_index": 198,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e PlanO-17-2-3-5\ne If bag full — do 4\n\nA KEY POINT\n\n@ Only plans define sequence, not hierarchy",
+      "turn_index": 199,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "E} 7. Generating Task Hierarchy\n\n1. List tasks\n\n2. Group tasks\n\n3. Break into smaller tasks",
+      "turn_index": 200,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "€ When to stop?\n\ne When task is simple enough\n\ne Focus only on relevant tasks\n\n@ 8. Tasks as Explanation",
+      "turn_index": 201,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Same action = multiple meanings\nExample:\n\ne Press Ctrl+B:\n\ne Bold text\n\ne Editing\n€@ Important:",
+      "turn_index": 202,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Tasks depend on level of abstraction\n\n9. HTA as Grammar\n\naf61-6ca4-8324-a055-bdc7cdcf58df 40/48",
+      "turn_index": 203,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n€ Similar to language:\ne Words — sentences\ne Tasks — structure\n@ Helps in:\ne Understanding hierarchy",
+      "turn_index": 204,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "iff 10. Plans in HTA (VERY IMPORTANT)\nTypes (page 16):\n\ne Sequence = step by step",
+      "turn_index": 205,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Optional — if condition\n\ne Loop — repeat\n\ne Parallel — same time\n\ne Discretionary — any order",
+      "turn_index": 206,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Most real tasks = mixture\n\n= 11. Waiting Concept\n\n@& Two types:\ne Task — active waiting",
+      "turn_index": 207,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Plan — waiting for event\n\ne Wait for alarm — plan\n\n€ Important:\n\ne Task analysis is not exact science",
+      "turn_index": 208,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ 12. Knowledge-Based Analysis\n\n@ Focus on:\ne Objects\ne Actions\n\naf61-6ca4-8324-a055-bdc7cdcf58df 41/48",
+      "turn_index": 209,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n@ Taxonomy Types (VERY IMPORTANT)\n\ne XOR -— only one\ne AND = multiple required\ne OR = optional",
+      "turn_index": 210,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@& Example (page 20):\n\ne Wash/wipe system classification\n\nfe 13. Abstraction\n\n@ Simplify complex structure:",
+      "turn_index": 211,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Remove lower-level details\n\ne “Cut” in hierarchy\n\n& 14. Entity-Relationship Analysis",
+      "turn_index": 212,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Focus:\ne Objects\ne Actions\n\ne Relationships\n\n@ Objects Types\ne Simple — tools\ne Actors > people",
+      "turn_index": 213,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Composite — group\n\n@ Properties of objects\n\ne Pump — status, capacity\n\naf61-6ca4-8324-a055-bdc7cdcf58df 42/48",
+      "turn_index": 214,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\ne Agent — who performs\n\ne Patient — affected",
+      "turn_index": 215,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Instrument — used\n\n@& Example:\n\ne Sam digs field with spade\n\ne Action event — done by user\ne Spontaneous — automatic",
+      "turn_index": 216,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Timed — scheduled\n\n@ Relationships (VERY IMPORTANT)\n\n1. Object ~ Object\n2. Action @ Object",
+      "turn_index": 217,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "3. Action @ Event\n\n@ Example (page 32):\ne humidity drop — triggers pump\n\nfl 15. Data Collection Sources",
+      "turn_index": 218,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Documentation\ne Observation\n\ne Interviews\n\n@ Important:\n\ne Manuals # real behavior",
+      "turn_index": 219,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "&} 16. Analysis Process\nSteps:\n\ne Extract nouns > objects\n\naf61-6ca4-8324-a055-bdc7cdcf58df 43/48",
+      "turn_index": 220,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "5/21/26, 2:49 PM\n\nHCI Exam Preparation\n\nExtract verbs — actions\n\n@ Iterative process",
+      "turn_index": 221,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "2 17. Uses of Task Analysis\n\n(A) Manuals\nConceptual > knowledge-based\nProcedural — HTA",
+      "turn_index": 222,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "(B) Design & Requirements (VERY IMPORTANT)\nUnderstand user needs\nSuggest automation",
+      "turn_index": 223,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Helps in:\nMenu design\nInterface objects\n\nA 18. Limitation\n\n@ Task analysis is never complete",
+      "turn_index": 224,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Too rigid — bad system\n\n@ @ FINAL EXAM SUMMARY (REMEMBER THIS)\n\n@ HTA = tasks + plans\n@ Plans define sequence",
+      "turn_index": 225,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df\n\n5/21/26, 2:49 PM HCI Exam Preparation\n@ 3 approaches:\ne Decomposition\ne Knowledge",
+      "turn_index": 226,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ Key elements:\n\ne Objects\ne Actions\ne Events\n\ne Relationships\n\n4 LAST 30-SECOND REVISION",
+      "turn_index": 227,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "@ Plans types\n\n@ Agent-Patient-Instrument\n@ XOR/AND/OR\n\n@ Task vs Cognitive models",
+      "turn_index": 228,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "If you want:\n@® | can combine ALL chapters into 1-page ultimate cheat sheet\n\n@® Or give expected 5-mark answers for long questions",
+      "turn_index": 229,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Just tell me &\n\noO) & @ SG ow (0 sources\n\nAlright Jay @ ®\nThis is a VERY IMPORTANT comparison (almost guaranteed in exam)",
+      "turn_index": 230,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "I'll give you perfect short-notes + comparison table + memory trick\n\naf61-6ca4-8324-a055-bdc7cdcf58df 45/48",
+      "turn_index": 231,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "5/21/26, 2:49 PM HCI Exam Preparation\n\nMB MVC vs PAC (HCI MODELS)\n\ns§ MVC MODEL\n\n@ Structure:\ne Model - data / logic\ne View - user interface",
+      "turn_index": 232,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Controller — handles input\n\n@ User — Controller = Model — View — User\n\ne Separates data and Ul\ne Widely used Vava Swing etc.)",
+      "turn_index": 233,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Simple architecture\n\nxX Problem:\ne Controller depends on View\n@ Not fully independent",
+      "turn_index": 234,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "s PAC MODEL\n\n@ Structure:\n\nEach component has 3 parts:\n\ne Presentation — UI\ne Abstraction — data",
+      "turn_index": 235,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Control — communication\n\naf61-6ca4-8324-a055-bdc7cdcf58df 46/48\n\n5/21/26, 2:49 PM HCI Exam Preparation",
+      "turn_index": 236,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "&) Structure:\n@ Hierarchical (many PAC agents)\n\nFeatures:\ne Better separation\ne Modular design",
+      "turn_index": 237,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Good for complex systems\n\ne More complex\n\ne Hard to implement\n\n3 MVC vs PAC (EXAM TABLE)",
+      "turn_index": 238,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "Feature MVC PAC\n\nStructure 3 components 3 components per agent\nControl Single controller Multiple controls\nComplexity Simple Complex",
+      "turn_index": 239,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "Modularity Less High\n\nUse Simple systems Complex systems\nDependency Controller depends on view Fully separated",
+      "turn_index": 240,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ KEY DIFFERENCE (1-LINE)\n\n@ MVC = simple separation\n@ PAC = hierarchical modular system",
+      "turn_index": 241,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 47/48\n\n5/21/26, 2:49 PM HCI Exam Preparation\n\n4 EXAM ANSWER FORMAT (2-3 MARKS)\n& MVC:",
+      "turn_index": 242,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "e Model, View, Controller\ne Separates data and UI\n\ne Presentation, Abstraction, Control",
+      "turn_index": 243,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "e Used for complex systems\n\n@ Difference:\ne MVC simple, PAC modular\n\n@ MEMORY TRICK",
+      "turn_index": 244,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "@ MVC = “Mera View Control” (simple flow)\n@ PAC = \"Proper Architecture Control” (complex system)",
+      "turn_index": 245,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "user",
+      "content": "If you want next:\n@ | can give all comparisons (BNF vs TAG, GOMS vs HTA, etc.)\n\n@® Or last-minute revision sheet (1 page)",
+      "turn_index": 246,
+      "timestamp_ms": null,
+      "source": "ocr"
+    },
+    {
+      "role": "assistant",
+      "content": "af61-6ca4-8324-a055-bdc7cdcf58df 48/48",
+      "turn_index": 247,
+      "timestamp_ms": null,
+      "source": "ocr"
+    }
+  ],
+  "annotations": [
+    {
+      "scorer_id": "sangillence",
+      "bands": {
+        "AL": "low",
+        "PR": "low",
+        "AUI": "mid",
+        "EC": "low",
+        "CS": "mid",
+        "CD": "low",
+        "ES": "not_applicable",
+        "CA": "low"
+      },
+      "notes": {
+        "AL": "You demonstrate a high reliance on the AI as an infallible tutor, seeking to completely outsource your initial learning. By stating, \"I have not seen them yet, cause i know that you as my buddy would prepare me for my exam and so that i would top in my class,\" you exhibit blind dependency on the model to ingest and teach unread material without any visible skepticism or cross-verification of the generated HCI concepts.",
+        "PR": "Your prompt reasoning is very low, as you rely on broad, unstructured requests rather than decomposing the problem or setting strict formatting constraints. Your prompts consist of generic commands like \"explain me (teach me) each and everything,\" \"Do the same for this one,\" and \"Give me detailed short summery for this\". You provide the PDFs but completely delegate the instructional framing to the AI.",
+        "AUI": "You show a moderate baseline for cognitive augmentation by leveraging the AI's summarization capabilities to process large volumes of unread academic text into a rapid study guide. However, this is primarily used as a shortcut to minimize thinking effort rather than to deeply explore or simulate ideas.",
+        "EC": "There is virtually no behavioral evidence of independent validation or debugging of the AI's conceptual accuracy regarding HCI design rules or models. The only minor correction you provide is a syllabus scope adjustment (\"Actually ch 13 is not there\"), rather than challenging the AI's reasoning or detecting flaws in its summaries.",
+        "CS": "While you upload multiple PDFs covering several chapters of Human-Computer Interaction, you fail to integrate or synthesize the contexts yourself. You rely entirely on the AI to weave the raw textbook chapters into a coherent \"cheat sheet\".",
+        "CD": "The task is strictly convergent, focused on cramming established academic truths for an exam. Your interaction follows highly predictable paths, simply requesting the AI to explain standard concepts like \"Mvc vs pac\" without demonstrating any non-obvious or alternative exploration.",
+        "ES": "Ethical concerns regarding bias, fairness, or societal consequences are not applicable to generating study notes for an HCI university exam.",
+        "CA": "You operate with very low cognitive leadership, allowing the AI to dictate the entire flow of the study session. Instead of orchestrating the collaboration, you act as a passenger responding to the AI's multiple-choice prompts. When the AI suggests, \"If you want next level prep, I can: Give 1-page revision sheet, Give MCQs... Just tell me 👍\", you passively follow its lead with simple responses like \"Just tell me 👍\" or shorthand commands like \"Mvc vs pac\"."
+      },
+      "scored_at": "2026-05-21T00:00:00Z"
+    }
+  ],
+  "calibration_excluded": true,
+  "calibration_excluded_reason": "ocr_data_quality",
+  "rubric_version": "0.1"
+}

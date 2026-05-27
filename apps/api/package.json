@@ -6,11 +6,14 @@
   "scripts": {
     "dev": "node --watch dist/index.js",
     "build": "tsc --project tsconfig.json",
+    "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@hono/node-server": "^1.9.0",
+    "@synergy/judge": "workspace:*",
     "@synergy/schemas": "workspace:*",
     "@synergy/shared": "workspace:*",
     "hono": "^4.2.0",
@@ -18,6 +21,7 @@
     "pino": "^8.19.0"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
   }

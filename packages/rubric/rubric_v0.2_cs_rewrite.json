@@ -1,0 +1,403 @@
+[
+  {
+    "dimension": "AL",
+    "band": "low",
+    "label": "Treats AI as oracle",
+    "description": "The user has no accurate model of what an LLM is or does. Asks it for live data, expects cross-session memory, or treats its output as verified fact without question.",
+    "positive_signals": [
+      "asks for current stock prices or real-time news as if AI has live access",
+      "expects memory of past sessions without providing context",
+      "cites AI output as fact in the same turn without verification"
+    ],
+    "negative_signals": [
+      "acknowledges a knowledge cutoff",
+      "asks the AI to flag uncertain claims",
+      "notes the probabilistic nature of output"
+    ],
+    "example_chat_snippet": "\"What's the latest on the court case? Just tell me the verdict.\" (asked as if the AI has live legal databases)",
+    "synthetic": true
+  },
+  {
+    "dimension": "AL",
+    "band": "mid",
+    "label": "Knows AI makes mistakes, doesn't work around it",
+    "description": "The user is aware that AI can be wrong and has a knowledge cutoff, but doesn't build that awareness into prompts. Verification happens after the fact if at all.",
+    "positive_signals": [
+      "tells someone \"I'll double-check this\"",
+      "knows about hallucination in the abstract",
+      "spot-checks in familiar domains"
+    ],
+    "negative_signals": [
+      "designs prompts to elicit calibrated uncertainty",
+      "avoids delegating tasks AI reliably fails at"
+    ],
+    "example_chat_snippet": "User uses an AI-generated summary for a report but plans to \"verify the numbers later.\" Does not ask AI to flag low-confidence claims.",
+    "synthetic": true
+  },
+  {
+    "dimension": "AL",
+    "band": "high",
+    "label": "Actively works around AI limitations in prompt design",
+    "description": "The user treats AI output as probabilistic and structures prompts accordingly — eliciting uncertainty, calibrating trust by domain, and avoiding tasks where AI error rate is high.",
+    "positive_signals": [
+      "\"mark anything you're less than confident about with [?]\"",
+      "uses AI for synthesis and generation, handles factual lookups elsewhere",
+      "assigns different trust levels to grammar help vs. medical claims"
+    ],
+    "negative_signals": [
+      "treats all AI output as equally reliable"
+    ],
+    "example_chat_snippet": "\"Draft a summary of this research — but flag any factual claim you're uncertain about so I can verify those separately before submitting.\"",
+    "synthetic": true
+  },
+  {
+    "dimension": "PR",
+    "band": "low",
+    "label": "Unstructured requests",
+    "description": "Prompts are vague, missing constraints, and require the AI to guess scope, format, and success criteria. No examples, no audience, no rejection criteria.",
+    "positive_signals": [
+      "one-sentence requests with no context",
+      "\"make this better,\" \"help me with this\"",
+      "accepts first output without comment on fit"
+    ],
+    "negative_signals": [
+      "provides format, audience, word count, or a concrete example of the desired output"
+    ],
+    "example_chat_snippet": "\"Can you improve my presentation?\" (no topic, no audience, no length, no tone guidance)",
+    "synthetic": true
+  },
+  {
+    "dimension": "PR",
+    "band": "mid",
+    "label": "Partially constructed prompts",
+    "description": "Some constraints are provided but key dimensions are left open. Prompts produce usable but not optimal outputs.",
+    "positive_signals": [
+      "gives one constraint (tone, or length, or audience) but not others",
+      "specifies domain without goal"
+    ],
+    "negative_signals": [
+      "fully specifies goal, format, constraints, and audience; or provides a worked example"
+    ],
+    "example_chat_snippet": "\"Write a cold email for a software product. Keep it under 200 words.\" (no target persona, no product description, no call to action)",
+    "synthetic": true
+  },
+  {
+    "dimension": "PR",
+    "band": "high",
+    "label": "Systematically constructed prompts",
+    "description": "The user provides goal, constraints, format, audience, and — where helpful — a worked example or role assignment. First responses are consistently on-target.",
+    "positive_signals": [
+      "explicit role (\"You are a senior engineer reviewing this for a non-technical audience\")",
+      "worked example of desired output",
+      "stated rejection criteria",
+      "chain-of-thought elicitation for complex tasks"
+    ],
+    "negative_signals": [
+      "vague or under-constrained requests"
+    ],
+    "example_chat_snippet": "\"You're reviewing a data model for a product manager with no SQL background. Explain this schema in plain English: [schema]. Max 4 sentences. Avoid jargon. If you use a technical term, define it inline.\"",
+    "synthetic": true
+  },
+  {
+    "dimension": "AUI",
+    "band": "low",
+    "label": "Undifferentiated delegation",
+    "description": "The user delegates everything to AI without distinguishing tasks by AI-appropriateness, or refuses AI help on tasks where it would clearly add value. No visible meta-reasoning about when AI should be involved.",
+    "positive_signals": [
+      "asks AI for irreducibly personal decisions (\"should I take this job?\")",
+      "delegates tasks requiring lived experience or moral judgment without qualification"
+    ],
+    "negative_signals": [
+      "explicit reasoning about why this task is AI-appropriate",
+      "handles judgment calls solo while delegating synthesis"
+    ],
+    "example_chat_snippet": "\"Should I break up with my partner? Here's the situation. What should I do?\"",
+    "synthetic": true
+  },
+  {
+    "dimension": "AUI",
+    "band": "mid",
+    "label": "Mostly appropriate, occasionally misses the line",
+    "description": "The user generally uses AI where it helps and handles high-stakes judgment calls solo, but doesn't articulate the delegation decision. Appropriateness is intuitive, not visible.",
+    "positive_signals": [
+      "sensible task allocation overall",
+      "occasional over-delegation in unfamiliar domains"
+    ],
+    "negative_signals": [
+      "visible articulation of why this task is or isn't AI-appropriate"
+    ],
+    "example_chat_snippet": "User handles contract negotiation solo but uses AI to draft all communications, including one that requires careful diplomatic judgment they'd be better off owning.",
+    "synthetic": true
+  },
+  {
+    "dimension": "AUI",
+    "band": "high",
+    "label": "Deliberate, visible augmentation reasoning",
+    "description": "The user shows explicit meta-reasoning about what to delegate to AI and what to handle solo. Routes tasks based on named criteria.",
+    "positive_signals": [
+      "\"I'll have AI draft this but the framing decision is mine\"",
+      "names which parts of a task are AI-appropriate vs. human-appropriate",
+      "separates generation (delegate) from evaluation (keep)"
+    ],
+    "negative_signals": [
+      "no visible reasoning about task allocation"
+    ],
+    "example_chat_snippet": "\"Help me research the options here — I want to understand the landscape. I'll make the final call myself since it involves stakeholders you don't have context on.\"",
+    "synthetic": true
+  },
+  {
+    "dimension": "EC",
+    "band": "low",
+    "label": "No correction",
+    "description": "The user does not catch or address AI errors, factual mistakes, logical flaws, or misunderstood constraints. Errors propagate into the work.",
+    "positive_signals": [
+      "accepts outputs containing visible errors",
+      "does not re-read critically",
+      "takes AI output at face value"
+    ],
+    "negative_signals": [
+      "explicitly identifies an error and asks for correction"
+    ],
+    "example_chat_snippet": "AI misidentifies a key concept; user quotes it back approvingly and builds on it.",
+    "synthetic": true
+  },
+  {
+    "dimension": "EC",
+    "band": "mid",
+    "label": "Reactive correction",
+    "description": "The user catches errors when they are obvious or personally familiar but does not actively hunt for them. Correction is incidental, not systematic.",
+    "positive_signals": [
+      "corrects errors in familiar domains",
+      "misses errors in unfamiliar ones"
+    ],
+    "negative_signals": [
+      "runs systematic checks",
+      "asks AI to self-verify",
+      "tests claims against external sources"
+    ],
+    "example_chat_snippet": "User catches a date error in a domain they know well but misses a logical gap in unfamiliar territory.",
+    "synthetic": true
+  },
+  {
+    "dimension": "EC",
+    "band": "high",
+    "label": "Proactive correction",
+    "description": "The user treats AI output as a first draft requiring verification. Actively checks claims, asks the AI to self-verify, and corrects errors with explicit reasoning.",
+    "positive_signals": [
+      "\"double-check this against X\"",
+      "asks follow-up questions that probe the logic",
+      "cites specifically where and why the AI went wrong"
+    ],
+    "negative_signals": [
+      "no checking behavior visible"
+    ],
+    "example_chat_snippet": "\"You said X implies Y — I don't think that follows. Walk me through the step between them explicitly.\"",
+    "synthetic": true
+  },
+  {
+    "dimension": "CS",
+    "band": "low",
+    "label": "Verbatim relay — AI output reaches work product unchanged",
+    "description": "The candidate routes AI output directly to their deliverable without any visible filtering through own context. No named constraint, no modification of AI framing, no layering of prior reasoning. The deliverable is 'what AI said.'",
+    "positive_signals": [
+      "copies AI-drafted text into submission, document, or reply with no visible edits beyond formatting",
+      "responds to AI output with 'perfect, using this as-is' or 'looks good' with no named reason",
+      "pastes AI output to another person or tool without any integration comment",
+      "accepts AI framing of the problem without restating it in own terms"
+    ],
+    "negative_signals": [
+      "names a constraint AI was not given and adjusts output accordingly before using it",
+      "explicitly discards part of AI output with a stated reason",
+      "restates AI output in own words with at least one modification and names the modification"
+    ],
+    "example_chat_snippet": "User asks AI to draft a project update. AI produces a 5-bullet list. User copies all 5 bullets into Slack verbatim — including one that describes a feature that was cut last week, which the AI could not have known.",
+    "synthetic": true
+  },
+  {
+    "dimension": "CS",
+    "band": "mid",
+    "label": "Reactive correction — modifies only what conflicts with known facts",
+    "description": "The candidate modifies AI output when it visibly conflicts with something they know, but does not proactively frame how the output fits or doesn't fit their broader context. Edits are error-correction-driven rather than integration-driven. The rest of AI's structure, framing, and assumptions pass through unchanged.",
+    "positive_signals": [
+      "corrects one factual error (wrong name, date, metric) and adopts the rest of AI output unchanged",
+      "adds a single caveat or disclaimer after using AI output",
+      "says 'change X but keep everything else' where X is a specific verifiable error"
+    ],
+    "negative_signals": [
+      "names the specific context or constraint AI lacked before deciding what to keep",
+      "explicitly restates AI output in own framing with at least one named modification that goes beyond correcting a factual error",
+      "references prior reasoning to evaluate AI output ('earlier we decided Y, which affects this')"
+    ],
+    "example_chat_snippet": "User receives AI-generated project plan, notices the timeline assumes daily standups (which their team doesn't use), corrects that one item, but adopts the rest of the structure including section headers, priority ordering, and meeting cadence assumptions — none of which fit their team's actual workflow.",
+    "synthetic": true
+  },
+  {
+    "dimension": "CS",
+    "band": "high",
+    "label": "Active integration — AI output is raw material, not finished product",
+    "description": "The candidate explicitly layers AI suggestions with own context, constraints, or prior reasoning before the output is used. Names which parts are kept, modified, or discarded with stated reasons. Introduces at least one substantive framing that AI did not have. The integration step is visible in the conversation — not implied by a clean final output.",
+    "positive_signals": [
+      "states a named constraint AI lacked, then adapts specifically because of it: 'your structure works, but [own constraint AI wasn't told] means I'm rewriting [specific section]'",
+      "references prior reasoning when evaluating AI suggestion: 'earlier we decided X, which means this conflicts / aligns with that because...'",
+      "explicitly names what from AI output is being kept, what is being discarded, and why for each",
+      "candidate restates AI output in their own framing with at least one substantive modification and names the modification (not just grammar/formatting)"
+    ],
+    "negative_signals": [
+      "AI output goes directly to use without any visible named modification or explicit integration step",
+      "modification is unstated — user edits but does not say why"
+    ],
+    "example_chat_snippet": "\"That structure works for a general audience, but our client already rejected a phased approach in the kickoff — I'm keeping your intro paragraph and the risk table, but rewriting the implementation section to fit single-phase delivery. The rationale section stays, just swap the timeline assumptions for the fixed-scope constraint we discussed.\"",
+    "synthetic": true
+  },
+  {
+    "dimension": "CD",
+    "band": "low",
+    "label": "Confirmatory use",
+    "description": "The user uses AI to validate or elaborate a predetermined conclusion. AI is treated as a \"yes, and\" machine. Rarely or never asks for alternatives or counterarguments.",
+    "positive_signals": [
+      "\"I think X is right — can you explain why?\"",
+      "asks for arguments supporting a position already held",
+      "dismisses AI suggestions that challenge the starting premise"
+    ],
+    "negative_signals": [
+      "asks \"what am I missing?\"",
+      "requests counterarguments",
+      "acts on an AI suggestion that genuinely surprised them"
+    ],
+    "example_chat_snippet": "\"I've decided to use PostgreSQL for this. Tell me why it's the right choice.\"",
+    "synthetic": true
+  },
+  {
+    "dimension": "CD",
+    "band": "mid",
+    "label": "Surface divergence",
+    "description": "The user occasionally asks for alternatives but selection tends to default back to the original direction. AI-generated options are enumerated but not genuinely recombined.",
+    "positive_signals": [
+      "\"give me 3 options\" but always picks the safest or most familiar one",
+      "asks for counterarguments but doesn't update based on them"
+    ],
+    "negative_signals": [
+      "selects an option that genuinely surprised them",
+      "builds on an unexpected AI suggestion to reach somewhere new"
+    ],
+    "example_chat_snippet": "User asks for 3 approaches, gets them, says \"I like option 1 best\" — which was their original idea restated.",
+    "synthetic": true
+  },
+  {
+    "dimension": "CD",
+    "band": "high",
+    "label": "Active divergence and novel recombination",
+    "description": "The user explicitly uses AI to challenge assumptions, asks for perspectives they don't already hold, and recombines AI-generated ideas into directions not present in the original prompt. Willingness to follow an unexpected thread is visible.",
+    "positive_signals": [
+      "\"what's the strongest argument against my approach?\"",
+      "changes direction based on AI-surfaced information",
+      "asks \"what would I be missing if I went with X?\"",
+      "novel recombination: user takes two AI-generated suggestions and synthesizes a third that neither contained; merely asking \"give me 3 options\" and picking one does not reach this band"
+    ],
+    "negative_signals": [
+      "always returns to the original conclusion",
+      "never acts on a genuinely surprising AI output"
+    ],
+    "example_chat_snippet": "AI offers two structural options. User: \"Neither is quite right, but combining the queue from option 1 with the validation approach from option 2 gives me something new.\" That synthesis — not merely choosing from offered options — is the high-band signal.",
+    "synthetic": true
+  },
+  {
+    "dimension": "ES",
+    "band": "low",
+    "label": "No sensitivity when it matters",
+    "description": "Ethical dimensions are clearly present but the user doesn't notice or engage. Proceeds with potentially biased, harmful, or privacy-violating output without comment.",
+    "positive_signals": [
+      "asks AI to generate content about specific groups without requesting a bias check",
+      "shares identifying information about third parties without consideration",
+      "uses AI-generated content in contexts requiring attribution without noting AI involvement"
+    ],
+    "negative_signals": [
+      "proactively raises an ethical concern",
+      "asks AI to check for bias or harmful implications"
+    ],
+    "example_chat_snippet": "User asks AI to generate performance review language for an employee, receives output with clearly gendered framing, and submits it without raising the issue.",
+    "synthetic": true
+  },
+  {
+    "dimension": "ES",
+    "band": "mid",
+    "label": "Notices obvious issues, misses subtle ones",
+    "description": "The user catches clear ethical problems (explicit offensive content, obvious privacy violations) but misses subtler ones (selection bias, stakeholder exclusion, indirect harms).",
+    "positive_signals": [
+      "flags overt bias or harm",
+      "approves content with less visible but present ethical issues"
+    ],
+    "negative_signals": [
+      "surfaces a non-obvious ethical dimension unprompted"
+    ],
+    "example_chat_snippet": "User asks AI not to include a slur (catches obvious issue) but doesn't question whether the framing systematically disadvantages one demographic.",
+    "synthetic": true
+  },
+  {
+    "dimension": "ES",
+    "band": "high",
+    "label": "Proactive, non-obvious ethical engagement",
+    "description": "The user raises ethical considerations before being prompted — especially subtle ones. Treats ethics as a design constraint, not an afterthought.",
+    "positive_signals": [
+      "\"before we finalize this, let's check if it could disadvantage any group\"",
+      "explicitly names AI involvement when submitting AI-assisted work",
+      "asks \"who does this affect who isn't in the room?\"",
+      "considers second-order harms"
+    ],
+    "negative_signals": [
+      "ethical engagement only in response to obvious red flags"
+    ],
+    "example_chat_snippet": "\"This recommendation system will affect hiring decisions. Before we go further — what groups might it systematically under-recommend, and how would we detect that?\"",
+    "synthetic": true
+  },
+  {
+    "dimension": "CA",
+    "band": "low",
+    "label": "Passive acceptance",
+    "description": "The user follows AI framing and conclusions without pushback. Lets AI set the agenda. Defers decisions to the AI.",
+    "positive_signals": [
+      "adopts AI's reframing of the problem without comment",
+      "asks \"what should I choose?\" and accepts the answer",
+      "does not push back when AI misunderstands the goal"
+    ],
+    "negative_signals": [
+      "explicitly rejects AI framing and reinstates own",
+      "pushes back on a conclusion with reasoning"
+    ],
+    "example_chat_snippet": "User asks for help with a decision; AI subtly reframes the goal; user proceeds with AI's version rather than their own without noticing.",
+    "synthetic": true
+  },
+  {
+    "dimension": "CA",
+    "band": "mid",
+    "label": "Occasional agency",
+    "description": "The user takes back control when AI is clearly wrong or off-topic, but mostly follows AI lead. Agency is reactive rather than consistent.",
+    "positive_signals": [
+      "redirects when AI goes badly off-track",
+      "mostly accepts AI framing when misalignment is subtle"
+    ],
+    "negative_signals": [
+      "consistently names and defends own framing even against subtle AI reframes"
+    ],
+    "example_chat_snippet": "User corrects AI when it answers a different question than was asked, but when AI shifts the framing slightly in a follow-up, user follows the shift without noticing.",
+    "synthetic": true
+  },
+  {
+    "dimension": "CA",
+    "band": "high",
+    "label": "Consistent, deliberate agency",
+    "description": "The user consistently maintains ownership of the problem framing, direction, and decisions. Pushes back with reasoning. Uses AI for input, not for verdicts.",
+    "positive_signals": [
+      "\"that's not quite what I asked — let me restate the actual goal\"",
+      "explicitly disagrees with AI conclusions and explains why",
+      "\"I'll make the call here, but help me think through the tradeoffs first\"",
+      "reframes AI output to fit own goals rather than adapting goals to AI output"
+    ],
+    "negative_signals": [
+      "passive acceptance of AI framing",
+      "defers judgment to AI"
+    ],
+    "example_chat_snippet": "AI suggests a different approach. User: \"I see why you'd go that direction, but the constraint you're not accounting for is [X]. Let's stay with my original framing.\"",
+    "synthetic": true
+  }
+]

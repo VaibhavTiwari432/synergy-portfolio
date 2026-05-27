@@ -12,3 +12,18 @@ coverage/
 calibration/reports/*.json
 .claude/
 gold_standard/chats/*.pdf
+# Added by code-review-graph
+.code-review-graph/
+
+# Temp files
+tmp_*.txt
+reports/
+apps/judge/logs/
+apps/logs/
+
+# AI tool configs (may contain secrets or endpoints)
+.gemini/
+.kiro/
+.mcp.json
+.opencode.json
+.qoder/

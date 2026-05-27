@@ -174,5 +174,18 @@ export const GoldChatSchema = z.object({
   turns: z.array(TurnSchema).min(1),
   annotations: z.array(GoldChatAnnotationSchema).min(1),
   rubric_version: z.string().min(1),
+  calibration_excluded: z.boolean().optional(),
+  calibration_excluded_reason: z.string().optional(),
 });
 export type GoldChat = z.infer<typeof GoldChatSchema>;
+
+// ── BoundaryDecision ──────────────────────────────────────────────────────────
+
+export const BoundaryDecisionSchema = z.object({
+  chat_id: z.string().min(1),
+  turn_index: z.number().int().min(0),
+  new_goal: z.boolean(),
+  model: z.string().min(1),
+  context_snippet: z.string(),
+});
+export type BoundaryDecision = z.infer<typeof BoundaryDecisionSchema>;

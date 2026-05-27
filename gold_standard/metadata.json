@@ -1,0 +1,55 @@
+{
+  "_note": "Human audit metadata for gold standard chats. Not consumed by the scorer or calibration harness. For corpus curation and review only.",
+  "chats": {
+    "gc-024": {
+      "title": "Yash_ChatGPT — ML Exam Prep",
+      "synergy_band": "high",
+      "chat_type": "structured problem-solving",
+      "topics": ["Naive Bayes", "Laplace smoothing", "SVM", "kernel methods", "SMO algorithm", "Mercer's condition", "bias-variance tradeoff", "continuous variable discretization"],
+      "turn_count": 12,
+      "most_similar_existing_chat": "gc-005",
+      "similarity_rationale": "Both are ML exam-prep sessions with multi-topic coverage and strong student-led error correction (Yash's Naive Bayes zero-probability catch parallels Darshit's Q/V distinction push in gc-005). Key difference: gc-024 includes multi-modal image uploads and a rendering-issue recovery that gc-005 lacks.",
+      "annotator_notes": "Strongest EC and CS in the corpus after gc-008 and gc-023. Low CD is expected — convergent academic task. Solid high-band sweep across 7 of 8 dimensions."
+    },
+    "gc-025": {
+      "title": "Aditya_ChatGPT — Indian Labor Law Study",
+      "synergy_band": "low",
+      "chat_type": "passive information retrieval",
+      "topics": ["Factories Act", "Code on Wages", "Motor Transport Workers Act", "Deemed Approval", "Remuneration in Kind"],
+      "turn_count": 8,
+      "most_similar_existing_chat": "gc-002",
+      "similarity_rationale": "Both are low-band sessions where the user pastes content and asks generic questions, letting the AI perform all synthesis. gc-025 is distinguished by legal domain (not career advice) and zero pushback even when AI interpretation of legal statutes could be inaccurate.",
+      "annotator_notes": "Classic passive-consumer pattern. AUI is mid (not low) because using AI to decode dense legal text is a genuine augmentation task, even if executed without curiosity or verification."
+    },
+    "gc-026": {
+      "title": "CERN_ChatGPT — CV + Motivation Letter Optimization",
+      "synergy_band": "high",
+      "chat_type": "iterative strategic drafting with multi-model cross-verification",
+      "topics": ["CV rewriting", "institutional framing", "CERN Administrative Student Programme", "multi-model arbitration (ChatGPT + Gemini)", "prompt engineering for adversarial model behavior"],
+      "turn_count": 14,
+      "most_similar_existing_chat": "gc-023",
+      "similarity_rationale": "Both gc-026 and gc-023 are long, high-agency strategic sessions where the user orchestrates a complex multi-constraint output. gc-026 is unique in the corpus for its explicit multi-model cross-verification loop — no other chat has the user engineering prompts to control a second AI's behavior.",
+      "annotator_notes": "Highest-agency chat in the corpus for meta-AI-reasoning (engineering how a second model responds). CD is high because the reframing from startup-founder to systems-builder is a genuinely non-obvious creative strategy. Primary differentiator from gc-023: the Gemini arbitration workflow."
+    },
+    "gc-027": {
+      "title": "Vaibhav_ChatGPT — AI Ethics Socratic Dialogue",
+      "synergy_band": "high",
+      "chat_type": "open-ended philosophical inquiry",
+      "topics": ["AI ethics", "consent and deepfakes", "cultural relativism", "Indian philosophy (Kama Sutra, Kabir)", "AI existential risk", "predictive algorithm manipulation", "unauthorized access ethics"],
+      "turn_count": 14,
+      "most_similar_existing_chat": "gc-026",
+      "similarity_rationale": "Both are high-AL, high-CA sessions with the user directing a sophisticated multi-topic exploration. gc-027 is the only chat in the corpus with ES: high — the only session where ethical sensitivity is the primary topic rather than an incidental factor.",
+      "annotator_notes": "Only chat with ES: high in the entire corpus (score 10/10). The correction of the cultural intimacy generalization (Q3) is the strongest EC moment across all 26 chats — user corrects a specific factual claim with historical evidence rather than merely expressing disagreement."
+    },
+    "gc-028": {
+      "title": "Startup aur Self-Analysis — ChatGPT",
+      "synergy_band": "low",
+      "chat_type": "unstructured life-coaching / venting",
+      "topics": ["startup strategy", "personal finance", "life planning", "AI agency projection", "privacy boundary testing"],
+      "turn_count": 20,
+      "most_similar_existing_chat": "gc-002",
+      "similarity_rationale": "Both are low-band sessions with the user in a passive, frustrated state and the AI performing all synthesis. gc-028 is the most extreme ES: low case in the corpus — the Anuska Patil phone-number request is a direct privacy violation attempt. The Doraemon scenario also provides CD: mid signal not present in gc-002.",
+      "annotator_notes": "Distinctive for: (1) Hindi-English code-switching throughout, (2) explicit privacy violation attempt [PERSON_NAME], (3) safety boundary tests (bank robbery joke), (4) projection of autonomous agency onto AI (asking AI to run startup and earn money). Contains the only ES: low annotation in a session not involving hate speech or harm. Raw file contains real name; anonymized copy applies [PERSON_NAME] redaction."
+    }
+  }
+}

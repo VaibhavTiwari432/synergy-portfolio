@@ -514,7 +514,7 @@ Respond with valid JSON matching this exact schema. No text outside the JSON.
 }
 ```
 
-OPEN: Two-pass EC scoring — there is an argument that EC can only be scored accurately if the judge has seen the full conversation (to know whether an error was made and whether the user later caught it). A second-pass prompt that receives the full conversation plus first-pass scores and re-scores only EC is under consideration. Decision required before Phase 1 implementation. (See §11, item 3.)
+LOCKED: Two-pass EC scoring is required. Pass 1 scores all 7 non-EC dimensions within the TaskFrame window. Pass 2 sends the full conversation plus Pass 1 scores and re-scores EC only. EC delta from Pass 2 replaces the Pass 1 EC value before `JudgeOutput` is written. See ADR 0004.
 
 ---
 
@@ -691,14 +691,14 @@ Not yet specified. Define in a future spec version.
 
 These items are marked `OPEN:` throughout the spec. They must be resolved by the human before the relevant phase begins. Do not invent answers.
 
-| # | Item | Blocks | Notes |
-|---|------|--------|-------|
-| 1 | Judge model selection: `claude-sonnet-4-6` vs `claude-opus-4-7` | Phase 1 | Tradeoff: cost vs. accuracy. Sonnet is ~5× cheaper; Opus may score more reliably on edge cases. Recommend running a mini-calibration with both. |
-| 2 | Archetype names and score thresholds | Phase 1 (portfolio output) | Need at least 4 archetypes with score profiles. Human must name and define them. |
-| 3 | Two-pass EC scoring | Phase 1 (judge prompt) | See §6. Adds latency and cost; may improve EC accuracy significantly. |
-| 4 | Chunking strategy | Phase 1 (frame extraction) | How many turns per TaskFrame? Fixed window (e.g. 6 turns)? Or goal-boundary detection? Short frames may miss context; long frames may dilute scores. |
-| 5 | User identity approach | Phase 2 (API) | See §9. Options: anonymous local ID, Supabase Auth, or hybrid. |
-| 6 | MIN_FRAMES_FOR_ARCHETYPE threshold | Phase 1 (portfolio output) | Currently set to 10 in §3 constants. May need adjustment based on judge reliability findings in calibration. If the judge scores reliably in fewer frames, 10 is too conservative; if scores are noisy, 10 may be too low. |
+| # | Item | Blocks | Status | Notes |
+|---|------|--------|--------|-------|
+| 1 | Judge model selection | Phase 1 | **LOCKED** (ADR 0003) | Default: `claude-sonnet-4-6`. Calibration anchor: `claude-opus-4-7`. Ship Sonnet if MAE gap ≤ 0.3; route EC/CS to Opus if gap exceeds 0.3 on those dimensions. |
+| 2 | Archetype names and score thresholds | Phase 1 (portfolio output) | **OPEN** | Need at least 4 archetypes with score profiles. Human must name and define them. |
+| 3 | Two-pass EC scoring | Phase 1 (judge prompt) | **LOCKED** (ADR 0004) | Two-pass required. Pass 1: 7 non-EC dims in-frame. Pass 2: EC only, full conversation context. |
+| 4 | Chunking strategy | Phase 1 (frame extraction) | **LOCKED** (ADR 0005) | Goal-boundary detection via `claude-haiku-4-5` classifier. Hard cap: 8 turns/frame. Log all boundary decisions during calibration. |
+| 5 | User identity approach | Phase 2 (API) | **OPEN** | See §9. Options: anonymous local ID, Supabase Auth, or hybrid. |
+| 6 | MIN_FRAMES_FOR_ARCHETYPE threshold | Phase 1 (portfolio output) | **OPEN** | Currently set to 10 in §3 constants. Revisit after Phase 1 calibration. |
 
 ---
 
