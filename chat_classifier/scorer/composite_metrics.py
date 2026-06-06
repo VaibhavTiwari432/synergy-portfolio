@@ -11,14 +11,43 @@ from __future__ import annotations
 
 from chat_classifier.schemas import CompositeMetrics, RawChat, TaggedTurn
 
+# ── Sentence-transformer model (lazy, loaded on first use) ────────────────────
+# Avoids a 3–4 s startup cost for callers that don't need semantic distance.
+_ST_MODEL = None
+
+
+def _get_st_model():
+    global _ST_MODEL
+    if _ST_MODEL is None:
+        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+        _ST_MODEL = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+    return _ST_MODEL
+
+
+def _compute_semantic_distance(human_texts: list[str]) -> float | None:
+    """
+    1 - cosine_similarity(first_human_prompt, last_human_prompt).
+    Returns None if fewer than 2 human turns exist (no meaningful delta).
+    Falls back to None if sentence-transformers is not installed.
+    """
+    if len(human_texts) < 2:
+        return None
+    try:
+        import numpy as np  # noqa: PLC0415
+        model = _get_st_model()
+        embeddings = model.encode(
+            [human_texts[0], human_texts[-1]],
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        )
+        similarity = float(np.dot(embeddings[0], embeddings[1]))
+        return float(max(0.0, min(1.0, 1.0 - similarity)))
+    except ImportError:
+        return None
+
 
 def compute_metrics(chat: RawChat, tagged_turns: list[TaggedTurn]) -> CompositeMetrics:
-    """
-    Compute all composite metrics for a session.
-
-    Metrics that require data we don't have yet (semantic similarity,
-    actualization depth) are left as None rather than fabricated.
-    """
+    """Compute all composite metrics for a session."""
     human_turns = [tt for tt in tagged_turns if tt.turn.role == "human"]
     total_human = len(human_turns)
     total_ai = sum(1 for t in chat.turns if t.role == "ai")
@@ -70,18 +99,46 @@ def compute_metrics(chat: RawChat, tagged_turns: list[TaggedTurn]) -> CompositeM
         vr_first = v_first / ai_first if ai_first > 0 else 0.0
         vr_second = v_second / ai_second if ai_second > 0 else 0.0
 
-    # ── metrics that require NLP / embeddings (deferred) ─────────────────────
-    # actualization_depth, semantic_distance_delta, iteration_depth
-    # are left None — they will be filled by a separate embedding pass
-    # once we have sentence-transformer support wired up.
+    # ── actualization_depth ───────────────────────────────────────────────────
+    # A complete actualization loop = user sends prompt → receives AI output →
+    # sends a follow-up that modifies scope/content (OVERRIDE, SCAFFOLD, PIVOT,
+    # INJECT_CONTEXT), not just a clarification.
+    # tasks = number of DECOMPOSE turns (each marks a sub-task boundary) or 1
+    # if no DECOMPOSE exists (whole session is one task).
+    # Score = min(loops / tasks, 1.0)
+    _SCOPE_MODIFYING = {"OVERRIDE", "SCAFFOLD", "PIVOT", "INJECT_CONTEXT"}
+    task_count = max(1, sum(1 for tt in human_turns if "DECOMPOSE" in tt.tags))
+    # Skip the first human turn (it's the initial prompt, not a follow-up)
+    loop_count = sum(
+        1 for tt in human_turns[1:]
+        if any(tag in _SCOPE_MODIFYING for tag in tt.tags)
+    )
+    actualization_depth = min(loop_count / task_count, 1.0) if total_human > 0 else None
+
+    # ── iteration_depth ───────────────────────────────────────────────────────
+    # Fraction of human turns that are substantive refinements.
+    # OVERRIDE, SCAFFOLD, PIVOT = refinement; EXTRACT alone = not.
+    _REFINEMENT_TAGS = {"OVERRIDE", "SCAFFOLD", "PIVOT"}
+    refinement_count = sum(
+        1 for tt in human_turns
+        if any(tag in _REFINEMENT_TAGS for tag in tt.tags)
+    )
+    iteration_depth = refinement_count / total_human if total_human > 0 else None
+
+    # ── semantic_distance_delta ───────────────────────────────────────────────
+    # 1 - cosine_similarity(first_human_prompt, last_human_prompt).
+    # High = user redirected substantially; low = accepted AI's initial frame.
+    # Returns None when <2 human turns (no meaningful delta exists).
+    human_texts = [tt.turn.text for tt in human_turns]
+    semantic_distance_delta = _compute_semantic_distance(human_texts)
 
     return CompositeMetrics(
         attribution_gap=attribution_gap,
         verification_ratio=vr,
         generative_query_ratio=gr,
-        actualization_depth=None,
-        semantic_distance_delta=None,
-        iteration_depth=None,
+        actualization_depth=actualization_depth,
+        semantic_distance_delta=semantic_distance_delta,
+        iteration_depth=iteration_depth,
         verification_ratio_first_half=vr_first,
         verification_ratio_second_half=vr_second,
         session_turns=len(chat.turns),
