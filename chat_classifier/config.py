@@ -56,7 +56,7 @@ CHUNK_SCOPE_DIMS: set[str] = {"EC", "PR", "AL", "ES"}
 CHAT_SCOPE_DIMS: set[str] = {"CS", "CA", "CD", "AUI"}
 
 # ── Scorability gate ────────────────────────────────────────────────────────
-SCORABILITY_TAU: int = 3  # min applicable items to score a dimension
+SCORABILITY_TAU: int = 1  # min non-zero neurons to score a dimension; τ=0 would pass complete judge failures
 
 # ── Chunker defaults ────────────────────────────────────────────────────────
 DEFAULT_WINDOW_SIZE: int = 3
