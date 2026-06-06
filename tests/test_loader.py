@@ -177,7 +177,7 @@ class TestItemResponseGuardrails:
                 scope="chunk",
                 chunk_index=0,
                 applicable=False,
-                ordinal_score=0,   # must NOT be set when not applicable
+                score=0.0,   # must NOT be set when not applicable
                 extractor="test",
             )
 
@@ -190,23 +190,23 @@ class TestItemResponseGuardrails:
             scope="chunk",
             chunk_index=0,
             applicable=True,
-            ordinal_score=None,   # score pending but applicable=True is ok
+            score=None,   # score pending but applicable=True is ok
             extractor="test",
         )
         assert item.applicable is True
-        assert item.ordinal_score is None
+        assert item.score is None
 
-    def test_ordinal_score_out_of_range_raises(self):
+    def test_score_out_of_range_raises(self):
         from pydantic import ValidationError as PydanticValidationError
         from chat_classifier.schemas import ItemResponse
 
-        with pytest.raises(PydanticValidationError, match="0-4"):
+        with pytest.raises(PydanticValidationError, match="out of range"):
             ItemResponse(
                 neuron_id="EC-01",
                 dimension="EC",
                 scope="chunk",
                 chunk_index=0,
                 applicable=True,
-                ordinal_score=5,
+                score=1.5,   # above [0.0, 1.0] ceiling
                 extractor="test",
             )
