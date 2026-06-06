@@ -1,0 +1,347 @@
+# Neuron Contract Table — Chat Classifier v2
+# Schema: NeuronContract (chat_classifier/schemas.py §5.2)
+# All 106 neurons will live here; this file seeds EC (all rows) and PR (starter rows).
+# Sources: ARI_Synergy_Framework_v2.md §4.4, ChatClassifier_v2_Implementation_Brief.md §5.2
+#
+# Field reference:
+#   id               — stable identifier, e.g. "EC-01"
+#   dimension        — parent dimension (AL/PR/EC/ES/CS/CD/AUI/CA)
+#   type             — behavioral | metacognitive | structural
+#   context_scope    — chunk | chat
+#   extractor_type   — deterministic | embedding | llm_judge
+#   micro_rubric     — for llm_judge neurons: {"0": anchor, "1": ..., "4": anchor}
+#   detector         — for deterministic/embedding: expression or function ref
+#   valence          — 1 (healthy synergy) or -1 (cognitive debt)
+#   applicability_rule — condition under which the neuron fires
+#   sector_universal — true (97-98 neurons) or false (rare exceptions)
+
+neurons:
+
+  # ── EC — Error Correction & Epistemic Vigilance (chunk-scope) ──────────────
+  # High-signal dimension for Skilled-Outsourcer detection (v2.0 §4.4).
+  # EC neurons fire per 3-turn window; they capture whether the human
+  # interrogates, challenges, or verifies AI outputs rather than accepting them.
+
+  - id: EC-01
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts the AI output without any form of challenge, verification,
+             or independent check — no follow-up question, no counter-evidence cited."
+      "1": "Human asks a minor clarifying question but does not test the AI's claim
+             against external knowledge or constraints."
+      "2": "Human poses a partial verification step (e.g., restates the claim and
+             asks if it is correct) but does not introduce independent evidence."
+      "3": "Human explicitly tests the AI output against an external constraint,
+             prior knowledge, or an independent source; verifies correctness."
+      "4": "Human provides a multi-step verification — cites counter-evidence or
+             identifies a specific flaw — AND integrates the correction back into
+             the conversation to improve the output."
+    detector: null
+    valence: 1
+    applicability_rule: "AI produced a checkable, substantive claim or recommendation
+                          in the preceding turn"
+    sector_universal: true
+
+  - id: EC-02
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human shows no awareness that AI-generated content may contain errors;
+             accepts output at face value with no scrutiny."
+      "1": "Human expresses vague doubt ('I'm not sure this is right') but does not
+             act on it or follow up."
+      "2": "Human explicitly flags uncertainty about the AI output and asks for
+             clarification or an alternative."
+      "3": "Human disagrees with or challenges a specific AI claim, citing why the
+             claim seems incorrect or incomplete."
+      "4": "Human identifies a specific hallucination, factual error, or logical
+             inconsistency and explicitly corrects the record with supporting
+             evidence or reasoning."
+    detector: null
+    valence: 1
+    applicability_rule: "AI produced a factual claim or analytical statement in the
+                          current or preceding chunk"
+    sector_universal: true
+
+  - id: EC-03
+    dimension: EC
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human's subsequent contribution is a near-lexical copy of the AI output;
+             no independent reasoning visible."
+      "1": "Human rephrases the AI output with minor additions but no new reasoning."
+      "2": "Human adds a small amount of new context or judgment but the AI output
+             dominates the combined response."
+      "3": "Human integrates AI output with a significant independent contribution
+             (their own domain knowledge, criteria, or judgment)."
+      "4": "Human's contribution clearly exceeds or materially transforms the AI
+             output — the final text is substantially the human's, with AI as input."
+    detector: null
+    valence: 1
+    applicability_rule: "AI produced substantive content (>50 tokens) and the human
+                          has a subsequent turn in this chunk"
+    sector_universal: true
+
+  - id: EC-04
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human proceeds with or endorses the AI output on a high-stakes decision
+             without any form of review or cross-check."
+      "1": "Human notes that the decision is important but does not take an active
+             verification step."
+      "2": "Human asks the AI to double-check or reconsider one aspect of the
+             high-stakes output."
+      "3": "Human introduces an independent constraint (policy, domain rule, ethical
+             criterion) to stress-test the AI's recommendation."
+      "4": "Human applies a multi-axis review — verifies factual accuracy, checks
+             against real-world constraints, and retains explicit decision authority
+             rather than delegating the final call."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk involves a high-stakes decision, recommendation,
+                          or action (medical, legal, financial, safety-critical, or
+                          explicitly flagged as consequential by the human)"
+    sector_universal: true
+
+  - id: EC-05
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human does not use available explanation affordances; accepts a confident
+             AI claim without requesting justification."
+      "1": "Human requests a brief explanation but does not follow up when the
+             explanation is incomplete or circular."
+      "2": "Human requests an explanation and partially evaluates it, but does not
+             test whether the reasoning is sound."
+      "3": "Human requests an explanation AND evaluates whether the reasoning is
+             valid — pushes back if the justification is weak."
+      "4": "Human drives a multi-turn explanation chain: asks for justification,
+             challenges weak links, and only accepts the claim once the chain
+             is logically sound."
+    detector: null
+    valence: 1
+    applicability_rule: "AI delivered a confident assertion on a non-trivial topic
+                          where explanation affordances were available (AI could have
+                          been asked to justify the claim)"
+    sector_universal: true
+
+  - id: EC-06
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "count_verification_markers"
+    # Counts explicit verification markers: words/phrases such as
+    # "is that correct", "let me verify", "actually", "that's wrong",
+    # "I checked", "source:", "citation", "double-check", "confirm",
+    # "wait — ", "that doesn't seem right" in the human turn(s) of the chunk.
+    valence: 1
+    applicability_rule: "The chunk contains at least one human turn"
+    sector_universal: true
+
+  - id: EC-07
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "interrogative_to_affirmative_ratio"
+    # Ratio of question-mark-ending sentences to affirmative sentences in
+    # human turns of the chunk. High ratio → active interrogation of AI output.
+    valence: 1
+    applicability_rule: "The chunk contains at least one human turn with ≥2 sentences"
+    sector_universal: true
+
+  - id: EC-08
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human delegates subjective value judgment entirely to AI without
+             retaining any human evaluative stance."
+      "1": "Human accepts AI's framing of the value dimension but adds a minor
+             personal note."
+      "2": "Human partially contests the AI's value framing with their own
+             perspective."
+      "3": "Human clearly maintains an independent evaluative position that differs
+             from or extends the AI's framing."
+      "4": "Human explicitly uses the AI's analysis as raw material, then applies
+             their own ethical/value framework and retains decision authority."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk involves a subjective, value-laden, or ethical
+                          judgment (aesthetics, ethics, policy preference, priorities)"
+    sector_universal: true
+
+  - id: EC-09
+    dimension: EC
+    type: structural
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "unverified_confident_claim_flag"
+    # Fires (ordinal=0, valence=-1) when: AI produced a confident statement
+    # (hedging score below threshold: no "I think", "might", "uncertain",
+    # "approximately" — relies on count_hedging_markers returning 0) AND
+    # the human's subsequent turn shows zero verification markers
+    # (count_verification_markers == 0).
+    # This is the "blind acceptance" signal from the v2.0 §4.4 sample row.
+    valence: -1
+    applicability_rule: "AI turn in chunk has hedging_score = 0 (highly confident)
+                          AND human turn has verification_markers = 0"
+    sector_universal: true
+
+  - id: EC-10
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human has made multiple subsequent turns with no self-correction or
+             acknowledgment of error; no evidence of epistemic updating."
+      "1": "Human implicitly shifts position in a later turn without acknowledging
+             the earlier error."
+      "2": "Human partially corrects an earlier mistake when prompted by the AI."
+      "3": "Human spontaneously notices and corrects their own prior error,
+             updating their working model."
+      "4": "Human proactively identifies their own mistake, explains why it was
+             wrong, and integrates the correction to improve the conversation."
+    detector: null
+    valence: 1
+    applicability_rule: "Human made a factually or logically questionable claim in
+                          an earlier turn in this chunk or adjacent chunk"
+    sector_universal: true
+
+  - id: EC-11
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human treats the AI's confidence level as a reliable signal of
+             correctness; does not apply asymmetric skepticism."
+      "1": "Human occasionally questions a confident AI claim but inconsistently."
+      "2": "Human actively questions AI confidence on most high-confidence claims."
+      "3": "Human routinely identifies when the AI is confidently wrong and
+             applies appropriate skepticism proportional to stakes."
+      "4": "Human demonstrates calibrated asymmetric skepticism: more scrutiny on
+             high-confidence AI claims on high-stakes topics; uses their own domain
+             knowledge as an independent check."
+    detector: null
+    valence: 1
+    applicability_rule: "AI produced multiple confident claims across the chunk; at
+                          least one claim was on a high-stakes or verifiable topic"
+    sector_universal: true
+
+  # ── PR — Prompt Reasoning (chunk-scope) ────────────────────────────────────
+  # PR measures how well the human structures, scaffolds, and iteratively
+  # refines their prompts to elicit higher-quality AI contributions.
+
+  - id: PR-01
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human provides a vague or underspecified request with no context,
+             constraints, or success criteria."
+      "1": "Human provides a bare request with minimal context; no constraints
+             or output criteria stated."
+      "2": "Human provides context and a partial constraint but no explicit
+             success criteria or output format."
+      "3": "Human provides clear context, at least one constraint, and a partial
+             definition of desired output quality."
+      "4": "Human provides rich context, explicit constraints, concrete examples
+             or analogies, and clear success criteria — fully scaffolded prompt."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk contains a human prompt that initiates or
+                          continues a substantive task request"
+    sector_universal: true
+
+  - id: PR-02
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "constraint_and_example_presence"
+    # Scores presence of structural prompt quality markers in human turns:
+    # explicit constraints ("must", "should not", "limited to"),
+    # examples ("for example", "like", "such as", "e.g."),
+    # success criteria ("goal is", "I need the output to", "should look like").
+    valence: 1
+    applicability_rule: "The chunk contains at least one human prompt turn"
+    sector_universal: true
+
+  - id: PR-03
+    dimension: PR
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human makes no attempt to refine or improve the prompt after an
+             unsatisfactory AI response."
+      "1": "Human re-asks essentially the same prompt with minor word changes."
+      "2": "Human reformulates the prompt with one significant change (more
+             context or a new constraint)."
+      "3": "Human clearly diagnoses why the prior response was insufficient and
+             reformulates to address that specific gap."
+      "4": "Human runs an explicit iterative refinement loop: diagnoses the gap,
+             reformulates with targeted improvements, and evaluates whether the
+             new response is better."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI's previous turn was suboptimal or incomplete AND
+                          the human had an opportunity to reformulate"
+    sector_universal: true
+
+  - id: PR-04
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human issues a bare extractive command with no reasoning or rationale
+             shared ('write this', 'finish this', 'do this')."
+      "1": "Human provides a minimal rationale but no reasoning chain."
+      "2": "Human shares partial reasoning that helps the AI understand the goal
+             behind the request."
+      "3": "Human explicitly shares their own reasoning or mental model and asks
+             the AI to build on or challenge it."
+      "4": "Human co-reasons with the AI — shares their current hypothesis,
+             asks the AI to find flaws or alternatives, and then integrates
+             the AI's reasoning with their own."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk contains a substantive task request from the human"
+    sector_universal: true
+
+  - id: PR-05
+    dimension: PR
+    type: structural
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "generative_vs_extractive_ratio"
+    # Ratio of generative prompts (contain interrogation verbs: "explain",
+    # "what are the alternatives", "find the flaw", "critique", "compare",
+    # "why", "how could") to extractive commands ("write", "generate",
+    # "list", "summarize", "finish", "complete") in human turns.
+    valence: 1
+    applicability_rule: "The chunk contains at least two human prompt turns"
+    sector_universal: true
