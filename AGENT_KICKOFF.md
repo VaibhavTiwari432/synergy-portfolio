@@ -19,7 +19,7 @@ Your authority and duties:
   agent who edits contracts.
 
 Read first, in order:
-1. AGENT_REBUILD_BRIEF_v2.md (the full mission + framework + non-negotiables)
+1. AGENT_REBUILD_BRIEF_v3.md (the full mission + framework + non-negotiables)
 2. SAF_ARI_Final_Master_Compilation_v2_2.md (the authoritative spec)
 3. TEAM.md (the build order and ownership)
 4. CLAUDE.md (the 20 non-negotiables)
@@ -67,8 +67,8 @@ HARD RULES:
 - Write unit tests next to each module. Get them green before handing off.
 
 Read first: TEAM.md (your tasks = §2 "CODEX builds"), INTERFACES.md (your signatures),
-contracts/ (your only imports). Skim AGENT_REBUILD_BRIEF_v2.md §2 for what each module
-means in the framework.
+contracts/ (your only imports). Skim AGENT_REBUILD_BRIEF_v3.md §3 (esp. §3.6–3.7) for
+what each module means in the framework.
 
 Your modules (TEAM.md §2 is authoritative):
 - src/trait/tagger.py (10 intent tags)
@@ -105,8 +105,8 @@ HARD RULES:
 - Write unit tests next to each module. Get them green before handing off.
 
 Read first: TEAM.md (your tasks = §2 "ANTIGRAVITY builds"), INTERFACES.md (your
-signatures), contracts/ (your only imports). Skim AGENT_REBUILD_BRIEF_v2.md §2.5 and
-§2.8 for what the state proxies and dynamics modules mean.
+signatures), contracts/ (your only imports). Skim AGENT_REBUILD_BRIEF_v3.md §3.5 and
+§3.8 for what the state proxies and dynamics modules mean.
 
 Your modules (TEAM.md §2 is authoritative):
 - src/state/load_classifier.py (LOW_LOAD/HIGH_ICL/HIGH_ECL/FATIGUE per turn)

@@ -1,6 +1,23 @@
 {
   "_note": "Human audit metadata for gold standard chats. Not consumed by the scorer or calibration harness. For corpus curation and review only.",
+  "regression_suite": {
+    "n": 26,
+    "excluded": ["gc-014", "gc-015"],
+    "rationale": "gc-014 and gc-015 have hand-scored rationales (.md) but no machine-readable transcripts (.json); they cannot be run through the pipeline. See adr/0003-gold-corpus-n26.md."
+  },
   "chats": {
+    "gc-014": {
+      "title": "Jay_ChatGPT1 — HCI Exam Prep",
+      "status": "rationale_only",
+      "status_note": "Hand-scored rationale exists (gc-014.md); no JSON transcript was ever extracted from Jay_ChatGPT1.pdf. Excluded from the regression suite until the transcript is recovered. See adr/0003-gold-corpus-n26.md.",
+      "source_pdf": "Jay_ChatGPT1.pdf"
+    },
+    "gc-015": {
+      "title": "Pratik_ChatGPT — Radar Project Viva Prep",
+      "status": "rationale_only",
+      "status_note": "Hand-scored rationale exists (gc-015.md); no JSON transcript was ever extracted from Pratik_ChatGPT.pdf. Excluded from the regression suite until the transcript is recovered. See adr/0003-gold-corpus-n26.md.",
+      "source_pdf": "Pratik_ChatGPT.pdf"
+    },
     "gc-024": {
       "title": "Yash_ChatGPT — ML Exam Prep",
       "synergy_band": "high",
