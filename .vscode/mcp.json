@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "code-review-graph": {
+      "command": "C:\\Program Files\\Python313\\python.exe",
+      "args": [
+        "-m",
+        "code_review_graph",
+        "serve"
+      ],
+      "cwd": "D:\\StartitUP\\Sangillence\\Synergy",
+      "type": "stdio"
+    }
+  }
+}
