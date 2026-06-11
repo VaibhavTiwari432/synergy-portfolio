@@ -1,7 +1,0 @@
-packages:
-  - "apps/*"
-  - "calibration"
-  - "packages/*"
-allowBuilds:
-  esbuild: true
-  msgpackr-extract: true

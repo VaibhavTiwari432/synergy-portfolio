@@ -15,7 +15,9 @@ coverage/
 .nyc_output/
 calibration/reports/*.json
 .claude/
-gold_standard/chats/*.pdf
+# Source PDFs are local-only: contain real names (data dignity) and are large.
+# They are the recovery source for gc-014/gc-015 — never delete from disk.
+data/gold/source_pdfs/
 # Added by code-review-graph
 .code-review-graph/
 
