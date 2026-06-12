@@ -30,6 +30,9 @@ TEMPERATURE = 0.1
 MAX_ATTEMPTS = 3
 RETRY_BACKOFF_S = 2.0
 
+REJUDGE_MODEL_ENV = "SAF_REJUDGE_MODEL"
+DEFAULT_OPENAI_JUDGE_MODEL = "openai/gpt-4o-mini"
+
 GenerateFn = Callable[[str, str], str]
 
 
@@ -52,27 +55,36 @@ def _gemini_generate(system_prompt: str, user_prompt: str) -> str:
     return response.text
 
 
-def _openrouter_generate(system_prompt: str, user_prompt: str) -> str:
-    import httpx  # lazy
+def _openrouter_transport(model: str) -> GenerateFn:
+    """Build an OpenRouter transport bound to a specific model id."""
 
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENROUTER_API_KEY not set")
-    resp = httpx.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={"Authorization": f"Bearer {api_key}"},
-        json={
-            "model": OPENROUTER_MODEL,
-            "temperature": TEMPERATURE,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-        },
-        timeout=120.0,
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    def generate(system_prompt: str, user_prompt: str) -> str:
+        import httpx  # lazy
+
+        api_key = os.environ.get("OPENROUTER_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENROUTER_API_KEY not set")
+        resp = httpx.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": model,
+                "temperature": TEMPERATURE,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            },
+            timeout=120.0,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+
+    return generate
+
+
+# Default Gemini-fallback path: identical behavior to the pre-refactor function.
+_openrouter_generate: GenerateFn = _openrouter_transport(OPENROUTER_MODEL)
 
 
 class JudgeClient:
@@ -83,6 +95,8 @@ class JudgeClient:
         generate: GenerateFn | None = None,
         fallback: GenerateFn | None = None,
         *,
+        judge_model: str | None = None,
+        judge_family: PartnerFamily | None = None,
         max_attempts: int = MAX_ATTEMPTS,
         backoff_s: float = RETRY_BACKOFF_S,
         sleep: Callable[[float], None] = time.sleep,
@@ -91,6 +105,8 @@ class JudgeClient:
         self._fallback = fallback if fallback is not None else (
             _openrouter_generate if generate is None else None
         )
+        self._judge_model = judge_model if judge_model is not None else JUDGE_MODEL
+        self._judge_family = judge_family if judge_family is not None else JUDGE_FAMILY
         self._max_attempts = max_attempts
         self._backoff_s = backoff_s
         self._sleep = sleep
@@ -110,8 +126,8 @@ class JudgeClient:
                 raw = transport(SYSTEM_PROMPT, user_prompt)
                 return parse_judge_response(
                     raw,
-                    judge_model=JUDGE_MODEL,
-                    judge_family=JUDGE_FAMILY,
+                    judge_model=self._judge_model,
+                    judge_family=self._judge_family,
                     partner_family=partner_family,
                     prompt_version=JUDGE_PROMPT_VERSION,
                 )
@@ -120,8 +136,38 @@ class JudgeClient:
                     self._sleep(self._backoff_s * (i + 1))
 
         return unavailable_output(
-            judge_model=JUDGE_MODEL,
-            judge_family=JUDGE_FAMILY,
+            judge_model=self._judge_model,
+            judge_family=self._judge_family,
             partner_family=partner_family,
             prompt_version=JUDGE_PROMPT_VERSION,
         )
+
+
+def openai_family_judge(model: str | None = None, **kwargs) -> JudgeClient:
+    """An OpenAI-family judge over OpenRouter, for re-judging google-partner
+    gold chats (gc-003, gc-016, gc-018 — non-negotiable #20 / ADR-0002).
+
+    Primary transport is OpenRouter bound to `model` (default: the
+    SAF_REJUDGE_MODEL env var, else "openai/gpt-4o-mini"). NO Gemini fallback:
+    the fallback is None unless the caller passes one explicitly. Anthropic
+    models are forbidden as judges (non-negotiable #20), and OpenAI provenance
+    is assigned ONLY to genuinely OpenAI-family model ids — the id must carry
+    the OpenRouter "openai/" prefix (D-003: a google model must never be
+    recorded as judge_family="openai").
+
+    Tests may inject a fake transport via kwargs (generate=..., sleep=...).
+    """
+    chosen = model or os.environ.get(REJUDGE_MODEL_ENV) or DEFAULT_OPENAI_JUDGE_MODEL
+    lowered = chosen.lower()
+    if "claude" in lowered or "anthropic" in lowered:
+        raise ValueError(
+            f"judge model {chosen!r} is Anthropic-family — forbidden as a judge "
+            "(non-negotiable #20)"
+        )
+    if not lowered.startswith("openai/"):
+        raise ValueError(
+            f"judge model {chosen!r} is not OpenAI-family (id must start with "
+            "'openai/') — OpenAI provenance would be false (D-003)"
+        )
+    kwargs.setdefault("generate", _openrouter_transport(chosen))
+    return JudgeClient(judge_model=chosen, judge_family="openai", **kwargs)

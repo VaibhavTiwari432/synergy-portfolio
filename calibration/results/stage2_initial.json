@@ -1,0 +1,494 @@
+{
+  "ratchet": 0.2994,
+  "ratchet_passed": true,
+  "shadow": {
+    "n_chats": 26,
+    "overall_mae": 0.15000000000000002,
+    "per_dim_mae": {
+      "AL": 0.15000000000000002,
+      "PR": 0.15,
+      "EC": null,
+      "ES": null,
+      "CS": null,
+      "CD": null,
+      "AUI": 0.15000000000000002,
+      "CA": 0.15000000000000002
+    }
+  },
+  "headline": {
+    "n_chats": 23,
+    "overall_mae": 0.15000000000000002,
+    "per_dim_mae": {
+      "AL": 0.15000000000000002,
+      "PR": 0.15,
+      "EC": null,
+      "ES": null,
+      "CS": null,
+      "CD": null,
+      "AUI": 0.15000000000000002,
+      "CA": 0.15000000000000002
+    },
+    "excluded_conflicts": [
+      "gc-003",
+      "gc-016",
+      "gc-018"
+    ]
+  },
+  "ec_tracked_separately": {
+    "shadow_mae": null,
+    "headline_mae": null
+  },
+  "coverage": {
+    "gc-001": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-002": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-003": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-004": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "ES",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-005": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-006": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-007": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-008": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-009": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-010": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "ES",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-011": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-012": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-013": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-016": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-017": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-018": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-019": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-020": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-021": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-022": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-023": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "ES",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-024": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-025": {
+      "missing": [
+        "EC",
+        "CS",
+        "CD"
+      ]
+    },
+    "gc-026": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-027": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "ES",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    },
+    "gc-028": {
+      "missing": [
+        "AL",
+        "PR",
+        "EC",
+        "ES",
+        "CS",
+        "CD",
+        "AUI",
+        "CA"
+      ]
+    }
+  },
+  "per_chat": [
+    {
+      "chat_id": "gc-001",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-002",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-003",
+      "judge_family_conflict": true,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-004",
+      "judge_family_conflict": false,
+      "ocr_excluded": true,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-005",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-006",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-007",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-008",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-009",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-010",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-011",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-012",
+      "judge_family_conflict": false,
+      "ocr_excluded": true,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-013",
+      "judge_family_conflict": false,
+      "ocr_excluded": true,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-016",
+      "judge_family_conflict": true,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-017",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-018",
+      "judge_family_conflict": true,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-019",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-020",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-021",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-022",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-023",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-024",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-025",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {
+        "AL": 0.15000000000000002,
+        "PR": 0.15,
+        "AUI": 0.15000000000000002,
+        "CA": 0.15000000000000002
+      }
+    },
+    {
+      "chat_id": "gc-026",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-027",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    },
+    {
+      "chat_id": "gc-028",
+      "judge_family_conflict": false,
+      "ocr_excluded": false,
+      "abs_errors": {}
+    }
+  ],
+  "judge_unavailable_chats": []
+}

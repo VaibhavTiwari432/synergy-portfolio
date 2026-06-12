@@ -183,3 +183,88 @@ def test_client_flags_gemini_partner_sessions():
         _session(family=JUDGE_FAMILY)
     )
     assert out.judge_family_conflict is True
+
+
+# ── openai-family judge (re-judge path, non-negotiable #20) ──────────────────
+
+from src.trait.judge.client import (  # noqa: E402 — appended with its tests
+    DEFAULT_OPENAI_JUDGE_MODEL,
+    JUDGE_MODEL,
+    REJUDGE_MODEL_ENV,
+    openai_family_judge,
+)
+
+
+def test_openai_judge_model_from_env_and_family_openai(monkeypatch):
+    monkeypatch.setenv(REJUDGE_MODEL_ENV, "openai/gpt-4.1-mini")
+    client = openai_family_judge(generate=lambda s, u: _good_json(), sleep=lambda _: None)
+    out = client.score_session(_session(family="google"))
+    assert out.judge_family == "openai"
+    assert out.judge_model == "openai/gpt-4.1-mini"
+
+
+def test_openai_judge_default_model_when_env_unset(monkeypatch):
+    monkeypatch.delenv(REJUDGE_MODEL_ENV, raising=False)
+    client = openai_family_judge(generate=lambda s, u: _good_json(), sleep=lambda _: None)
+    out = client.score_session(_session(family="google"))
+    assert out.judge_family == "openai"
+    assert out.judge_model == DEFAULT_OPENAI_JUDGE_MODEL == "openai/gpt-4o-mini"
+
+
+def test_openai_judge_has_no_fallback_transport(monkeypatch):
+    monkeypatch.delenv(REJUDGE_MODEL_ENV, raising=False)
+    client = openai_family_judge(generate=lambda s, u: _good_json(), sleep=lambda _: None)
+    assert client._fallback is None  # never a silent Gemini fallback
+
+
+def test_openai_judge_google_partner_no_conflict(monkeypatch):
+    monkeypatch.delenv(REJUDGE_MODEL_ENV, raising=False)
+    client = openai_family_judge(generate=lambda s, u: _good_json(), sleep=lambda _: None)
+    out = client.score_session(_session(family="google"))
+    assert out.judge_family_conflict is False  # the whole point of the re-judge
+    assert out.judge_unavailable is False
+
+
+def test_openai_judge_openai_partner_flags_conflict(monkeypatch):
+    monkeypatch.delenv(REJUDGE_MODEL_ENV, raising=False)
+    client = openai_family_judge(generate=lambda s, u: _good_json(), sleep=lambda _: None)
+    out = client.score_session(_session(family="openai"))
+    assert out.judge_family_conflict is True  # ADR-0002 / D-001
+
+
+@pytest.mark.parametrize("bad_model", [
+    "anthropic/claude-sonnet-4",
+    "claude-3-5-haiku",
+    "Anthropic/Claude-Opus",
+    "some-vendor/ANTHROPIC-special",
+])
+def test_openai_judge_rejects_anthropic_models(bad_model, monkeypatch):
+    monkeypatch.delenv(REJUDGE_MODEL_ENV, raising=False)
+    with pytest.raises(ValueError):
+        openai_family_judge(bad_model, generate=lambda s, u: _good_json())
+
+
+def test_openai_judge_rejects_anthropic_models_from_env(monkeypatch):
+    monkeypatch.setenv(REJUDGE_MODEL_ENV, "anthropic/claude-sonnet-4")
+    with pytest.raises(ValueError):
+        openai_family_judge(generate=lambda s, u: _good_json())
+
+
+@pytest.mark.parametrize("non_openai_model", [
+    "google/gemini-2.5-flash",   # the D-003 case: google id with openai provenance
+    "mistralai/mistral-large",
+    "gpt-4o-mini",               # right family, wrong form — no provider prefix
+])
+def test_openai_judge_requires_openai_prefix(non_openai_model, monkeypatch):
+    monkeypatch.delenv(REJUDGE_MODEL_ENV, raising=False)
+    with pytest.raises(ValueError):
+        openai_family_judge(non_openai_model, generate=lambda s, u: _good_json())
+
+
+def test_default_client_regression_pin_gemini_google():
+    out = JudgeClient(generate=lambda s, u: _good_json(), sleep=lambda _: None).score_session(
+        _session(family="openai")
+    )
+    assert out.judge_model == JUDGE_MODEL == "gemini-2.5-flash"
+    assert out.judge_family == "google"
+    assert out.judge_family_conflict is False
