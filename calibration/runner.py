@@ -12,8 +12,13 @@ but does not gate). Per D-001 the runner reports TWO numbers:
 The ratchet gate fires on the SHADOW number (same corpus as v1.3); the
 headline is the going-forward reference once re-judging lands. Pairs where
 the gold target is None (not_applicable) or the prediction is None
-(N/A / INSUFFICIENT_SAMPLE) are excluded from MAE — absent ≠ zero — and the
-absent-prediction count is reported as coverage.
+(N/A / INSUFFICIENT_SAMPLE) are excluded from MAE — absent ≠ zero.
+
+D-002 coverage gate: a missing prediction is an ERROR, not a skip. A chat
+where the judge was unavailable or returned fewer than MIN_VALID_DIMS valid
+dimension scores is excluded from MAE entirely and counted against coverage.
+Gate A = MAE ≤ 0.2994 AND headline-pool coverage ≥ COVERAGE_FLOOR_PCT — a
+near-empty run can never pass on a lucky MAE.
 """
 
 from __future__ import annotations
@@ -29,6 +34,12 @@ from calibration.gold_loader import GoldChat, load_gold_corpus
 
 MAE_RATCHET = 0.2994
 PER_DIM_TARGET = 0.375
+
+#: D-002 coverage gate: a chat with fewer valid dimension scores than this is
+#: a failed observation — excluded from MAE, counted against coverage
+MIN_VALID_DIMS = 4
+#: Gate A fails when headline-pool coverage drops below this, regardless of MAE
+COVERAGE_FLOOR_PCT = 80.0
 
 #: a scorer maps a session to per-dimension predictions in [0,1] (None = N/A)
 ScoreFn = Callable[[CanonicalSession], dict[Dimension, float | None]]
@@ -64,6 +75,7 @@ def run_calibration(
 ) -> dict:
     corpus = corpus if corpus is not None else load_gold_corpus()
     rows: list[ChatRow] = []
+    excluded: dict[str, str] = {}  # chat_id -> exclusion reason (D-002)
 
     for gold in corpus:
         row = ChatRow(
@@ -72,6 +84,19 @@ def run_calibration(
             ocr_excluded=gold.ocr_excluded,
         )
         predictions = score_fn(gold.session)
+
+        # D-002 coverage gate: a chat whose judge produced fewer than
+        # MIN_VALID_DIMS valid scores is not a partial observation — it is a
+        # failed observation. Excluded from MAE, counted against coverage.
+        valid_dims = sum(1 for dim in Dimension if predictions.get(dim) is not None)
+        if valid_dims < MIN_VALID_DIMS:
+            excluded[row.chat_id] = (
+                f"only {valid_dims}/8 dimensions returned valid scores "
+                f"(judge unavailable or degenerate output)"
+            )
+            rows.append(row)  # kept for per-chat reporting; no errors recorded
+            continue
+
         for dim in Dimension:
             target = gold.targets[dim]
             if target is None:
@@ -83,11 +108,23 @@ def run_calibration(
             row.abs_errors[dim.value] = abs(pred - target)
         rows.append(row)
 
-    shadow_overall, shadow_per_dim = _mae(rows)
-    headline_rows = [r for r in rows if not r.judge_family_conflict]
+    scored_rows = [r for r in rows if r.chat_id not in excluded]
+    shadow_overall, shadow_per_dim = _mae(scored_rows)
+    headline_rows = [r for r in scored_rows if not r.judge_family_conflict]
     headline_overall, headline_per_dim = _mae(headline_rows)
 
-    # the gate: shadow corpus (v1.3-comparable); EC tracked separately (#19)
+    # coverage over the headline pool (D-002): scored ÷ pool
+    headline_pool = [r for r in rows if not r.judge_family_conflict]
+    shadow_pool = rows
+    headline_coverage = (
+        100.0 * len(headline_rows) / len(headline_pool) if headline_pool else 0.0
+    )
+    shadow_coverage = (
+        100.0 * len(scored_rows) / len(shadow_pool) if shadow_pool else 0.0
+    )
+
+    # the gate: shadow corpus MAE (v1.3-comparable) + per-dim (EC tracked
+    # separately, #19) + headline coverage floor (D-002)
     gating_dims = {
         d: m for d, m in (shadow_per_dim or {}).items() if d != Dimension.EC.value
     }
@@ -95,18 +132,26 @@ def run_calibration(
         shadow_overall is not None
         and shadow_overall <= MAE_RATCHET
         and all(m is None or m <= PER_DIM_TARGET for m in gating_dims.values())
+        and headline_coverage >= COVERAGE_FLOOR_PCT
     )
 
     return {
         "ratchet": MAE_RATCHET,
+        "coverage_floor_pct": COVERAGE_FLOOR_PCT,
         "ratchet_passed": ratchet_passed,
         "shadow": {
-            "n_chats": len(rows),
+            "n_chats": len(shadow_pool),
+            "n_scored": len(scored_rows),
+            "n_excluded": len(shadow_pool) - len(scored_rows),
+            "coverage_pct": round(shadow_coverage, 1),
             "overall_mae": shadow_overall,
             "per_dim_mae": shadow_per_dim,
         },
         "headline": {
-            "n_chats": len(headline_rows),
+            "n_chats": len(headline_pool),
+            "n_scored": len(headline_rows),
+            "n_excluded": len(headline_pool) - len(headline_rows),
+            "coverage_pct": round(headline_coverage, 1),
             "overall_mae": headline_overall,
             "per_dim_mae": headline_per_dim,
             "excluded_conflicts": [r.chat_id for r in rows if r.judge_family_conflict],
@@ -115,9 +160,10 @@ def run_calibration(
             "shadow_mae": (shadow_per_dim or {}).get(Dimension.EC.value),
             "headline_mae": (headline_per_dim or {}).get(Dimension.EC.value),
         },
+        "excluded_chats": excluded,
         "coverage": {
             r.chat_id: {"missing": r.missing_predictions}
-            for r in rows
+            for r in scored_rows
             if r.missing_predictions
         },
         "per_chat": [

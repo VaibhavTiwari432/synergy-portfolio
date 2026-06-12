@@ -99,3 +99,82 @@ def test_overall_failure_fails_ratchet():
     result = run_calibration(lambda s: {d: 0.2 for d in Dimension}, corpus)
     assert result["shadow"]["overall_mae"] == pytest.approx(0.6)
     assert result["ratchet_passed"] is False
+
+
+# ── D-002 coverage gate ──────────────────────────────────────────────────────
+
+
+def test_judge_unavailable_chat_is_excluded_not_skipped():
+    corpus = [_gold("ok1"), _gold("dead1")]
+
+    def scorer(session) -> dict[Dimension, float | None]:
+        if session.session_id == "dead1":
+            return {d: None for d in Dimension}  # judge unavailable
+        return {d: 0.5 for d in Dimension}
+
+    result = run_calibration(scorer, corpus)
+    assert result["shadow"]["n_scored"] == 1
+    assert result["shadow"]["n_excluded"] == 1
+    assert "dead1" in result["excluded_chats"]
+    assert result["shadow"]["coverage_pct"] == 50.0
+
+
+def test_under_four_valid_dims_counts_as_failed_observation():
+    corpus = [_gold("patchy1")]
+
+    def scorer(_s) -> dict[Dimension, float | None]:
+        # only 3 of 8 dims valid → failed observation, not a partial one
+        out: dict[Dimension, float | None] = {d: None for d in Dimension}
+        for d in (Dimension.AL, Dimension.PR, Dimension.CA):
+            out[d] = 0.5
+        return out
+
+    result = run_calibration(scorer, corpus)
+    assert result["shadow"]["n_scored"] == 0
+    assert "patchy1" in result["excluded_chats"]
+    assert result["shadow"]["overall_mae"] is None
+
+
+def test_low_coverage_cannot_pass_ratchet_regardless_of_mae():
+    # the D-002 regression: one perfectly-scored chat, four dead ones —
+    # MAE is 0.0 but coverage is 20%, so the gate must fail
+    corpus = [_gold("ok1")] + [_gold(f"dead{i}") for i in range(4)]
+
+    def scorer(session) -> dict[Dimension, float | None]:
+        if session.session_id.startswith("dead"):
+            return {d: None for d in Dimension}
+        return {d: 0.5 for d in Dimension}
+
+    result = run_calibration(scorer, corpus)
+    assert result["shadow"]["overall_mae"] == 0.0
+    assert result["headline"]["coverage_pct"] == 20.0
+    assert result["ratchet_passed"] is False
+
+
+def test_coverage_floor_boundary_passes_at_80_pct():
+    corpus = [_gold(f"ok{i}") for i in range(4)] + [_gold("dead1")]
+
+    def scorer(session) -> dict[Dimension, float | None]:
+        if session.session_id == "dead1":
+            return {d: None for d in Dimension}
+        return {d: 0.5 for d in Dimension}
+
+    result = run_calibration(scorer, corpus)
+    assert result["headline"]["coverage_pct"] == 80.0
+    assert result["ratchet_passed"] is True
+
+
+def test_conflicted_dead_chat_does_not_hurt_headline_coverage():
+    # a judge-unavailable chat that is ALSO a conflict sits outside the
+    # headline pool — it cannot drag headline coverage down
+    corpus = [_gold("ok1"), _gold("gemdead", conflict=True)]
+
+    def scorer(session) -> dict[Dimension, float | None]:
+        if session.session_id == "gemdead":
+            return {d: None for d in Dimension}
+        return {d: 0.5 for d in Dimension}
+
+    result = run_calibration(scorer, corpus)
+    assert result["headline"]["coverage_pct"] == 100.0
+    assert result["shadow"]["coverage_pct"] == 50.0
+    assert result["ratchet_passed"] is True
