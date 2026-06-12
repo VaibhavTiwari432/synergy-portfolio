@@ -28,7 +28,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -182,7 +182,9 @@ class DebtMode(str, Enum):
     INSUFFICIENT_HISTORY = "INSUFFICIENT_HISTORY"
 
 
-SourceFormat = Literal["claude_export", "chatgpt_export", "plaintext"]
+# "gold_json" is the internal gold-corpus format (data/gold/chats/*.json) —
+# never an API-exposed source; the three public formats are the Scope A surface.
+SourceFormat = Literal["claude_export", "chatgpt_export", "plaintext", "gold_json"]
 PartnerFamily = Literal["anthropic", "openai", "google", "unknown"]
 Tier = Literal[1, 2, 3]
 

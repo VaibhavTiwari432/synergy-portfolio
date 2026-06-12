@@ -209,4 +209,6 @@ The pipeline (CE) passes leaves their inputs; leaves never fetch.
   leaf — flip yours to a real import as you deliver (delete the stub line in the same
   commit that lands the module).
 
-*Version log: 1.0.0 — initial freeze (Stage 0).*
+*Version log:*
+- *1.0.0 — initial freeze (Stage 0).*
+- *1.1.0 — `SourceFormat` widened with internal `"gold_json"` (the gold-corpus format; not API-exposed). No leaf signature changed; juniors: no action beyond noting the new literal.*

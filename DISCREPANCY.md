@@ -30,6 +30,26 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
 
 <!-- New discrepancies go below this line, newest at the bottom -->
 
+## D-001  [RESOLVED]  — Three Gemini-partner gold chats conflict with the Gemini judge family
+- Raised by: Chief Engineer
+- Date: 2026-06-12
+- File(s): data/gold/chats/gc-003.json, gc-016.json, gc-018.json; data/gold/metadata.json; adr/0002
+- Problem: Non-negotiable #20 (judge family ≠ partner family). The pipeline judge is
+  Gemini 2.5 Flash. The partner-family census run after the adapters landed (Stage 1,
+  tests/integration/test_gold_roundtrip.py::test_gold_corpus_partner_family_census)
+  found THREE Gemini-partner chats, not just the one (gc-003) known at ADR-0002 time:
+  gc-003 (Ritesh_Gemini), gc-016 (Puransh_Gemini), gc-018 (Shreyas_Gemini).
+  All three were judged same-family in v1.3 — and v1.3's MAE 0.2994 baseline INCLUDES them.
+- Proposed fix: flag all three; exclude from calibration until re-judged.
+- Decision: (1) All three flagged `judge_family_conflict: true` in data/gold/metadata.json.
+  (2) Excluded from the headline calibration MAE until re-judged with a non-Gemini,
+  non-Anthropic judge (OpenAI family via OpenRouter — the only family satisfying #20
+  for Gemini partners). (3) For ratchet like-for-like comparability with v1.3,
+  calibration/runner.py reports BOTH: the headline MAE on the non-conflicted set and a
+  shadow MAE on all 26 with per-chat conflict flags visible. (4) ADR-0002's consequence
+  section stands; the re-judge path is Stage-2 work.
+- Status: RESOLVED
+
 ## D-000  [RESOLVED]  — Template / smoke-test entry
 - Raised by: Chief Engineer
 - Date: setup

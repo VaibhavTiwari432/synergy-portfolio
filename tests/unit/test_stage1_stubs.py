@@ -35,13 +35,8 @@ STAGE1_MODULES: dict[str, list[str]] = {
         "src.dynamics.overlay",
     ],
     "CE": [
-        "src.ingestion.canonical",
-        "src.ingestion.adapters.claude_export",
-        "src.ingestion.adapters.chatgpt_export",
-        "src.ingestion.adapters.plaintext",
-        "src.eventlog.schema",
-        "src.eventlog.writer",
-        "src.eventlog.queries",
+        # delivered: eventlog (schema/writer/queries), ingestion.canonical,
+        # adapters (claude_export/chatgpt_export/plaintext/gold_json)
         "src.trait.judge.client",
         "src.trait.judge.prompt",
         "src.trait.judge.parser",
