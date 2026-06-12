@@ -137,10 +137,8 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
   Gate A is evaluated. Codex's two audit updates above are verified by CE
   (see commit log) and stand as delivered.
 - Status: RESOLVED
-- Decision:
-- Status: OPEN
 
-## D-004  [OPEN]  — Live Stage-2 calibration fails the ES per-dimension gate
+## D-004  [RESOLVED]  — Live Stage-2 calibration fails the ES per-dimension gate
 - Raised by: Codex
 - Date: 2026-06-12
 - File(s): calibration/results/stage2_initial.json,
@@ -160,8 +158,36 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
   ES-applicable chats and rerun the calibration report. The required OpenAI
   family re-judge for gc-003/016/018 remains separate and still needs an
   OPENROUTER_API_KEY.
-- Decision:
-- Status: OPEN
+- Decision: CONFIRMED — same diagnosis reached independently by CE: v2.0 gave ES
+  a definition but no graded anchors, so the judge collapsed to topic salience
+  with a binary scale ("ethics content present ≠ ethics behavior demonstrated").
+  Fix shipped as judge prompt v2.1: ES calibration anchors in the v1.3-EC-anchor
+  style (0.80 / 0.25 pinned to gold band centers; >0.9 reserved for multiple
+  distinct safeguarding behaviors), with prompt regression pins in
+  tests/unit/test_judge.py. Full rationale: adr/0005-judge-prompt-v2.1-es-anchors.md
+  (read it before touching the ES prompt again). Gold targets unchanged. A FULL
+  26-chat re-run under v2.1 (not just the five ES chats — one prompt version per
+  report) replaces stage2_initial.json; v2.0 results preserved at
+  calibration/results/stage2_prompt_v2.0.json. OpenRouter key tracked as D-005.
+- Status: RESOLVED
+
+## D-005  [OPEN]  — OPENROUTER_API_KEY missing: gc-003/016/018 re-judge blocked
+- Raised by: Chief Engineer
+- Date: 2026-06-12
+- File(s): calibration/run_stage2.py (--rejudge-conflicts), src/trait/judge/client.py
+  (openai_family_judge), data/gold/metadata.json (judge_family_conflicts)
+- Problem: The only remaining hard Stage-2 item besides the v2.1 confirm is
+  re-judging the three Gemini-partner gold chats (gc-003, gc-016, gc-018) with
+  an OpenAI-family judge via OpenRouter (D-001; non-negotiable #20). The code
+  path is built, tested, and routed (`python -m calibration.run_stage2
+  --rejudge-conflicts --only gc-003 gc-016 gc-018`), but no OPENROUTER_API_KEY
+  exists in the environment or .env. Until then the headline pool stays n=23.
+- Proposed fix: Human provides an OpenRouter key (gitignored .env,
+  OPENROUTER_API_KEY=...). The re-judge is a 3-chat, <5-minute run.
+- Decision: Stage 2 may close on the n=23 headline + n=26 shadow numbers with
+  this item explicitly deferred and visible (to be recorded in ADR-0006). The
+  re-judge run is the FIRST action when the key lands; nothing else blocks on it.
+- Status: OPEN (blocked on human-provided credential)
 
 ---
 
