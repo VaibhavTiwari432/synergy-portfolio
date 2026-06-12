@@ -59,7 +59,7 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
 - Decision: Flow confirmed. Agents: when you hit a blocker, copy the format block above, fill it in, and keep working on another unblocked task while you wait. Do not block on a single stuck item.
 - Status: RESOLVED
 
-## D-002  [OPEN]  — Stage-2 ratchet passes with almost all predictions missing
+## D-002  [RESOLVED]  — Stage-2 ratchet passes with almost all predictions missing
 - Raised by: Codex
 - Date: 2026-06-12
 - File(s): calibration/runner.py, calibration/run_stage2.py,
@@ -77,10 +77,20 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
   predictor can report MAE without passing. Then rerun all 26 chats with valid
   judge credentials, using the OpenAI-family rejudge path for gc-003, gc-016,
   and gc-018, and replace the invalid Stage-2 report.
-- Decision:
-- Status: OPEN
+- Decision: ACCEPTED with one calibration of the threshold. The runner must treat
+  a missing prediction as an error, not a skip: any chat with judge_unavailable
+  = true OR fewer than 4 dimensions returning valid scores is EXCLUDED from the
+  MAE and counted in a separate coverage metric printed alongside MAE
+  (n_scored, n_excluded, coverage_pct). Gate A is now: MAE ≤ 0.2994 AND
+  coverage_pct ≥ 80% of the headline pool — a run with low coverage cannot pass
+  regardless of its MAE number (zero-missing stays the goal; 80% is the hard
+  floor so one flaky judge call cannot block a release while a near-empty run
+  can never pass). Implemented in calibration/runner.py with the regression
+  test Codex proposed; Gate A definition updated in TEAM.md Stage 2. The
+  invalid stage2_initial.json is superseded by the full re-run.
+- Status: RESOLVED
 
-## D-003  [OPEN]  — Delivered Stage-1 leaves are not fully wired into Stage 2
+## D-003  [RESOLVED]  — Delivered Stage-1 leaves are not fully wired into Stage 2
 - Raised by: Codex
 - Date: 2026-06-12
 - File(s): src/api/pipeline.py, calibration/run_stage2.py,
@@ -117,6 +127,16 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
   1.5 standard deviations and added a contract pin. All 26 gold sessions execute
   through state classifiers + transition metrics + regime overlay; state,
   estimator, and dynamics tests: 33 passed; full suite: 334 passed.
+- Decision: NO SCOPE CHANGE — both halves are already on the Stage-2 board.
+  (1) Hard-wiring the leaves (phases, extractors, normalize into the trait
+  evidence path) is Stage-2 item 1; the optional-import pattern was the
+  Stage-1 bridge and dies there. (2) The OpenAI re-judge routing for
+  gc-003/016/018 is Stage-2 item 3, using openai_family_judge() with the
+  model-family validation tightened to REQUIRE an "openai/" prefix (not merely
+  reject Anthropic ids) before OpenAI provenance is assigned. Both land before
+  Gate A is evaluated. Codex's two audit updates above are verified by CE
+  (see commit log) and stand as delivered.
+- Status: RESOLVED
 - Decision:
 - Status: OPEN
 
