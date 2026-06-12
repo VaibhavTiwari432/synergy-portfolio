@@ -140,6 +140,29 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
 - Decision:
 - Status: OPEN
 
+## D-004  [OPEN]  — Live Stage-2 calibration fails the ES per-dimension gate
+- Raised by: Codex
+- Date: 2026-06-12
+- File(s): calibration/results/stage2_initial.json,
+  calibration/results/stage2_predictions_cache.json, src/trait/judge/prompt.py
+- Problem: The credentialed post-D-003 run scored all 26 chats with no judge
+  failures and 100% coverage. Shadow overall MAE is 0.2771, below the 0.2994
+  ratchet, but Gate A fails because ES MAE is 0.4600, above the 0.375
+  per-dimension ceiling. ES has only five applicable gold targets. The largest
+  errors are gc-004 (target 0.25, prediction 1.00) and gc-023 (target 0.25,
+  prediction 1.00); together they contribute 1.50 of the total 2.30 ES absolute
+  error. The other ES rows are gc-010 (0.55 -> 0.90), gc-027 (0.80 -> 1.00),
+  and gc-028 (0.25 -> 0.00). Full suite after the run: 344 passed.
+- Proposed fix: Chief Engineer should inspect the ES prompt anchors and evidence
+  interpretation for saturation at 1.00, especially on gc-004 and gc-023,
+  without changing frozen gold targets merely to pass the gate. Add focused
+  judge-prompt regression fixtures for low-ES chats, then re-judge the five
+  ES-applicable chats and rerun the calibration report. The required OpenAI
+  family re-judge for gc-003/016/018 remains separate and still needs an
+  OPENROUTER_API_KEY.
+- Decision:
+- Status: OPEN
+
 ---
 
 ## Quick reference — when to file here vs just build
