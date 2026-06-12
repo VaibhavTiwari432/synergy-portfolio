@@ -97,6 +97,9 @@ def _profile_from_judge(
 ) -> dict[Dimension, DimensionScore]:
     ec_evidence = assess_ec_evidence(session, tags)
     profile: dict[Dimension, DimensionScore] = {}
+    # the judge assesses the whole session: its evidence sample is every human
+    # turn, not the exemplar turns it cites — n_eff reflects the sample
+    n_human = sum(1 for t in session.turns if t.role == "human")
 
     for dim, js in judge_output.scores.items():
         if js.score is None:
@@ -129,7 +132,7 @@ def _profile_from_judge(
             ci=ConfidenceInterval(
                 low=max(0.0, js.score - half), high=min(1.0, js.score + half)
             ),
-            n_eff=float(len(js.evidence_turns)),
+            n_eff=float(n_human),
             rung=Rung.MEASURABLE,
             evidence_turns=js.evidence_turns,
             provenance_share_displayed=share,

@@ -107,6 +107,28 @@ def test_scan_is_case_insensitive():
     assert forbidden_word_scan(["The user SURRENDERED control"], tier=1)
 
 
+@pytest.mark.parametrize("derivative", [
+    "synergize", "synergies", "synergized", "synergistic", "synergy",
+    "Synergizing", "SYNERGIES",
+])
+def test_scan_catches_all_synergy_derivatives(derivative: str):
+    # Gate B requirement: the stem scan must cover every derivative form
+    violations = forbidden_word_scan([f"a {derivative} outcome"], tier=1)
+    assert violations, f"{derivative!r} escaped the stem scan"
+
+
+@pytest.mark.parametrize("derivative", [
+    "surrendered", "surrendering", "dependence", "dependency", "dependents",
+])
+def test_scan_catches_surrender_and_dependent_derivatives(derivative: str):
+    assert forbidden_word_scan([f"signs of {derivative} behavior"], tier=1)
+
+
+def test_scan_does_not_overmatch_unrelated_words():
+    # near-miss words sharing a prefix-of-a-prefix must not trip the scan
+    assert forbidden_word_scan(["depends on the input", "syntax errors"], tier=1) == []
+
+
 # ── report generation ────────────────────────────────────────────────────────
 
 
