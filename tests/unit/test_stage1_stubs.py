@@ -14,15 +14,7 @@ import pytest
 STAGE1_MODULES: dict[str, list[str]] = {
     # owner: modules
     "CODEX": [
-        # delivered: trait.tagger, trait.phase_classifier
-        "src.trait.extractors.per_dimension.al",
-        "src.trait.extractors.per_dimension.pr",
-        "src.trait.extractors.per_dimension.ec",
-        "src.trait.extractors.per_dimension.es",
-        "src.trait.extractors.per_dimension.cs",
-        "src.trait.extractors.per_dimension.cd",
-        "src.trait.extractors.per_dimension.aui",
-        "src.trait.extractors.per_dimension.ca",
+        # delivered: trait.tagger, trait.phase_classifier, 8 extractors
         "src.aggregate.normalize",
     ],
     "ANTIGRAVITY": [
