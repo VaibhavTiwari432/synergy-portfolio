@@ -18,10 +18,7 @@ STAGE1_MODULES: dict[str, list[str]] = {
         # aggregate.normalize
     ],
     "ANTIGRAVITY": [
-        "src.state.load_classifier",
-        "src.state.epistemic_classifier",
-        "src.state.metacog_classifier",
-        "src.state.tomer_slope",
+        # delivered: state.{load,epistemic,metacog}_classifier, state.tomer_slope
         "src.dynamics.transitions",
         "src.dynamics.overlay",
     ],
