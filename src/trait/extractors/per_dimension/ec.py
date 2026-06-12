@@ -5,7 +5,7 @@ Leaf module (INTERFACES.md §1.3): imports ONLY from contracts/.
 Deterministic EC neurons:
 - EC-06 Isolated Verification Rigor — verification-marker rate over human turns
   (VERIFY intent tags are the marker source)
-- EC-07 Omission Detection — probing what the AI left out, on multi-sentence turns
+- EC-07 interrogative-to-affirmative sentence ratio on multi-sentence turns
 - EC-09 Temporal Coherence Validation — VALENCE −1 in the contract table: the
   deterministic detector fires on DEBT occurrences (confident unhedged AI claim
   followed by no verification). The reported strength is the raw debt rate;
@@ -27,12 +27,6 @@ from contracts.schemas import (
 
 DIM = Dimension.EC
 
-_OMISSION_RE = re.compile(
-    r"\bwhat about\b|\byou (didn'?t|did not|forgot to) (mention|include|cover|address)\b"
-    r"|\bwhat('?s| is) missing\b|\bdid you (consider|include|account for)\b"
-    r"|\banything else (i|we) should\b|\bwhat else\b|\bleft out\b",
-    re.IGNORECASE,
-)
 _HEDGE_RE = re.compile(
     r"\b(might|may|could|possibly|probably|perhaps|roughly|approximately|i think|"
     r"i believe|likely|unsure|not certain|it depends)\b",
@@ -45,8 +39,8 @@ _CONFIDENT_CLAIM_RE = re.compile(
 )
 
 
-def _sentence_count(text: str) -> int:
-    return len([s for s in re.split(r"[.!?]+", text) if s.strip()])
+def _sentences(text: str) -> list[str]:
+    return [s.strip() for s in re.findall(r"[^.!?]+(?:[.!?]+|$)", text) if s.strip()]
 
 
 def extract(
@@ -73,37 +67,50 @@ def extract(
             firings["EC-06"] = len(verify_turns) / len(human_turns)
             evidence["EC-06"] = verify_turns
 
-    # EC-07 — omission probing on multi-sentence human turns
-    multi_sentence = [t for t in human_turns if _sentence_count(t.text) >= 2]
+    # EC-07 — interrogative-to-affirmative ratio on multi-sentence human turns
+    multi_sentence = [t for t in human_turns if len(_sentences(t.text)) >= 2]
     if multi_sentence:
-        probes = [t.index for t in multi_sentence if _OMISSION_RE.search(t.text)]
+        ratios: list[float] = []
+        interrogative_turns: list[int] = []
+        for turn in multi_sentence:
+            sentences = _sentences(turn.text)
+            questions = sum(sentence.endswith("?") for sentence in sentences)
+            ratios.append(questions / len(sentences))
+            if questions:
+                interrogative_turns.append(turn.index)
         opportunities["EC-07"] = len(multi_sentence)
-        if probes:
-            firings["EC-07"] = len(probes) / len(multi_sentence)
-            evidence["EC-07"] = probes
+        if interrogative_turns:
+            firings["EC-07"] = sum(ratios) / len(ratios)
+            evidence["EC-07"] = interrogative_turns
 
     # EC-09 — confident unhedged AI claims left unverified (debt direction)
     confident_ai = [
-        t.index for t in session.turns
+        t for t in session.turns
         if t.role == "ai"
         and _CONFIDENT_CLAIM_RE.search(t.text)
         and not _HEDGE_RE.search(t.text)
     ]
     if confident_ai:
-        unverified: list[int] = []
-        for ai_idx in confident_ai:
+        applicable_claims = 0
+        unverified_evidence: list[int] = []
+        for ai_turn in confident_ai:
             next_two_human = [
-                t.index for t in session.turns if t.role == "human" and t.index > ai_idx
+                t.index for t in session.turns
+                if t.role == "human" and t.index > ai_turn.index
             ][:2]
+            if not next_two_human:
+                continue
+            applicable_claims += 1
             if not any(
                 IntentTag.VERIFY in tags_by_turn.get(h, frozenset())
                 for h in next_two_human
             ):
-                unverified.append(ai_idx)
-        opportunities["EC-09"] = len(confident_ai)
-        if unverified:
-            firings["EC-09"] = len(unverified) / len(confident_ai)
-            evidence["EC-09"] = unverified
+                unverified_evidence.append(next_two_human[0])
+        if applicable_claims:
+            opportunities["EC-09"] = applicable_claims
+        if unverified_evidence:
+            firings["EC-09"] = len(unverified_evidence) / applicable_claims
+            evidence["EC-09"] = list(dict.fromkeys(unverified_evidence))
 
     return {
         "neuron_firings": firings,

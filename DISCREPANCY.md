@@ -59,6 +59,61 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
 - Decision: Flow confirmed. Agents: when you hit a blocker, copy the format block above, fill it in, and keep working on another unblocked task while you wait. Do not block on a single stuck item.
 - Status: RESOLVED
 
+## D-002  [OPEN]  — Stage-2 ratchet passes with almost all predictions missing
+- Raised by: Codex
+- Date: 2026-06-12
+- File(s): calibration/runner.py, calibration/run_stage2.py,
+  calibration/results/stage2_initial.json, tests/unit/test_calibration.py
+- Problem: `stage2_initial.json` reports `ratchet_passed: true` and overall MAE
+  0.15, but only four applicable predictions from gc-025 contributed errors.
+  Nearly every applicable dimension on the other chats is listed as missing.
+  `run_calibration()` excludes absent predictions from MAE but does not require
+  complete applicable-prediction coverage before passing the release gate. The
+  current shell also has no GEMINI_API_KEY, GOOGLE_API_KEY, or OPENROUTER_API_KEY,
+  so the required real-judge rerun cannot currently fill that coverage.
+- Proposed fix: Add a coverage gate over every non-null gold target; report
+  required, present, missing, and coverage ratio; require zero missing applicable
+  predictions for `ratchet_passed`. Add a regression test proving a patchy
+  predictor can report MAE without passing. Then rerun all 26 chats with valid
+  judge credentials, using the OpenAI-family rejudge path for gc-003, gc-016,
+  and gc-018, and replace the invalid Stage-2 report.
+- Decision:
+- Status: OPEN
+
+## D-003  [OPEN]  — Delivered Stage-1 leaves are not fully wired into Stage 2
+- Raised by: Codex
+- Date: 2026-06-12
+- File(s): src/api/pipeline.py, calibration/run_stage2.py,
+  src/trait/judge/client.py
+- Problem: `src/api/pipeline.py` still uses optional imports for delivered
+  Stage-1 leaves. It invokes the tagger and state/dynamics leaves, but does not
+  invoke `classify_phases`, the eight deterministic extractors, or
+  `normalize_counts`; the trait profile is built directly from judge output.
+  The new `openai_family_judge()` factory also has test callers only, so
+  `run_stage2.py` still sends gc-003, gc-016, and gc-018 through the default
+  Google-family judge instead of the required OpenAI-family rejudge path. Its
+  current model validation rejects Anthropic IDs but does not require an
+  OpenAI-family ID; for example, a Google model could be accepted and then
+  incorrectly recorded as `judge_family="openai"`.
+- Proposed fix: Replace optional leaf loading with hard Stage-2 imports, wire
+  tagger -> phase classifier -> deterministic extractors -> normalization into
+  the trait evidence path defined by INTERFACES.md, and route Google-partner
+  calibration chats through `openai_family_judge()`. Add integration tests that
+  fail when a delivered leaf is skipped and assert the three rejudged chats have
+  no judge-family conflict. Validate the selected rejudge model as genuinely
+  OpenAI-family before assigning OpenAI provenance.
+- Codex update (2026-06-12): Audited the deterministic trait leaves against
+  `contract_table.yaml` before integration. Corrected PR-02 to detect
+  constraint/example/success-criteria markers, PR-05 to compute the
+  generative-vs-extractive prompt ratio with its two-prompt applicability gate,
+  EC-07 to compute the interrogative sentence ratio, and EC-09 to emit only
+  supporting human-turn indices and require a following human opportunity.
+  Added regression and evidence-index tests. Trait-focused suite: 78 passed;
+  all 26 gold sessions execute through tag -> phase -> extract -> normalize;
+  full suite: 333 passed.
+- Decision:
+- Status: OPEN
+
 ---
 
 ## Quick reference — when to file here vs just build

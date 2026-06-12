@@ -118,11 +118,41 @@ def test_pr_neurons_fire_on_their_signals():
     ])
     out = _run(pr, s)
     assert out["neuron_firings"]["PR-02"] == pytest.approx(1 / 3)
-    assert out["neuron_firings"]["PR-05"] == pytest.approx(1 / 3)
+    assert out["neuron_firings"]["PR-05"] == 1.0
     assert out["neuron_firings"]["PR-07"] == pytest.approx(1 / 3)
     # PR-14: applicable prompts are those after the first AI turn (2 of them)
     assert out["applicable_opportunities"]["PR-14"] == 2
     assert out["neuron_firings"]["PR-14"] == pytest.approx(1 / 2)
+
+
+def test_pr02_matches_contract_markers_not_generic_step_sequencing():
+    s = _session([
+        ("human", "walk me through it step by step"),
+        ("ai", "done"),
+        ("human", "the goal is a safe migration; must include rollback, for example blue-green"),
+        ("ai", "understood"),
+    ])
+    out = _run(pr, s)
+    assert out["neuron_firings"]["PR-02"] == 0.5
+    assert out["evidence_turns"]["PR-02"] == [2]
+
+
+def test_pr05_generative_vs_extractive_ratio_and_two_prompt_gate():
+    s = _session([
+        ("human", "explain why this fails"),
+        ("ai", "analysis"),
+        ("human", "compare alternatives"),
+        ("ai", "comparison"),
+        ("human", "write the final summary"),
+        ("ai", "summary"),
+    ])
+    out = _run(pr, s)
+    assert out["applicable_opportunities"]["PR-05"] == 3
+    assert out["neuron_firings"]["PR-05"] == pytest.approx(2 / 3)
+    assert out["evidence_turns"]["PR-05"] == [0, 2]
+
+    single = _run(pr, _session([("human", "explain this"), ("ai", "answer")]))
+    assert "PR-05" not in single["applicable_opportunities"]
 
 
 def test_pr14_not_applicable_before_any_ai_response():
@@ -147,14 +177,22 @@ def test_ec06_verification_rate_from_tags():
     assert out["evidence_turns"]["EC-06"] == [0]
 
 
-def test_ec07_omission_probe_on_multisentence_turns():
+def test_ec07_interrogative_to_affirmative_ratio():
     s = _session([
         ("human", "Nice summary. But what about the failure modes? You didn't mention them."),
         ("ai", "right"),
     ])
     out = _run(ec, s)
     assert out["applicable_opportunities"]["EC-07"] == 1
-    assert out["neuron_firings"]["EC-07"] == 1.0
+    assert out["neuron_firings"]["EC-07"] == pytest.approx(1 / 3)
+    assert out["evidence_turns"]["EC-07"] == [0]
+
+
+def test_ec07_affirmative_multisentence_turn_is_measured_zero():
+    s = _session([("human", "This is clear. I will use it."), ("ai", "great")])
+    out = _run(ec, s)
+    assert out["applicable_opportunities"]["EC-07"] == 1
+    assert "EC-07" not in out["neuron_firings"]
 
 
 def test_ec09_debt_rate_for_unverified_confident_claims():
@@ -166,7 +204,8 @@ def test_ec09_debt_rate_for_unverified_confident_claims():
     ])
     out = _run(ec, s)
     assert out["applicable_opportunities"]["EC-09"] == 1
-    assert out["neuron_firings"]["EC-09"] == 1.0  # debt direction (valence −1)
+    assert out["neuron_firings"]["EC-09"] == 1.0  # debt direction
+    assert out["evidence_turns"]["EC-09"] == [2]
 
 
 def test_ec09_verified_claim_does_not_fire():
@@ -179,6 +218,15 @@ def test_ec09_verified_claim_does_not_fire():
     out = _run(ec, s)
     assert out["applicable_opportunities"]["EC-09"] == 1
     assert "EC-09" not in out["neuron_firings"]
+
+
+def test_ec09_final_ai_claim_without_human_response_is_not_applicable():
+    s = _session([
+        ("human", "how many users?"),
+        ("ai", "It supports exactly 10000 users. This is definitely correct."),
+    ])
+    out = _run(ec, s)
+    assert "EC-09" not in out["applicable_opportunities"]
 
 
 # ── ES (event-triggered) ─────────────────────────────────────────────────────
@@ -205,6 +253,20 @@ def test_es01_pii_without_redaction_reports_zero_of_n():
     out = _run(es, s, events=[_ethics_event()])
     assert out["applicable_opportunities"]["ES-01"] == 1
     assert "ES-01" not in out["neuron_firings"]
+
+
+def test_all_evidence_indices_point_to_human_turns():
+    s = _session([
+        ("human", "must include an example: input: 1 output: 2; explain why"),
+        ("ai", "As of 2026, it supports exactly 10000 users, definitely."),
+        ("human", "ok thanks"),
+        ("ai", "noted"),
+    ])
+    human_indices = {turn.index for turn in s.turns if turn.role == "human"}
+    for module in ALL_MODULES.values():
+        out = _run(module, s, events=[_ethics_event()])
+        for indices in out["evidence_turns"].values():
+            assert set(indices) <= human_indices
 
 
 # ── only contract-table deterministic neurons may ever fire ─────────────────
