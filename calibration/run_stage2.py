@@ -32,9 +32,14 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--only", nargs="*", default=None,
                         help="re-judge only these chat ids (cache is kept for the rest)")
+    parser.add_argument("--rejudge-conflicts", action="store_true",
+                        help="route judge-family-conflict chats (gc-003/016/018) through "
+                             "the OpenAI-family judge via OpenRouter (D-001/D-003; "
+                             "needs OPENROUTER_API_KEY)")
     args = parser.parse_args()
 
     from src.api.pipeline import score_session  # late: needs API key in env
+    from src.trait.judge.client import openai_family_judge
 
     RESULTS_DIR.mkdir(exist_ok=True)
     cache: dict[str, dict] = {}
@@ -54,7 +59,10 @@ def main() -> int:
             continue
 
         start = time.time()
-        response = score_session(gold.session)
+        judge = None
+        if args.rejudge_conflicts and gold.judge_family_conflict:
+            judge = openai_family_judge()  # non-Gemini judge for Gemini partners
+        response = score_session(gold.session, judge=judge)
         predictions = {
             dim.value: (score.value if score.value is not None else None)
             for dim, score in response.profile.items()

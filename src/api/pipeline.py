@@ -1,16 +1,20 @@
 """
 src/api/pipeline.py — the Scope-A orchestrator. OWNER: Chief Engineer.
 
-Wires the spine end-to-end TODAY, with junior leaf modules slotting in as
-they land: each leaf is imported optionally; a missing leaf degrades to an
-honest absence (empty tags, gated-N/A metrics, caveated state channels) —
-never a fabricated value. Stage 2 replaces the optional imports with hard
-ones once the board is green.
+Stage-2 wiring (D-003): every Stage-1 leaf is a HARD import — a leaf that
+stops importing breaks the pipeline loudly instead of silently degrading.
 
 Data flow (INTERFACES.md §4):
-  session → event log → [tags, phases] → judge + evidence → trait profile
-          → state estimator → precision merge → gates → composite
+  session → event log → tags → phases → extractors (N-FIRE events) + judge
+          ∥ state estimator → precision merge → gates → composite
           → dynamics → sustainability → claims gate → ScoreResponse
+
+Deterministic extractor firings enter as EVIDENCE (N-FIRE events in the log +
+raw counts/provenance on the DimensionScore). The judge remains the VALUE
+source for dimension scores in this calibration cycle — blending deterministic
+values is a calibration decision taken against MAE data, not by default
+(legacy lesson: v1.3's score path was judge-grounded; change one variable at
+a time).
 """
 
 from __future__ import annotations
@@ -19,33 +23,44 @@ from typing import Callable
 
 from contracts.schemas import (
     CanonicalSession,
-    CellGatedProb,
     ConfidenceInterval,
     Dimension,
     DimensionScore,
     JudgeOutput,
-    RegimeOverlay,
+    Provenance,
     Rung,
     ScoreResponse,
     ScoreStatus,
     SessionFlags,
     Sustainability,
-    TransitionMetrics,
     TurnTags,
 )
 from src.aggregate.gates import gate_dimension
+from src.aggregate.normalize import normalize_counts
 from src.aggregate.softmin import compute_composite
 from src.claims.report import generate_report
 from src.claims.tier_engine import detect_tier, enforce
+from src.dynamics.overlay import regime_overlay
 from src.dynamics.reactions import compute_reactions
-from src.eventlog.writer import new_log
+from src.dynamics.transitions import compute_transitions
+from src.eventlog.writer import append_neuron_firing, new_log
 from src.merge.precision import merge
+from src.state.epistemic_classifier import classify_epistemic
 from src.state.estimator import ProxyEstimator, StateEstimator
+from src.state.load_classifier import classify_load
+from src.state.metacog_classifier import classify_metacog
+from src.state.tomer_slope import tom_slope
 from src.sustainability.debt_tracker import s_human_hat
 from src.sustainability.ewma import debt_ewma
 from src.sustainability.lambda_proxy import lambda_estimate
 from src.trait.evidence import assess_ec_evidence
+from src.trait.extractors.per_dimension import al, aui, ca, cd, cs, ec, es, pr
 from src.trait.judge.client import JudgeClient
+from src.trait.phase_classifier import classify_phases
+from src.trait.tagger import tag_turns
+
+#: the eight deterministic extractors, in dimension order
+EXTRACTORS = (al, pr, ec, es, cs, cd, aui, ca)
 
 #: judge confidence → CI half-width (heuristic until calibration refines it):
 #: full confidence still carries a floor; zero confidence spans half the scale
@@ -55,51 +70,47 @@ _CI_SPAN = 0.45
 _THEATER_WIDENING_STEP = 0.10
 
 
-def _optional_leaves() -> dict[str, Callable | None]:
-    """Junior leaf modules — optional until their owners deliver (Stage 1)."""
-    leaves: dict[str, Callable | None] = {}
-    try:
-        from src.trait.tagger import tag_turns  # Codex
-        leaves["tag_turns"] = tag_turns
-    except ImportError:
-        leaves["tag_turns"] = None
-    try:
-        from src.state import (  # Antigravity
-            epistemic_classifier,
-            load_classifier,
-            metacog_classifier,
-            tomer_slope,
-        )
-        leaves["classify_load"] = load_classifier.classify_load
-        leaves["classify_epistemic"] = epistemic_classifier.classify_epistemic
-        leaves["classify_metacog"] = metacog_classifier.classify_metacog
-        leaves["tom_slope"] = tomer_slope.tom_slope
-    except ImportError:
-        leaves.update(classify_load=None, classify_epistemic=None,
-                      classify_metacog=None, tom_slope=None)
-    try:
-        from src.dynamics.transitions import compute_transitions  # Antigravity
-        leaves["compute_transitions"] = compute_transitions
-    except ImportError:
-        leaves["compute_transitions"] = None
-    try:
-        from src.dynamics.overlay import regime_overlay  # Antigravity
-        leaves["regime_overlay"] = regime_overlay
-    except ImportError:
-        leaves["regime_overlay"] = None
-    return leaves
+def _run_extractors(
+    session: CanonicalSession,
+    tags: list[TurnTags],
+    phases: list,
+    log,
+) -> tuple[dict[Dimension, dict[str, float]], dict[Dimension, dict[str, int]]]:
+    """Run the 8 deterministic extractors; write every firing into the event
+    log as N-FIRE (order preserved) and return firings + opportunities."""
+    firings: dict[Dimension, dict[str, float]] = {}
+    opportunities: dict[Dimension, dict[str, int]] = {}
+    for module in EXTRACTORS:
+        out = module.extract(session, tags, phases, list(log.events))
+        firings[module.DIM] = out["neuron_firings"]
+        opportunities[module.DIM] = out["applicable_opportunities"]
+        for neuron_id, strength in out["neuron_firings"].items():
+            turns = out["evidence_turns"].get(neuron_id) or [0]
+            append_neuron_firing(
+                log,
+                neuron_id=neuron_id,
+                strength=strength,
+                turn_index=turns[0],
+                provenance=Provenance.DISPLAYED,
+            )
+    return firings, opportunities
 
 
 def _profile_from_judge(
     judge_output: JudgeOutput,
     session: CanonicalSession,
     tags: list[TurnTags],
+    extractor_firings: dict[Dimension, dict[str, float]] | None = None,
+    extractor_opportunities: dict[Dimension, dict[str, int]] | None = None,
 ) -> dict[Dimension, DimensionScore]:
     ec_evidence = assess_ec_evidence(session, tags)
     profile: dict[Dimension, DimensionScore] = {}
     # the judge assesses the whole session: its evidence sample is every human
     # turn, not the exemplar turns it cites — n_eff reflects the sample
     n_human = sum(1 for t in session.turns if t.role == "human")
+    normalized = normalize_counts(
+        extractor_firings or {}, extractor_opportunities or {}
+    ).per_dimension
 
     for dim, js in judge_output.scores.items():
         if js.score is None:
@@ -125,6 +136,16 @@ def _profile_from_judge(
         if judge_output.judge_family_conflict:
             flags.append("judge_family_conflict")
 
+        # deterministic evidence enrichment: raw counts ride on the score so
+        # nothing the extractors saw is lost, even while the judge owns value
+        norm = normalized.get(dim)
+        raw_counts: dict[str, int] = {}
+        if norm is not None and norm.status == ScoreStatus.OK:
+            raw_counts = {
+                "extractor_opportunities": norm.applicable_opportunities,
+                "extractor_fired_pct": int(round(100 * (norm.normalized or 0.0))),
+            }
+
         profile[dim] = DimensionScore(
             dim=dim,
             status=ScoreStatus.OK,
@@ -133,6 +154,7 @@ def _profile_from_judge(
                 low=max(0.0, js.score - half), high=min(1.0, js.score + half)
             ),
             n_eff=float(n_human),
+            raw_counts=raw_counts,
             rung=Rung.MEASURABLE,
             evidence_turns=js.evidence_turns,
             provenance_share_displayed=share,
@@ -141,47 +163,33 @@ def _profile_from_judge(
     return profile
 
 
-def _empty_transitions() -> TransitionMetrics:
-    gated = CellGatedProb()
-    return TransitionMetrics(
-        verify_after_error_rate=gated,
-        constraint_before_generation_rate=gated,
-        prediction_before_answer_rate=gated,
-        revision_after_output_rate=gated,
-    )
-
-
 def score_session(
     session: CanonicalSession,
     *,
     judge: JudgeClient | None = None,
     estimator: StateEstimator | None = None,
 ) -> ScoreResponse:
-    leaves = _optional_leaves()
-    log = new_log(session)  # detectors append as leaf modules land
+    log = new_log(session)
     tier = detect_tier(session)
 
-    # ── tags (Codex leaf; absent → empty tag lists, honestly untagged) ──
-    if leaves["tag_turns"] is not None:
-        tags = leaves["tag_turns"](session)
-    else:
-        tags = [
-            TurnTags(turn_index=t.index, tags=[])
-            for t in session.turns
-            if t.role == "human"
-        ]
+    # ── leaves: tags → phases → deterministic extractors (N-FIRE events) ──
+    tags = tag_turns(session)
+    phases = classify_phases(session, tags)
+    firings, opportunities = _run_extractors(session, tags, phases, log)
 
     # ── trait channel ──
     judge = judge or JudgeClient()
     judge_output = judge.score_session(session)
-    trait_profile = _profile_from_judge(judge_output, session, tags)
+    trait_profile = _profile_from_judge(
+        judge_output, session, tags, firings, opportunities
+    )
 
     # ── state channel (sibling, same inputs) ──
     estimator = estimator or ProxyEstimator(
-        classify_load=leaves["classify_load"],
-        classify_epistemic=leaves["classify_epistemic"],
-        classify_metacog=leaves["classify_metacog"],
-        tom_slope=leaves["tom_slope"],
+        classify_load=classify_load,
+        classify_epistemic=classify_epistemic,
+        classify_metacog=classify_metacog,
+        tom_slope=tom_slope,
     )
     state_strip, state_validity = estimator.estimate(session, tags)
 
@@ -191,18 +199,10 @@ def score_session(
 
     composite = compute_composite(profile, state_validity)
 
-    # ── dynamics (Antigravity leaves; absent → gated N/A) ──
+    # ── dynamics (event log + tags only) ──
     events = list(log.events)
-    transitions = (
-        leaves["compute_transitions"](events, tags)
-        if leaves["compute_transitions"] is not None
-        else _empty_transitions()
-    )
-    overlay = (
-        leaves["regime_overlay"](events, tags)
-        if leaves["regime_overlay"] is not None
-        else RegimeOverlay()
-    )
+    transitions = compute_transitions(events, tags)
+    overlay = regime_overlay(events, tags)
     reactions = compute_reactions(events, tags, transitions)
 
     # ── sustainability ──

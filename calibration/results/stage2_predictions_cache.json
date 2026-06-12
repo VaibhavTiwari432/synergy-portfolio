@@ -1,0 +1,122 @@
+{
+  "gc-001": {
+    "predictions": {
+      "AL": 1.0,
+      "PR": 0.9,
+      "EC": 0.6,
+      "ES": null,
+      "CS": 1.0,
+      "CD": 1.0,
+      "AUI": 0.9,
+      "CA": 1.0
+    },
+    "judge_unavailable": false,
+    "judge_family_conflict": false,
+    "elapsed_s": 27.6
+  },
+  "gc-002": {
+    "predictions": {
+      "AL": 0.9,
+      "PR": 0.9,
+      "EC": 0.08,
+      "ES": null,
+      "CS": 0.9,
+      "CD": 0.1,
+      "AUI": 0.9,
+      "CA": 0.8
+    },
+    "judge_unavailable": false,
+    "judge_family_conflict": false,
+    "elapsed_s": 33.6
+  },
+  "gc-003": {
+    "predictions": {
+      "AL": 1.0,
+      "PR": 1.0,
+      "EC": 1.0,
+      "ES": null,
+      "CS": 1.0,
+      "CD": 0.3,
+      "AUI": 1.0,
+      "CA": 1.0
+    },
+    "judge_unavailable": false,
+    "judge_family_conflict": true,
+    "elapsed_s": 96.2
+  },
+  "gc-004": {
+    "predictions": {
+      "AL": 1.0,
+      "PR": 1.0,
+      "EC": 0.08,
+      "ES": 0.8,
+      "CS": 0.7,
+      "CD": 1.0,
+      "AUI": 1.0,
+      "CA": 0.9
+    },
+    "judge_unavailable": false,
+    "judge_family_conflict": false,
+    "elapsed_s": 18.0
+  },
+  "gc-005": {
+    "predictions": {
+      "AL": 1.0,
+      "PR": 1.0,
+      "EC": 0.9,
+      "ES": null,
+      "CS": 1.0,
+      "CD": 1.0,
+      "AUI": 0.8,
+      "CA": 1.0
+    },
+    "judge_unavailable": false,
+    "judge_family_conflict": false,
+    "elapsed_s": 17.9
+  },
+  "gc-006": {
+    "predictions": {
+      "AL": 1.0,
+      "PR": 1.0,
+      "EC": 0.7,
+      "ES": null,
+      "CS": 1.0,
+      "CD": 0.3,
+      "AUI": 1.0,
+      "CA": 1.0
+    },
+    "judge_unavailable": false,
+    "judge_family_conflict": false,
+    "elapsed_s": 21.8
+  },
+  "gc-007": {
+    "predictions": {
+      "AL": 0.9,
+      "PR": 0.8,
+      "EC": 0.8,
+      "ES": null,
+      "CS": 1.0,
+      "CD": 1.0,
+      "AUI": 0.9,
+      "CA": 1.0
+    },
+    "judge_unavailable": false,
+    "judge_family_conflict": false,
+    "elapsed_s": 21.1
+  },
+  "gc-008": {
+    "predictions": {
+      "AL": 1.0,
+      "PR": 1.0,
+      "EC": 0.15,
+      "ES": null,
+      "CS": 1.0,
+      "CD": 0.7,
+      "AUI": 1.0,
+      "CA": 1.0
+    },
+    "judge_unavailable": false,
+    "judge_family_conflict": false,
+    "elapsed_s": 35.2
+  }
+}
