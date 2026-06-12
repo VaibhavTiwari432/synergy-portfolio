@@ -14,8 +14,7 @@ import pytest
 STAGE1_MODULES: dict[str, list[str]] = {
     # owner: modules
     "CODEX": [
-        # delivered: trait.tagger
-        "src.trait.phase_classifier",
+        # delivered: trait.tagger, trait.phase_classifier
         "src.trait.extractors.per_dimension.al",
         "src.trait.extractors.per_dimension.pr",
         "src.trait.extractors.per_dimension.ec",
