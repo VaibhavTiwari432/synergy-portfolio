@@ -28,9 +28,9 @@ def test_loads_26_chats_with_targets_and_flags():
     assert gc1.targets[Dimension.AUI] == 0.55
     assert gc1.targets[Dimension.ES] is None
 
-    assert {g for g, c in by_id.items() if c.judge_family_conflict} == {
-        "gc-003", "gc-016", "gc-018"
-    }
+    # D-005 resolved 2026-06-12: gc-003/016/018 re-judged with an OpenAI-family
+    # judge — the conflicts list is empty and the headline pool is the full corpus
+    assert {g for g, c in by_id.items() if c.judge_family_conflict} == set()
     assert {g for g, c in by_id.items() if c.ocr_excluded} == {
         "gc-004", "gc-012", "gc-013"
     }
