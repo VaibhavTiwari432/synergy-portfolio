@@ -14,8 +14,8 @@ import pytest
 STAGE1_MODULES: dict[str, list[str]] = {
     # owner: modules
     "CODEX": [
-        # delivered: trait.tagger, trait.phase_classifier, 8 extractors
-        "src.aggregate.normalize",
+        # ALL delivered: trait.tagger, trait.phase_classifier, 8 extractors,
+        # aggregate.normalize
     ],
     "ANTIGRAVITY": [
         "src.state.load_classifier",
