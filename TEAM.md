@@ -97,15 +97,15 @@ Disjoint files. No overlaps.
 - [x] `src/api/*.py` — FastAPI app + routes + auth (fails closed) + SQLite store (10 contract tests)
 - [x] `calibration/runner.py` — the MAE ratchet (headline vs shadow per D-001; 7 tests)
 
-### STAGE 2 — Integration + ratchet (Chief Engineer, Codex on standby for fixes)
+### STAGE 2 — Integration + ratchet ✅ CLOSED 2026-06-12 (ADR-0006)
 - [x] Leaf modules load into the pipeline (optional-import wiring resolves all 17; hard-wiring per D-003 = item below)
-- [ ] Hard-wire leaves: phases + extractors + normalize into the trait evidence path (D-003)
-- [ ] Run calibration → **Gate A: overall MAE ≤ 0.2994 AND coverage ≥ 80% of the headline pool** (coverage gate per D-002: a chat with judge_unavailable or <4 valid dims is excluded from MAE and counted against coverage; low coverage fails the gate regardless of MAE)
-- [x] Contract tests (tier gating, forbidden words incl. stem derivatives, rung tags, minor protection) — green (Gate B)
-- [x] Synthetic fixtures (precision/CI, state caveat, EWMA modes, FTM gating, no-latent audit) — green (Gate C)
-- [x] `POST /v1/sessions` → `GET /v1/sessions/{id}/score` full valid response — green in contract tests (Gate D; re-verify against live judge at close)
-- [ ] Re-judge gc-003/016/018 via `openai_family_judge()` (D-001/D-003)
-- [ ] If a leaf module fails its contract → file a discrepancy (§5), assign back to its owner — done once (PR-02/PR-05/EC-07/EC-09 fixed by Codex, verified by CE)
+- [x] Hard-wire leaves: phases + extractors + normalize into the trait evidence path (D-003)
+- [x] Run calibration → **Gate A: overall MAE ≤ 0.2994 AND coverage ≥ 80% of the headline pool** — ✅ PASSED with prompt v2.1: shadow 0.2368 (n=26), headline 0.2502 (n=23), coverage 100%/100%, all per-dim ≤ 0.375 (`calibration/results/stage2_final.json`)
+- [x] Contract tests (tier gating, forbidden words incl. stem derivatives, rung tags, minor protection) — green (Gate B: 49 + 7 stem tests, explicit run)
+- [x] Synthetic fixtures (precision/CI, state caveat, EWMA modes, FTM gating, no-latent audit) — green (Gate C: 60 tests, explicit run)
+- [x] `POST /v1/sessions` → `GET /v1/sessions/{id}/score` full valid response — ✅ Gate D PASSED live (real Gemini judge, fresh non-gold 14-turn chat, 19/19 checks — `calibration/gate_d_smoke.py`)
+- [ ] Re-judge gc-003/016/018 via `openai_family_judge()` — DEFERRED on D-005 (OPENROUTER_API_KEY); first action when the key lands; not a close blocker per project-lead decision
+- [x] If a leaf module fails its contract → file a discrepancy (§5), assign back to its owner — done once (PR-02/PR-05/EC-07/EC-09 fixed by Codex, verified by CE)
 
 ---
 
