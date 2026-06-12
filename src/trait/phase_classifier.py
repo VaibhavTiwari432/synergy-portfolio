@@ -59,6 +59,8 @@ _STRONG_EXPLORE_RE = re.compile(r"\bwhat if\b|\bimagine\b|\bsuppose\b|\bbrainsto
 
 
 def _phase_for(text: str, tags: frozenset[IntentTag]) -> Phase:
+    # Known: whole-turn matching; "review" outranks "fix". See gc-023 audit
+    # note; revisit if phase distribution shifts on a larger corpus.
     if tags & _EVALUATE_TAGS or any(p.search(text) for p in _EVALUATE_RE):
         return Phase.EVALUATE
     if _STRONG_EXPLORE_RE.search(text):
