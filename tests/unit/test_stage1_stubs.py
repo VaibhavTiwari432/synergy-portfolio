@@ -36,10 +36,8 @@ STAGE1_MODULES: dict[str, list[str]] = {
     ],
     "CE": [
         # delivered: eventlog (schema/writer/queries), ingestion.canonical,
-        # adapters (claude_export/chatgpt_export/plaintext/gold_json)
-        "src.trait.judge.client",
-        "src.trait.judge.prompt",
-        "src.trait.judge.parser",
+        # adapters (claude_export/chatgpt_export/plaintext/gold_json),
+        # judge (client/prompt/parser)
         "src.trait.evidence",
         "src.state.estimator",
         "src.merge.precision",
