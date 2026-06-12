@@ -1,8 +1,8 @@
-"""Failing-stub tests — one per Stage-1 module (brief §5 Stage 0).
+"""Stage-1 board — final state: every Stage-1 module is delivered.
 
-Each is xfail until its owner lands the module. Owners: flip your stub to a
-real import IN THE SAME COMMIT that delivers the module (INTERFACES.md §5).
-CI stays green; the xfail report is the visible build board.
+This file began as the xfail stub board (brief §5 Stage 0). All 17 leaf
+modules plus the CE spine have landed, so it is now a HARD import gate:
+a module that stops importing is a regression, not a pending stub.
 """
 
 from __future__ import annotations
@@ -11,30 +11,59 @@ import importlib
 
 import pytest
 
-STAGE1_MODULES: dict[str, list[str]] = {
-    # owner: modules
-    "CODEX": [
-        # ALL delivered: trait.tagger, trait.phase_classifier, 8 extractors,
-        # aggregate.normalize
-    ],
-    "ANTIGRAVITY": [
-        # delivered: state.{load,epistemic,metacog}_classifier, state.tomer_slope
-        "src.dynamics.transitions",
-        "src.dynamics.overlay",
-    ],
-    "CE": [
-        # ALL CE Stage-1 spine modules delivered: eventlog, ingestion (canonical
-        # + 4 adapters), judge, trait.evidence, state.estimator, merge.precision,
-        # aggregate, dynamics (reactions/reliability_map), sustainability,
-        # claims, api.main, calibration (gold_loader/runner)
-    ],
-}
+STAGE1_MODULES: list[str] = [
+    # trait leaves
+    "src.trait.tagger",
+    "src.trait.phase_classifier",
+    "src.trait.extractors.per_dimension.al",
+    "src.trait.extractors.per_dimension.pr",
+    "src.trait.extractors.per_dimension.ec",
+    "src.trait.extractors.per_dimension.es",
+    "src.trait.extractors.per_dimension.cs",
+    "src.trait.extractors.per_dimension.cd",
+    "src.trait.extractors.per_dimension.aui",
+    "src.trait.extractors.per_dimension.ca",
+    "src.aggregate.normalize",
+    # state + dynamics leaves
+    "src.state.load_classifier",
+    "src.state.epistemic_classifier",
+    "src.state.metacog_classifier",
+    "src.state.tomer_slope",
+    "src.dynamics.transitions",
+    "src.dynamics.overlay",
+    # spine
+    "src.ingestion.canonical",
+    "src.ingestion.adapters.claude_export",
+    "src.ingestion.adapters.chatgpt_export",
+    "src.ingestion.adapters.plaintext",
+    "src.ingestion.adapters.gold_json",
+    "src.eventlog.schema",
+    "src.eventlog.writer",
+    "src.eventlog.queries",
+    "src.trait.judge.client",
+    "src.trait.judge.prompt",
+    "src.trait.judge.parser",
+    "src.trait.evidence",
+    "src.state.estimator",
+    "src.merge.precision",
+    "src.aggregate.softmin",
+    "src.aggregate.gates",
+    "src.dynamics.reactions",
+    "src.dynamics.reliability_map",
+    "src.sustainability.debt_tracker",
+    "src.sustainability.ewma",
+    "src.sustainability.lambda_proxy",
+    "src.sustainability.probe_schema",
+    "src.claims.rungs",
+    "src.claims.tier_engine",
+    "src.claims.report",
+    "src.api.pipeline",
+    "src.api.main",
+    "calibration.gold_loader",
+    "calibration.runner",
+]
 
-_ALL = [(owner, mod) for owner, mods in STAGE1_MODULES.items() for mod in mods]
 
-
-@pytest.mark.stage1_stub
-@pytest.mark.parametrize("owner,module", _ALL, ids=[f"{o}:{m}" for o, m in _ALL])
-@pytest.mark.xfail(reason="Stage-1 module not yet implemented", strict=False)
-def test_stage1_module_exists(owner: str, module: str) -> None:
+@pytest.mark.parametrize("module", STAGE1_MODULES)
+def test_stage1_module_imports(module: str) -> None:
     importlib.import_module(module)
