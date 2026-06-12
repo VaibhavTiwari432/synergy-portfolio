@@ -26,7 +26,7 @@ from contracts.schemas import CanonicalSession, LoadLabel
 
 #: relative deviation threshold in session-σ units (≈ the spec's ~1.5 SD,
 #: applied to within-session variation)
-Z_THRESHOLD = 1.0
+Z_THRESHOLD = 1.5
 
 _CONFUSION_RE = re.compile(
     r"\bi('?m| am) (confused|lost|not sure i understand)\b|\bi don'?t (understand|get it)\b"

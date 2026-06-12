@@ -111,6 +111,12 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
   Added regression and evidence-index tests. Trait-focused suite: 78 passed;
   all 26 gold sessions execute through tag -> phase -> extract -> normalize;
   full suite: 333 passed.
+- Codex update (2026-06-12, state/dynamics transfer): Audited all six newly
+  transferred leaves against INTERFACES.md and brief sections 3.5/3.8. Corrected
+  `load_classifier.Z_THRESHOLD` from 1.0 to the required personal-relative
+  1.5 standard deviations and added a contract pin. All 26 gold sessions execute
+  through state classifiers + transition metrics + regime overlay; state,
+  estimator, and dynamics tests: 33 passed; full suite: 334 passed.
 - Decision:
 - Status: OPEN
 

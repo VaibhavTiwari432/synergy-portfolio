@@ -12,7 +12,7 @@ from contracts.schemas import (
     Turn,
 )
 from src.state.epistemic_classifier import classify_epistemic
-from src.state.load_classifier import classify_load
+from src.state.load_classifier import Z_THRESHOLD, classify_load
 from src.state.metacog_classifier import classify_metacog
 from src.state.tomer_slope import tom_slope
 from src.trait.tagger import tag_turns
@@ -30,6 +30,10 @@ def _session(human_texts: list[str]) -> CanonicalSession:
 
 
 # ── load classifier ──────────────────────────────────────────────────────────
+
+
+def test_load_threshold_matches_relative_contract():
+    assert Z_THRESHOLD == 1.5
 
 
 def test_load_short_sessions_default_low_load():
