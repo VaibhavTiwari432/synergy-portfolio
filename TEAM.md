@@ -9,8 +9,10 @@ Every agent reads this file at the start of every work session, before writing a
 | Agent | Role | What they own | Why |
 |---|---|---|---|
 | **Claude Code** | **Chief Engineer** | Contracts, architecture, the merge/precision layer, the claims engine, all integration, code review, discrepancy resolution | Strongest at cross-module reasoning, the parts where a mistake corrupts everything downstream |
-| **Codex** | **Junior Dev A** | Self-contained, well-specified modules with clear inputs/outputs (extractors, classifiers, metric functions) | Good at bounded, contract-driven implementation |
-| **Antigravity** | **Junior Dev B** | Self-contained modules in parallel with Codex (different files, never the same) | Good at bounded implementation; runs parallel to Codex |
+| **Codex Plus** | **Junior Dev A** | All leaf modules: trait-side (tagger, phase classifier, extractors, normalize) AND state/dynamics-side (state classifiers, transitions, overlay) | Good at bounded, contract-driven implementation |
+
+> **Team change 2026-06-12:** Antigravity left the team. All its assignments
+> (state + dynamics leaves) transferred to Codex Plus effective immediately.
 
 **The one rule that makes this work:** *Junior devs build leaf modules against frozen contracts. The Chief Engineer owns every file that more than one module depends on.* No two agents ever edit the same file in the same session.
 
@@ -61,26 +63,23 @@ Nothing else starts until these are frozen and committed.
 - [x] `INTERFACES.md` — the function signature every leaf module must implement (see §4) — v1.0.0
 - [x] Skeleton repo (all dirs, empty `__init__.py`, failing-stub tests — 43 xfail stubs in `tests/unit/test_stage1_stubs.py`)
 
-**Gate:** ✅ PASSED 2026-06-12 — schemas import cleanly (15 contract tests green), `INTERFACES.md` published. Stage 1 is open: Codex and Antigravity may start (see `AGENT_KICKOFF.md`).
+**Gate:** ✅ PASSED 2026-06-12 — schemas import cleanly (15 contract tests green), `INTERFACES.md` published. Stage 1 is open: Codex may start (see `AGENT_KICKOFF.md`).
 
-### STAGE 1 — Parallel build (Codex ∥ Antigravity ∥ Chief Engineer)
-All three work simultaneously. Each owns disjoint files. No overlaps.
+### STAGE 1 — Parallel build (Codex ∥ Chief Engineer)
+Disjoint files. No overlaps.
 
-**CODEX builds (trait-side leaf modules):**
-- [ ] `src/trait/tagger.py` — intent tagger (10 tags) → implements `tag_turns(session) -> list[TurnTags]`
-- [ ] `src/trait/phase_classifier.py` → `classify_phases(session) -> list[Phase]`
-- [ ] `src/trait/extractors/per_dimension/*.py` — deterministic extractors, one file per dimension
-- [ ] `src/aggregate/normalize.py` → `normalize_counts(raw) -> NormalizedScores`
-- [ ] Unit tests for each of the above
-
-**ANTIGRAVITY builds (state-side + dynamics leaf modules):**
-- [ ] `src/state/load_classifier.py` → `classify_load(session) -> list[LoadLabel]`
-- [ ] `src/state/epistemic_classifier.py` → `classify_epistemic(session, tags) -> list[float]`
-- [ ] `src/state/metacog_classifier.py` → `classify_metacog(session, tags) -> MetacogResult`
-- [ ] `src/state/tomer_slope.py` → `tom_slope(session) -> float`
-- [ ] `src/dynamics/transitions.py` — the 5 frozen transition metrics → `compute_transitions(eventlog) -> TransitionMetrics`
-- [ ] `src/dynamics/overlay.py` — regime overlay (rules only) → `regime_overlay(eventlog) -> RegimeResult`
-- [ ] Unit tests for each of the above
+**CODEX builds (all leaf modules — trait + state + dynamics):**
+- [x] `src/trait/tagger.py` — intent tagger (10 tags) → `tag_turns(session) -> list[TurnTags]` (33 tests)
+- [x] `src/trait/phase_classifier.py` → `classify_phases(session, tags) -> list[Phase]` (18 tests)
+- [x] `src/trait/extractors/per_dimension/*.py` — 8 files; 9 deterministic neurons (AL-08, PR-02/05/07/14, EC-06/07/09, ES-01); CS/CD/AUI/CA structurally empty per contract table (20 tests incl. contract-fix coverage)
+- [x] `src/aggregate/normalize.py` → `normalize_counts(...) -> NormalizedScores` (6 tests)
+- [x] `src/state/load_classifier.py` → `classify_load(session) -> list[LoadLabel]` — relative-z, never absolute
+- [x] `src/state/epistemic_classifier.py` → `classify_epistemic(session, tags) -> list[float]`
+- [x] `src/state/metacog_classifier.py` → `classify_metacog(session, tags) -> MetacogResult` (surrender = 3+ accept-run)
+- [x] `src/state/tomer_slope.py` → `tom_slope(session) -> (series, slope|None)` (14 tests for the four state leaves)
+- [x] `src/dynamics/transitions.py` — the 5 frozen transition metrics, cell-gated
+- [x] `src/dynamics/overlay.py` — regime overlay (rules only; no CSPC vocabulary) (12 tests for the two dynamics leaves)
+- [x] Unit tests for each of the above
 
 **CHIEF ENGINEER builds (the spine + everything multi-module):**
 - [x] `src/ingestion/adapters/*.py` — all adapters (Claude, ChatGPT, plaintext, + internal gold_json) — 26-chat lossless round-trip green
@@ -88,7 +87,7 @@ All three work simultaneously. Each owns disjoint files. No overlaps.
 - [x] `src/eventlog/*.py` — schema, writer, queries (9 property tests: append-only, ordered, idempotent)
 - [x] `src/trait/judge/*.py` — dimension-grain v2.0 (v1.3 anchors reused), Gemini + OpenRouter fallback, 16 tests
 - [x] `src/trait/evidence.py` — EC provenance + theater check (7 tests)
-- [x] `src/state/estimator.py` — StateEstimator interface + ProxyEstimator (assembles Antigravity's classifiers; 6 tests)
+- [x] `src/state/estimator.py` — StateEstimator interface + ProxyEstimator (assembles Codex's state classifiers; 6 tests)
 - [x] `src/aggregate/softmin.py` — soft non-compensatory aggregation (4 pillars, p=−2)
 - [x] `src/aggregate/gates.py` — n_eff τ=1 + scorability + state validity gates (11 tests with softmin)
 - [x] **`src/merge/precision.py`** — THE precision-weighting merge (state CI → trait). 9 synthetic-fixture tests: values never move.
@@ -98,11 +97,15 @@ All three work simultaneously. Each owns disjoint files. No overlaps.
 - [x] `src/api/*.py` — FastAPI app + routes + auth (fails closed) + SQLite store (10 contract tests)
 - [x] `calibration/runner.py` — the MAE ratchet (headline vs shadow per D-001; 7 tests)
 
-### STAGE 2 — Integration + ratchet (Chief Engineer, juniors on standby for fixes)
-- [ ] Wire all leaf modules into the pipeline
-- [ ] Run calibration → **overall MAE ≤ 0.2994 gate**
-- [ ] Contract tests (tier gating, forbidden words, rung tags)
-- [ ] If a leaf module fails its contract → file a discrepancy (§5), assign back to its owner
+### STAGE 2 — Integration + ratchet (Chief Engineer, Codex on standby for fixes)
+- [x] Leaf modules load into the pipeline (optional-import wiring resolves all 17; hard-wiring per D-003 = item below)
+- [ ] Hard-wire leaves: phases + extractors + normalize into the trait evidence path (D-003)
+- [ ] Run calibration → **Gate A: overall MAE ≤ 0.2994 AND coverage ≥ 80% of the headline pool** (coverage gate per D-002: a chat with judge_unavailable or <4 valid dims is excluded from MAE and counted against coverage; low coverage fails the gate regardless of MAE)
+- [x] Contract tests (tier gating, forbidden words incl. stem derivatives, rung tags, minor protection) — green (Gate B)
+- [x] Synthetic fixtures (precision/CI, state caveat, EWMA modes, FTM gating, no-latent audit) — green (Gate C)
+- [x] `POST /v1/sessions` → `GET /v1/sessions/{id}/score` full valid response — green in contract tests (Gate D; re-verify against live judge at close)
+- [ ] Re-judge gc-003/016/018 via `openai_family_judge()` (D-001/D-003)
+- [ ] If a leaf module fails its contract → file a discrepancy (§5), assign back to its owner — done once (PR-02/PR-05/EC-07/EC-09 fixed by Codex, verified by CE)
 
 ---
 
@@ -120,8 +123,8 @@ All three work simultaneously. Each owns disjoint files. No overlaps.
 | `src/trait/judge/**` | Chief Engineer | NEVER |
 | `src/trait/tagger.py`, `phase_classifier.py`, `extractors/**` | Codex | Only CE, only to fix a filed discrepancy |
 | `src/aggregate/normalize.py` | Codex | Only CE |
-| `src/state/{load,epistemic,metacog}_classifier.py`, `tomer_slope.py` | Antigravity | Only CE |
-| `src/dynamics/{transitions,overlay}.py` | Antigravity | Only CE |
+| `src/state/{load,epistemic,metacog}_classifier.py`, `tomer_slope.py` | Codex | Only CE |
+| `src/dynamics/{transitions,overlay}.py` | Codex | Only CE |
 | `src/aggregate/{softmin,gates}.py` | Chief Engineer | NEVER |
 | `src/sustainability/**` | Chief Engineer | NEVER |
 | `tests/**` next to a module | That module's owner | — |
@@ -139,7 +142,7 @@ Every leaf module implements EXACTLY the signature in `INTERFACES.md`. It receiv
 
 Example interface entry (Chief Engineer authors these in `INTERFACES.md`):
 ```python
-# src/state/load_classifier.py  — OWNER: Antigravity
+# src/state/load_classifier.py  — OWNER: Codex
 def classify_load(session: CanonicalSession) -> list[LoadLabel]:
     """One LoadLabel per human turn.
     LoadLabel ∈ {LOW_LOAD, HIGH_ICL, HIGH_ECL, FATIGUE}.
@@ -197,28 +200,28 @@ Each tool has usage limits. The point of three is to **keep building when one is
 
 **Limit-aware routing:**
 - The **critical path** runs through the Chief Engineer (contracts, merge, judge, integration). Reserve Claude Code capacity for these — don't spend it on leaf modules a junior can do.
-- When Claude Code is throttled: the Chief Engineer's *current* task pauses, but Codex + Antigravity keep building leaf modules against the already-frozen contracts (this is why Stage 0 must finish first — it unblocks days of parallel junior work).
-- When a junior is throttled: its tasks wait; the other junior + Chief Engineer continue. Leaf modules are independent, so one stalling never blocks another.
+- When Claude Code is throttled: the Chief Engineer's *current* task pauses, but Codex keeps building leaf modules against the already-frozen contracts (this is why Stage 0 must finish first — it unblocks days of parallel junior work).
+- When Codex is throttled: its tasks wait; the Chief Engineer continues on spine work. Leaf modules are independent, so one stalling never blocks another.
 - **Never** have a throttled agent's work picked up by another agent mid-file. Ownership is fixed. A stalled task waits for its owner or gets formally reassigned by the Chief Engineer in `TEAM.md` (with the file moved in the ownership map).
 
-**The unlock:** because everything is contract-driven and file-isolated, total throughput ≈ sum of all three agents' available capacity, not the bottleneck of any one. That is the entire point.
+**The unlock:** because everything is contract-driven and file-isolated, total throughput ≈ sum of both agents' available capacity, not the bottleneck of either one. That is the entire point.
 
 ---
 
 ## 8. Definition of done (v1 — full technical implementation, extension debated later)
 
-- [ ] All Stage 0 contracts frozen
-- [ ] All Stage 1 leaf modules built + unit-green (Codex + Antigravity)
-- [ ] All Stage 1 spine modules built (Chief Engineer)
-- [ ] Pipeline integrated end-to-end on the 28 gold chats
-- [ ] **Overall MAE ≤ 0.2994** (the ratchet)
-- [ ] CSPC proxies produce state strips on all 28 chats
-- [ ] v2.2 dynamics (FTM, 5 metrics, overlay) compute on all 28 chats
-- [ ] Sustainability layer produces debt flags + S_human on all 28 chats
-- [ ] Claims engine rung-tags everything; forbidden-word + tier contract tests green
-- [ ] `POST /v1/sessions` + `GET /v1/sessions/{id}/score` return a full valid response
+- [x] All Stage 0 contracts frozen (v1.1.0)
+- [x] All Stage 1 leaf modules built + unit-green (Codex)
+- [x] All Stage 1 spine modules built (Chief Engineer)
+- [ ] Pipeline integrated end-to-end on the 26 gold chats (ADR-0003: corpus is n=26) — pending hard-wiring (D-003) + live calibration run
+- [ ] **Overall MAE ≤ 0.2994 with coverage ≥ 80%** (the ratchet + D-002 coverage gate)
+- [ ] CSPC proxies produce state strips on all 26 chats (live run pending)
+- [ ] v2.2 dynamics (FTM, 5 metrics, overlay) compute on all 26 chats (live run pending)
+- [ ] Sustainability layer produces debt flags + S_human on all 26 chats (live run pending)
+- [x] Claims engine rung-tags everything; forbidden-word + tier contract tests green
+- [x] `POST /v1/sessions` + `GET /v1/sessions/{id}/score` return a full valid response (contract-tested with faked judge; live re-verify at Stage-2 close)
 
-**Not in v1 scope (debate later):** browser extension, portfolio UI, self-rating collection, feedback loop, multi-store sync. The API is the deliverable. It runs on the 28 chats and proves the framework computes.
+**Not in v1 scope (debate later):** browser extension, portfolio UI, self-rating collection, feedback loop, multi-store sync. The API is the deliverable. It runs on the 26 gold chats and proves the framework computes.
 
 ---
 
