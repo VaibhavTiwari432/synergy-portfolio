@@ -83,20 +83,20 @@ All three work simultaneously. Each owns disjoint files. No overlaps.
 - [ ] Unit tests for each of the above
 
 **CHIEF ENGINEER builds (the spine + everything multi-module):**
-- [ ] `src/ingestion/adapters/*.py` — all adapters (Claude, ChatGPT, plaintext)
-- [ ] `src/ingestion/canonical.py` — canonical session builder
-- [ ] `src/eventlog/*.py` — schema, writer, queries (the substrate everyone reads)
-- [ ] `src/trait/judge/*.py` — the Gemini judge (highest-risk, most expensive to get wrong)
-- [ ] `src/trait/evidence.py` — EC provenance + theater check
-- [ ] `src/state/estimator.py` — StateEstimator interface + ProxyEstimator (assembles Antigravity's classifiers)
-- [ ] `src/aggregate/softmin.py` — soft non-compensatory aggregation
-- [ ] `src/aggregate/gates.py` — scorability + state validity gates
-- [ ] **`src/merge/precision.py`** — THE precision-weighting merge (state CI → trait). Single most important file.
-- [ ] `src/dynamics/reactions.py` — E→R signatures + Dirichlet pooling (depends on eventlog + tags)
-- [ ] `src/sustainability/*.py` — debt tracker, EWMA, λ stub
-- [ ] `src/claims/*.py` — rungs, tier engine, report
-- [ ] `src/api/*.py` — FastAPI app + routes
-- [ ] `calibration/runner.py` — the MAE ratchet
+- [x] `src/ingestion/adapters/*.py` — all adapters (Claude, ChatGPT, plaintext, + internal gold_json) — 26-chat lossless round-trip green
+- [x] `src/ingestion/canonical.py` — canonical session builder
+- [x] `src/eventlog/*.py` — schema, writer, queries (9 property tests: append-only, ordered, idempotent)
+- [x] `src/trait/judge/*.py` — dimension-grain v2.0 (v1.3 anchors reused), Gemini + OpenRouter fallback, 16 tests
+- [x] `src/trait/evidence.py` — EC provenance + theater check (7 tests)
+- [x] `src/state/estimator.py` — StateEstimator interface + ProxyEstimator (assembles Antigravity's classifiers; 6 tests)
+- [x] `src/aggregate/softmin.py` — soft non-compensatory aggregation (4 pillars, p=−2)
+- [x] `src/aggregate/gates.py` — n_eff τ=1 + scorability + state validity gates (11 tests with softmin)
+- [x] **`src/merge/precision.py`** — THE precision-weighting merge (state CI → trait). 9 synthetic-fixture tests: values never move.
+- [x] `src/dynamics/reactions.py` — E→R signatures + Dirichlet pooling + cell gating (+ `reliability_map.py` scaffold; 8 tests)
+- [x] `src/sustainability/*.py` — Ŝ_human, EWMA, λ stub, probe schema (12 tests)
+- [x] `src/claims/*.py` — rungs, tier engine, report (forbidden-word scan; minor protection; 14 tests)
+- [x] `src/api/*.py` — FastAPI app + routes + auth (fails closed) + SQLite store (10 contract tests)
+- [x] `calibration/runner.py` — the MAE ratchet (headline vs shadow per D-001; 7 tests)
 
 ### STAGE 2 — Integration + ratchet (Chief Engineer, juniors on standby for fixes)
 - [ ] Wire all leaf modules into the pipeline

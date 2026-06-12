@@ -1,0 +1,101 @@
+"""Unit tests for the gold loader + MAE ratchet runner. OWNER: Chief Engineer.
+No judge calls — score functions are synthetic."""
+
+from __future__ import annotations
+
+import pytest
+
+from contracts.schemas import CanonicalSession, Dimension, PartnerModel, Turn
+from calibration.gold_loader import BAND_TO_FLOAT, GoldChat, load_gold_corpus
+from calibration.runner import MAE_RATCHET, run_calibration
+
+
+# ── gold loader on the real corpus ───────────────────────────────────────────
+
+
+def test_band_mapping_is_the_v1_mapping():
+    assert BAND_TO_FLOAT == {"low": 0.25, "mid": 0.55, "high": 0.80, "not_applicable": None}
+
+
+def test_loads_26_chats_with_targets_and_flags():
+    corpus = load_gold_corpus()
+    assert len(corpus) == 26
+    by_id = {g.session.session_id: g for g in corpus}
+
+    # gc-001 hand bands: AL low, AUI mid, ES not_applicable (see gc-001.json)
+    gc1 = by_id["gc-001"]
+    assert gc1.targets[Dimension.AL] == 0.25
+    assert gc1.targets[Dimension.AUI] == 0.55
+    assert gc1.targets[Dimension.ES] is None
+
+    assert {g for g, c in by_id.items() if c.judge_family_conflict} == {
+        "gc-003", "gc-016", "gc-018"
+    }
+    assert {g for g, c in by_id.items() if c.ocr_excluded} == {
+        "gc-004", "gc-012", "gc-013"
+    }
+
+
+# ── runner on a synthetic corpus ─────────────────────────────────────────────
+
+
+def _gold(chat_id: str, target: float = 0.5, conflict: bool = False) -> GoldChat:
+    session = CanonicalSession(
+        session_id=chat_id, source="gold_json",
+        partner_model=PartnerModel(family="google" if conflict else "openai"),
+        turns=[Turn(index=0, role="human", text="q"), Turn(index=1, role="ai", text="a")],
+    )
+    return GoldChat(
+        session=session,
+        targets={dim: target for dim in Dimension},
+        judge_family_conflict=conflict,
+        ocr_excluded=False,
+    )
+
+
+def test_perfect_predictor_passes_ratchet():
+    corpus = [_gold(f"c{i}") for i in range(4)]
+    result = run_calibration(lambda s: {d: 0.5 for d in Dimension}, corpus)
+    assert result["shadow"]["overall_mae"] == 0.0
+    assert result["ratchet_passed"] is True
+    assert result["shadow"]["n_chats"] == 4
+
+
+def test_conflicted_chats_excluded_from_headline_but_in_shadow():
+    corpus = [_gold("clean1"), _gold("clean2"), _gold("gem1", conflict=True)]
+    result = run_calibration(lambda s: {d: 0.5 for d in Dimension}, corpus)
+    assert result["shadow"]["n_chats"] == 3
+    assert result["headline"]["n_chats"] == 2
+    assert result["headline"]["excluded_conflicts"] == ["gem1"]
+
+
+def test_missing_predictions_reported_as_coverage_not_zero():
+    corpus = [_gold("c1")]
+
+    def patchy(_s) -> dict[Dimension, float | None]:
+        return {d: (None if d == Dimension.ES else 0.5) for d in Dimension}
+
+    result = run_calibration(patchy, corpus)
+    assert result["coverage"]["c1"]["missing"] == ["ES"]
+    assert result["shadow"]["overall_mae"] == 0.0  # ES did not enter as an error
+
+
+def test_ec_error_reports_but_does_not_gate_per_dim():
+    # EC off by 0.45 (over the 0.375 per-dim target); others perfect.
+    corpus = [_gold(f"c{i}", target=0.5) for i in range(8)]
+
+    def ec_weak(_s) -> dict[Dimension, float | None]:
+        return {d: (0.05 if d == Dimension.EC else 0.5) for d in Dimension}
+
+    result = run_calibration(ec_weak, corpus)
+    assert result["ec_tracked_separately"]["shadow_mae"] == 0.45
+    # overall = 0.45/8 ≈ 0.056 ≤ ratchet; EC alone must not fail the gate
+    assert result["shadow"]["overall_mae"] <= MAE_RATCHET
+    assert result["ratchet_passed"] is True
+
+
+def test_overall_failure_fails_ratchet():
+    corpus = [_gold("c1", target=0.8)]
+    result = run_calibration(lambda s: {d: 0.2 for d in Dimension}, corpus)
+    assert result["shadow"]["overall_mae"] == pytest.approx(0.6)
+    assert result["ratchet_passed"] is False

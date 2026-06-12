@@ -35,24 +35,10 @@ STAGE1_MODULES: dict[str, list[str]] = {
         "src.dynamics.overlay",
     ],
     "CE": [
-        # delivered: eventlog (schema/writer/queries), ingestion.canonical,
-        # adapters (claude_export/chatgpt_export/plaintext/gold_json),
-        # judge (client/prompt/parser), trait.evidence
-        "src.state.estimator",
-        "src.merge.precision",
-        "src.aggregate.softmin",
-        "src.aggregate.gates",
-        "src.dynamics.reactions",
-        "src.dynamics.reliability_map",
-        "src.sustainability.debt_tracker",
-        "src.sustainability.ewma",
-        "src.sustainability.lambda_proxy",
-        "src.claims.rungs",
-        "src.claims.tier_engine",
-        "src.claims.report",
-        "src.api.main",
-        "calibration.gold_loader",
-        "calibration.runner",
+        # ALL CE Stage-1 spine modules delivered: eventlog, ingestion (canonical
+        # + 4 adapters), judge, trait.evidence, state.estimator, merge.precision,
+        # aggregate, dynamics (reactions/reliability_map), sustainability,
+        # claims, api.main, calibration (gold_loader/runner)
     ],
 }
 
