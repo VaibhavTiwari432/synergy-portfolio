@@ -171,7 +171,7 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
   calibration/results/stage2_prompt_v2.0.json. OpenRouter key tracked as D-005.
 - Status: RESOLVED
 
-## D-005  [OPEN]  — OPENROUTER_API_KEY missing: gc-003/016/018 re-judge blocked
+## D-005  [RESOLVED]  — OPENROUTER_API_KEY missing: gc-003/016/018 re-judge blocked
 - Raised by: Chief Engineer
 - Date: 2026-06-12
 - File(s): calibration/run_stage2.py (--rejudge-conflicts), src/trait/judge/client.py
@@ -187,7 +187,18 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
 - Decision: Stage 2 may close on the n=23 headline + n=26 shadow numbers with
   this item explicitly deferred and visible (to be recorded in ADR-0006). The
   re-judge run is the FIRST action when the key lands; nothing else blocks on it.
-- Status: OPEN (blocked on human-provided credential)
+- Resolution (2026-06-12, key landed): the provided OpenRouter key carries zero
+  credits (402 on paid models), so the default openai/gpt-4o-mini was unusable.
+  Re-judged all three with **openai/gpt-oss-120b:free** (open-weight OpenAI
+  model on OpenRouter — passes the openai/ prefix guard, satisfies
+  non-negotiable #20: family=openai ≠ partner family=google). All three scored
+  clean: judge_family_conflict=false, judge_unavailable=false. Metadata
+  conflicts list cleared (history preserved in the note + D-001); headline pool
+  restored to n=26. Full-corpus report: MAE 0.2505, coverage 100%,
+  ratchet_passed=true (`calibration/results/stage2_rejudged.json`). Note: the
+  free-tier model is a weaker judge than gpt-4o-mini; if credits land later, a
+  one-command re-run upgrades the three judgments (SAF_REJUDGE_MODEL env var).
+- Status: RESOLVED
 
 ---
 

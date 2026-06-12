@@ -4,8 +4,8 @@
     "n": 26,
     "excluded": ["gc-014", "gc-015"],
     "rationale": "gc-014 and gc-015 have hand-scored rationales (.md) but no machine-readable transcripts (.json); they cannot be run through the pipeline. See adr/0003-gold-corpus-n26.md.",
-    "judge_family_conflicts": ["gc-003", "gc-016", "gc-018"],
-    "judge_family_conflicts_note": "Gemini-partner chats scored by the Gemini judge (same family). Flagged per ADR-0002 / DISCREPANCY D-001; excluded from calibration until re-judged with a non-Gemini, non-Anthropic judge. The v1.3 baseline (MAE 0.2994) INCLUDED them — compare like-for-like via a shadow run on all 26.",
+    "judge_family_conflicts": [],
+    "judge_family_conflicts_note": "RESOLVED 2026-06-12 (D-005): gc-003/gc-016/gc-018 (Gemini partners) re-judged with the OpenAI-family judge openai/gpt-oss-120b:free via OpenRouter — judge_family_conflict now false for all three; they re-enter the headline pool (n=26). Historical conflict record: ADR-0002 / D-001; the v1.3 baseline had judged them same-family (Gemini).",
     "calibration_excluded_ocr": ["gc-004", "gc-012", "gc-013"],
     "calibration_excluded_ocr_note": "Carried v1 per-file flag calibration_excluded: ocr_data_quality (still present inside each chat JSON)."
   },

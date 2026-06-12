@@ -104,7 +104,7 @@ Disjoint files. No overlaps.
 - [x] Contract tests (tier gating, forbidden words incl. stem derivatives, rung tags, minor protection) — green (Gate B: 49 + 7 stem tests, explicit run)
 - [x] Synthetic fixtures (precision/CI, state caveat, EWMA modes, FTM gating, no-latent audit) — green (Gate C: 60 tests, explicit run)
 - [x] `POST /v1/sessions` → `GET /v1/sessions/{id}/score` full valid response — ✅ Gate D PASSED live (real Gemini judge, fresh non-gold 14-turn chat, 19/19 checks — `calibration/gate_d_smoke.py`)
-- [ ] Re-judge gc-003/016/018 via `openai_family_judge()` — DEFERRED on D-005 (OPENROUTER_API_KEY); first action when the key lands; not a close blocker per project-lead decision
+- [x] Re-judge gc-003/016/018 via `openai_family_judge()` — ✅ DONE 2026-06-12 (D-005 resolved): openai/gpt-oss-120b:free via OpenRouter (zero-credit key → free OpenAI-family model); headline pool restored to n=26, MAE 0.2505, ratchet PASS (`stage2_rejudged.json`)
 - [x] If a leaf module fails its contract → file a discrepancy (§5), assign back to its owner — done once (PR-02/PR-05/EC-07/EC-09 fixed by Codex, verified by CE)
 
 ---

@@ -52,6 +52,17 @@ neuron-grain, same 26 chats) — the rebuild beats it by ~0.06 absolute.
 - **gc-014/gc-015 transcripts** (ADR-0003): rationale-only; recovery from
   source PDFs restores the corpus to n=28.
 
+## Addendum (same day, post-close) — D-005 resolved
+
+The OpenRouter key landed hours after close (zero credits → used the free
+OpenAI-family `openai/gpt-oss-120b:free`). gc-003/016/018 re-judged cleanly:
+`judge_family_conflict=false` on all three; headline pool restored to **n=26**.
+Full-corpus conflict-free report: **MAE 0.2505, coverage 100%,
+ratchet_passed=true** (`calibration/results/stage2_rejudged.json`; per-dim max
+AL 0.3154, all ≤ 0.375). The n=23 close record above stands unchanged as the
+close-time evidence. Upgrade path if credits arrive: re-run the three with
+`SAF_REJUDGE_MODEL=openai/gpt-4o-mini`.
+
 ## What is next (project lead decides)
 
 Per brief §6, the Scope-A definition of done is met: the pipeline computes the

@@ -31,18 +31,18 @@
   },
   "gc-003": {
     "predictions": {
-      "AL": 0.95,
+      "AL": 0.8,
       "PR": 0.9,
-      "EC": 0.9,
+      "EC": 0.7,
       "ES": null,
-      "CS": 0.85,
-      "CD": 0.7,
-      "AUI": 0.9,
-      "CA": 0.95
+      "CS": 0.6,
+      "CD": 0.3,
+      "AUI": 0.5,
+      "CA": 0.8
     },
     "judge_unavailable": false,
-    "judge_family_conflict": true,
-    "elapsed_s": 262.0
+    "judge_family_conflict": false,
+    "elapsed_s": 50.2
   },
   "gc-004": {
     "predictions": {
@@ -196,18 +196,18 @@
   },
   "gc-016": {
     "predictions": {
-      "AL": 0.8,
-      "PR": 0.9,
-      "EC": 0.7,
+      "AL": 0.5,
+      "PR": 0.6,
+      "EC": 0.1,
       "ES": null,
-      "CS": 0.8,
-      "CD": 0.8,
-      "AUI": 0.9,
-      "CA": 0.9
+      "CS": 0.6,
+      "CD": 0.2,
+      "AUI": 0.5,
+      "CA": 0.5
     },
     "judge_unavailable": false,
-    "judge_family_conflict": true,
-    "elapsed_s": 23.2
+    "judge_family_conflict": false,
+    "elapsed_s": 19.6
   },
   "gc-017": {
     "predictions": {
@@ -226,18 +226,18 @@
   },
   "gc-018": {
     "predictions": {
-      "AL": 1.0,
-      "PR": 1.0,
-      "EC": 1.0,
+      "AL": 0.6,
+      "PR": 0.6,
+      "EC": 0.3,
       "ES": null,
-      "CS": 0.8,
-      "CD": 0.0,
-      "AUI": 1.0,
-      "CA": 1.0
+      "CS": 0.6,
+      "CD": 0.3,
+      "AUI": 0.6,
+      "CA": 0.6
     },
     "judge_unavailable": false,
-    "judge_family_conflict": true,
-    "elapsed_s": 30.7
+    "judge_family_conflict": false,
+    "elapsed_s": 38.0
   },
   "gc-019": {
     "predictions": {
