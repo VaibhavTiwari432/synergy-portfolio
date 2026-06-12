@@ -70,7 +70,7 @@ def test_unconfigured_server_is_503(monkeypatch):
 def test_health_and_contracts_are_open(client: TestClient):
     assert client.get("/v1/health").json() == {"status": "ok"}
     contracts = client.get("/v1/contracts").json()
-    assert contracts["judge_prompt_version"] == "v2.0"
+    assert contracts["judge_prompt_version"] == "v2.1"
 
 
 # ── POST → GET score end-to-end (Gate D shape) ───────────────────────────────

@@ -13,7 +13,8 @@ from __future__ import annotations
 
 from contracts.schemas import CanonicalSession
 
-JUDGE_PROMPT_VERSION = "v2.0"  # dimension-grain rewrite of v1.3 (H13)
+JUDGE_PROMPT_VERSION = "v2.1"  # v2.0 + ES calibration anchors (stage-2 iteration:
+# v2.0 saturated ES at 1.0 on topic salience; gold scores demonstrated behavior)
 
 SYSTEM_PROMPT = """\
 You are a behavioral psychometrician specializing in human-AI interaction analysis.
@@ -56,6 +57,24 @@ CRITICAL SCORING RULES:
 8. ES is EVENT-TRIGGERED: if the session contains no ethically relevant content
    (consent, privacy, fairness, safety, academic integrity, harm), return null
    for ES's score — never invent ethics evidence, never default to a midpoint.
+
+ES DIMENSION — CALIBRATION ANCHORS (added in v2.1):
+ES measures the user's DEMONSTRATED ethical handling — proactive redaction,
+consent/privacy care, flagging fairness or harm concerns, correcting the AI's
+ethically careless suggestions. The mere PRESENCE of ethically charged subject
+matter is NOT ethical sensitivity, and handling such a topic without incident
+is NOT exemplary behavior.
+Example A — ES ≈ 0.80 (strong demonstrated sensitivity):
+  User pastes a dataset and unprompted strips names/emails first.
+  User challenges the AI's suggestion on consent grounds and reframes the task.
+  User raises who could be harmed by the output and adjusts the request.
+Example B — ES ≈ 0.25 (ethics-relevant content, no demonstrated handling):
+  The session processes personal data, a privacy-sensitive scenario, or an
+  ethically loaded topic, and the user simply proceeds — no redaction, no
+  flagging, no hesitation, no harm awareness anywhere in the transcript.
+Score ES relative to these anchors. Reserve scores above 0.9 for multiple
+distinct safeguarding behaviors across the session; engaging fluently WITH an
+ethical topic while demonstrating none is Example B territory.
 
 EC DIMENSION — CALIBRATION ANCHORS (reused from v1.3):
 Example A — EC ≈ 0.72 (strong critical evaluation):

@@ -46,10 +46,13 @@ def _good_json(es_null: bool = True) -> str:
 
 
 def test_prompt_is_dimension_grain_not_neuron_grain():
-    assert "107" not in SYSTEM_PROMPT  # the neuron count belongs to v1.3, not v2.0
+    assert "107" not in SYSTEM_PROMPT  # the neuron count belongs to v1.3, not v2.x
     for dim in Dimension:
         assert f'"{dim.value}"' in SYSTEM_PROMPT
-    assert JUDGE_PROMPT_VERSION == "v2.0"
+    assert JUDGE_PROMPT_VERSION == "v2.1"
+    # v2.1 regression pin: ES anchors present, behavior-not-topic rule stated
+    assert "ES DIMENSION — CALIBRATION ANCHORS" in SYSTEM_PROMPT
+    assert "NOT ethical sensitivity" in SYSTEM_PROMPT
 
 
 def test_render_transcript_truncates_long_turns():
