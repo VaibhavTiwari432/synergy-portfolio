@@ -1,0 +1,25 @@
+[project]
+name = "saf-brain"
+version = "0.1.0"
+description = "SAF/ARI v2.2 chat analyser — Scope A API (AGENT_REBUILD_BRIEF_v3.md)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "pydantic>=2.7",
+    "uvicorn>=0.30",
+    "sqlalchemy>=2.0",
+    "pyyaml>=6.0",
+    "google-generativeai>=0.8",
+    "sentence-transformers>=3.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "stage1_stub: failing-stub test for a Stage-1 module not yet implemented (xfail until its owner builds it)",
+]

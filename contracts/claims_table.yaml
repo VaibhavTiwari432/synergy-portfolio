@@ -1,0 +1,95 @@
+# contracts/claims_table.yaml — FROZEN. OWNER: Chief Engineer. v1.0.0
+# Tier × permitted/forbidden claims charter (brief §3.10; spec §9.4).
+# The claims engine (src/claims/) enforces this structurally: the report
+# generator cannot emit above a field's rung, and contract tests in CI prove
+# a Tier-1 payload cannot elicit a Tier-2+ claim through any API path.
+
+version: "1.0.0"
+
+rungs: [DESIGNED, MEASURABLE, VALIDATED, ASPIRATIONAL]
+
+tiers:
+  tier_1:
+    name: "Chat Analyser"
+    inputs: "raw transcript only (+ optional user-supplied heading); no telemetry"
+    max_rung: MEASURABLE
+    permitted:
+      - "single-conversation collaboration-process quality on the 8 ARI dimensions"
+      - "load flag (proxy language only)"
+      - "ToM slope"
+      - "attribution gap"
+      - "generative-vs-extractive ratio"
+      - "fluent-incompetence flag"
+      - "sustainability flags as inference language only (never statements)"
+    forbidden_claims:
+      - "true synergy (no solo baseline)"
+      - "direct cognitive-load measurement (proxy language required)"
+      - "competence-vs-surrender discrimination"
+      - "any sustainability statement (one chat, no probe)"
+      - "overall delegation policy (AUI reads as within-chat delegation choices only)"
+    forbidden_words_user_facing:
+      - "synergy"
+      - "surrender"
+      - "dependent"
+
+  tier_2:
+    name: "Browser Extension (Scope B)"
+    inputs: "DOM chats + metadata (timestamps, edits, copy-paste) + self-ratings + feedback"
+    max_rung: MEASURABLE
+    permitted:
+      - "AI-collaboration quality + within-session trajectory"
+      - "skilled-outsourcer flag (suspended for terse-profile users unless §8.5 twin gate passed)"
+      - "debt flag (flag, never proof)"
+    forbidden_claims:
+      - "true synergy (still no solo baseline)"
+      - "proven cognitive debt (no controlled retention probe)"
+      - "overall delegation policy (same AUI restriction as tier 1)"
+    forbidden_words_user_facing:
+      - "synergy"
+      - "surrender"
+      - "dependent"
+
+  tier_3:
+    name: "Integrated Platform (future)"
+    inputs: "controlled stimulus + outcome probes + solo baselines + wellness"
+    max_rung: VALIDATED
+    permitted:
+      - "true synergy (dyad vs max baseline via solo probes)"
+      - "cognitive debt and lambda (via deferred probe)"
+      - "full synergy-sustainability plane"
+      - "wellness/coexistence metrics"
+    forbidden_claims:
+      - "summative gatekeeping before the predictive-validity gate (spec §8.3) fires"
+      - "ranking minors on uncalibrated cognitive-state inference"
+    forbidden_words_user_facing:
+      - "surrender"
+      - "dependent"
+
+forbidden_everywhere:
+  claims:
+    - "leaderboards / population ranking"
+    - "bare composite without CI + rung"
+    - "raw Cognitive Debt Score (measured quantities + inference language only)"
+  user_facing_labels:
+    - "surrender"
+    - "dependent"
+  notes:
+    - "every emitted claim carries exactly one rung; nothing presented above it (non-negotiable #14)"
+    - "absent evidence is N/A or INSUFFICIENT_SAMPLE, never zero (non-negotiable #12)"
+    - "nothing in Scope A is VALIDATED (no probe data yet) — reports must say so"
+
+minor_protection:
+  applies_when: "is_minor == true"
+  forbidden_outputs:
+    - "bare composite"
+    - "peer rank / percentile"
+    - "debt score"
+  permitted_form: "band + behavioral attribution + one next habit"
+
+regime_overlay:
+  forbidden_labels:
+    - "surrender"   # accept_run is a behavioral description; surrender is CSPC-only (non-negotiable #5)
+
+reporting:
+  evidence_levels: [observed, inferred, hypothesized]
+  comparison: "user_today vs user_previous (personal baseline) — never user vs population"

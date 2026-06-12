@@ -1,0 +1,36 @@
+# contracts/probe_schema.yaml — FROZEN. OWNER: Chief Engineer. v1.0.0
+# Retention-probe schema (brief §3.9). SCHEMA ONLY in Scope A — no delivery.
+# Generative-recall formats only; recognition is excluded by design (it
+# rewards familiarity, not retention).
+
+version: "1.0.0"
+rung: DESIGNED
+delivery_in_scope_a: false
+
+formats:
+  - id: free_recall
+    description: "Reproduce the key content of the session without cues."
+  - id: application
+    description: "Apply the session's content to a novel problem."
+  - id: teach_back
+    description: "Explain the session's content as if teaching it."
+
+excluded_formats:
+  - id: recognition
+    reason: "multiple-choice familiarity is not retention; excluded by design"
+
+probe_record:
+  fields:
+    probe_id: {type: str, required: true}
+    user_ref: {type: str, required: true}
+    session_ref: {type: str, required: true, description: "session the probe measures"}
+    format: {type: enum, values: [free_recall, application, teach_back], required: true}
+    scheduled_at: {type: datetime, required: true, description: "e.g. +48h or +30-45d"}
+    delivered_at: {type: datetime, required: false}
+    exposure_randomized: {type: bool, required: true, description: "randomization flag — probe exposure enters the lambda model as a covariate (spec A10)"}
+    response_ref: {type: str, required: false, description: "minimization: reference, never embedded text"}
+    score: {type: float, required: false, range: [0.0, 1.0]}
+    rung: {type: enum, values: [DESIGNED, MEASURABLE, VALIDATED, ASPIRATIONAL], required: true}
+
+falsifiability:
+  s_human_contract: "Ŝ_human must correlate with the 48h probe at r > 0.3 or be revised (brief §3.9)"

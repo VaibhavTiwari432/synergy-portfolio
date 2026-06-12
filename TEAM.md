@@ -53,15 +53,15 @@ The framework is NOT a linear pipeline. State and trait run **in parallel** off 
 ### STAGE 0 — Chief Engineer ONLY (everyone else waits)
 Nothing else starts until these are frozen and committed.
 
-- [ ] `contracts/schemas.py` — `Event`, `CanonicalSession`, `PartnerModel`, `DimensionScore`, `StateVector`, `ScoreResponse` (all Pydantic v2)
-- [ ] `contracts/contract_table.yaml` — carried forward, verified loads
-- [ ] `contracts/claims_table.yaml` — tier × permitted/forbidden
-- [ ] `contracts/event_taxonomy.py` — the 6 frozen event types as constants
-- [ ] `contracts/intent_tags.py` — the 10 intent tags as constants
-- [ ] `INTERFACES.md` — the function signature every leaf module must implement (see §4)
-- [ ] Skeleton repo (all dirs, empty `__init__.py`, failing-stub tests)
+- [x] `contracts/schemas.py` — `Event`, `CanonicalSession`, `PartnerModel`, `DimensionScore`, `StateVector`, `ScoreResponse` (all Pydantic v2) — v1.0.0
+- [x] `contracts/contract_table.yaml` — carried forward, verified loads (107 neurons, per-dim counts green)
+- [x] `contracts/claims_table.yaml` — tier × permitted/forbidden (+ `probe_schema.yaml`)
+- [x] `contracts/event_taxonomy.py` — the 6 frozen event types as constants (+ N-FIRE, window k=3, cell gate ≥3)
+- [x] `contracts/intent_tags.py` — the 10 intent tags as constants
+- [x] `INTERFACES.md` — the function signature every leaf module must implement (see §4) — v1.0.0
+- [x] Skeleton repo (all dirs, empty `__init__.py`, failing-stub tests — 43 xfail stubs in `tests/unit/test_stage1_stubs.py`)
 
-**Gate:** schemas import cleanly, `INTERFACES.md` published. Only then does Stage 1 begin.
+**Gate:** ✅ PASSED 2026-06-12 — schemas import cleanly (15 contract tests green), `INTERFACES.md` published. Stage 1 is open: Codex and Antigravity may start (see `AGENT_KICKOFF.md`).
 
 ### STAGE 1 — Parallel build (Codex ∥ Antigravity ∥ Chief Engineer)
 All three work simultaneously. Each owns disjoint files. No overlaps.

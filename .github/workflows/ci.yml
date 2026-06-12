@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        # Heavy deps (sentence-transformers, google-generativeai) are not needed
+        # until the modules that use them land; keep CI fast at Stage 0.
+        run: pip install pydantic pyyaml pytest fastapi httpx sqlalchemy
+
+      - name: Contract + unit tests
+        run: python -m pytest tests/ -q
+
+      - name: Forbidden-word gate (non-negotiable 5)
+        # "surrender" may exist ONLY in CSPC-owned state files, contracts, claims
+        # enforcement, docs and tests about the rule. The overlay and report
+        # surfaces must never contain it.
+        run: |
+          if grep -ril "surrender" src/dynamics/overlay.py src/claims/report.py 2>/dev/null; then
+            echo "::error::'surrender' found in overlay/report surface (non-negotiable #5)"
+            exit 1
+          fi
+          echo "forbidden-word gate clean"
+
+      - name: MAE ratchet (release gate, non-negotiable 18)
+        # Becomes a real gate when calibration/runner.py lands (Stage 1 CE).
+        # Ratchet: overall MAE <= 0.2994 on the 26-chat gold corpus (ADR-0003).
+        run: |
+          if [ -s calibration/runner.py ]; then
+            echo "calibration runner present — ratchet run is wired in Stage 2 (needs judge API key secret)"
+          else
+            echo "ratchet stub: calibration/runner.py not yet implemented (Stage 1)"
+          fi
