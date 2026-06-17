@@ -1,0 +1,815 @@
+/* ============================================================
+   SAF Panel — panel.css
+   Popup: 380px wide, max-height 580px
+   ============================================================ */
+
+/* ── Reset & base ─────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  width: 380px;
+}
+
+body {
+  width: 380px;
+  max-height: 580px;
+  overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  color: #101828;
+  background: #ffffff;
+  scrollbar-width: thin;
+  scrollbar-color: #d0d5dd #f7f8fa;
+}
+
+body::-webkit-scrollbar {
+  width: 6px;
+}
+
+body::-webkit-scrollbar-track {
+  background: #f7f8fa;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: #d0d5dd;
+  border-radius: 3px;
+}
+
+/* ── Utility ──────────────────────────────────────────────── */
+
+.hidden {
+  display: none !important;
+}
+
+/* ── Views ────────────────────────────────────────────────── */
+
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.view.hidden {
+  display: none;
+}
+
+/* ── Minor guard ──────────────────────────────────────────── */
+
+#minor-guard,
+.minor-guard {
+  position: fixed;
+  inset: 0;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.minor-guard-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #344054;
+  text-align: center;
+  padding: 0 24px;
+}
+
+/* ── Health dot ───────────────────────────────────────────── */
+
+.health-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.health-dot[data-health="ok"] {
+  background: #12b76a;
+}
+
+.health-dot[data-health="error"] {
+  background: #f04438;
+}
+
+.health-dot[data-health="unknown"] {
+  background: #98a2b3;
+}
+
+/* ── Top bar ──────────────────────────────────────────────── */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.view-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #101828;
+  flex: 1;
+}
+
+/* ── Icon button ──────────────────────────────────────────── */
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: #667085;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon:hover {
+  color: #344054;
+  background: #f7f8fa;
+}
+
+/* Push settings icon to far right in top bar */
+.top-bar .btn-icon[aria-label="Settings"] {
+  margin-left: auto;
+}
+
+/* ── Buttons ──────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:focus-visible {
+  outline: 2px solid #1a6fa0;
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  background: #1a6fa0;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #155b87;
+}
+
+.btn-ghost {
+  background: #ffffff;
+  border: 1px solid #d0d5dd;
+  color: #344054;
+}
+
+.btn-ghost:hover {
+  background: #f7f8fa;
+}
+
+.btn-danger {
+  background: #b91c1c;
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  background: #991b1b;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.btn-wide {
+  width: 100%;
+}
+
+/* ── Button rows ──────────────────────────────────────────── */
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.radar-toggle-row {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Onboarding welcome ───────────────────────────────────── */
+
+.welcome-logo {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a6fa0;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding-top: 8px;
+}
+
+.welcome-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #101828;
+  text-align: center;
+}
+
+.welcome-body {
+  font-size: 13px;
+  color: #667085;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ── View heading ─────────────────────────────────────────── */
+
+.view-heading {
+  font-size: 15px;
+  font-weight: 600;
+  color: #101828;
+}
+
+/* ── Field groups & inputs ────────────────────────────────── */
+
+.field-group {
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #344054;
+}
+
+.field-hint {
+  font-size: 11px;
+  color: #667085;
+}
+
+.text-input {
+  width: 100%;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  color: #101828;
+  background: #ffffff;
+}
+
+.text-input:focus {
+  border-color: #1a6fa0;
+  outline: none;
+}
+
+.text-input::placeholder {
+  color: #98a2b3;
+}
+
+/* ── Toggle switch ────────────────────────────────────────── */
+
+.consent-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.consent-hint {
+  margin-top: 2px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-text {
+  font-size: 13px;
+  color: #344054;
+}
+
+.toggle-track {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  background: #d0d5dd;
+  border-radius: 9px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  pointer-events: none;
+}
+
+.toggle-input:checked + .toggle-thumb {
+  transform: translateX(14px);
+}
+
+.toggle-input:checked ~ .toggle-thumb {
+  transform: translateX(14px);
+}
+
+.toggle-track:has(.toggle-input:checked) {
+  background: #1a6fa0;
+}
+
+/* ── Error text ───────────────────────────────────────────── */
+
+.error-text {
+  font-size: 12px;
+  color: #b91c1c;
+}
+
+/* ── Status bar (pending view) ────────────────────────────── */
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-label {
+  font-size: 13px;
+  color: #667085;
+}
+
+.pending-hint {
+  font-size: 12px;
+  color: #667085;
+  line-height: 1.5;
+}
+
+/* ── Progress bar ─────────────────────────────────────────── */
+
+.progress-track {
+  width: 100%;
+  height: 4px;
+  background: #e4e7ec;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 4px;
+  background: #1a6fa0;
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.5s ease;
+}
+
+/* ── Tier rung badge ──────────────────────────────────────── */
+
+.tier-rung {
+  background: #f2f4f7;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: monospace;
+  color: #344054;
+}
+
+/* ── Regime bar ───────────────────────────────────────────── */
+
+.regime-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.regime-bar-svg {
+  width: 320px;
+  height: 28px;
+  display: block;
+}
+
+.regime-dot {
+  fill: #1a6fa0;
+}
+
+.regime-label {
+  font-size: 11px;
+  color: #667085;
+}
+
+/* ── Score sections ───────────────────────────────────────── */
+
+.score-section {
+  background: #f7f8fa;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+#section-strengths {
+  background: #f0f9f4;
+}
+
+#section-growth {
+  background: #f0f4fb;
+}
+
+/* ── Section headings ─────────────────────────────────────── */
+
+.section-heading {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #667085;
+  margin-bottom: 6px;
+}
+
+/* ── Trait lists ──────────────────────────────────────────── */
+
+.trait-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.trait-item {
+  padding: 6px 0;
+  border-bottom: 1px solid #f2f4f7;
+  font-size: 13px;
+  color: #101828;
+  line-height: 1.5;
+}
+
+.trait-item:last-child {
+  border-bottom: none;
+}
+
+.trait-growth {
+  border-left: 2px solid #1a6fa0;
+  padding-left: 8px;
+}
+
+.trait-none {
+  font-style: italic;
+  color: #98a2b3;
+}
+
+/* ── Tier caveat ──────────────────────────────────────────── */
+
+.tier-caveat {
+  font-size: 11px;
+  color: #667085;
+  line-height: 1.5;
+}
+
+/* ── Flag pills ───────────────────────────────────────────── */
+
+.flag-pills {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.flag-pill {
+  background: #f2f4f7;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #344054;
+  display: inline-block;
+}
+
+/* ── Radar chart ──────────────────────────────────────────── */
+
+.radar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: #f7f8fa;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.radar-svg {
+  width: 200px;
+  height: 200px;
+  display: block;
+  overflow: visible;
+}
+
+.radar-ring {
+  stroke: #e4e7ec;
+  fill: none;
+  stroke-width: 0.01;
+}
+
+.radar-ring-outer {
+  stroke: #d0d5dd;
+}
+
+.radar-axis {
+  stroke: #e4e7ec;
+  stroke-width: 0.01;
+}
+
+.radar-polygon {
+  fill: rgba(26, 111, 160, 0.18);
+  stroke: #1a6fa0;
+  stroke-width: 0.04;
+}
+
+.radar-dot {
+  fill: #1a6fa0;
+  stroke: #ffffff;
+  stroke-width: 0.015;
+}
+
+.radar-dot.absent {
+  fill: #98a2b3;
+  opacity: 0.55;
+}
+
+.radar-axis-label {
+  fill: #344054;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+/* ── Radar legend ─────────────────────────────────────────── */
+
+.radar-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+}
+
+.radar-legend-item {
+  display: contents;
+}
+
+.radar-dim-key {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 11px;
+  color: #344054;
+}
+
+.radar-dim-key.absent {
+  color: #98a2b3;
+}
+
+.radar-dim-label {
+  font-size: 11px;
+  color: #667085;
+}
+
+.radar-dim-score {
+  font-size: 11px;
+  color: #344054;
+  text-align: right;
+  font-family: monospace;
+}
+
+/* ── Sustainability text ──────────────────────────────────── */
+
+.sustainability-text {
+  font-size: 12px;
+  color: #667085;
+  line-height: 1.5;
+}
+
+/* ── Feedback section ─────────────────────────────────────── */
+
+.feedback-section {
+  border-top: 1px solid #e4e7ec;
+  margin-top: 8px;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-prompt {
+  font-size: 12px;
+  color: #667085;
+}
+
+.feedback-btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-feedback {
+  background: #ffffff;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  color: #344054;
+  cursor: pointer;
+}
+
+.btn-feedback:hover {
+  background: #f7f8fa;
+}
+
+.btn-feedback.selected {
+  border-color: #1a6fa0;
+  color: #1a6fa0;
+  font-weight: 600;
+}
+
+.feedback-comment {
+  width: 100%;
+  rows: 3;
+  resize: vertical;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  padding: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  color: #101828;
+  background: #ffffff;
+  margin-top: 6px;
+  min-height: 54px;
+}
+
+.feedback-comment:focus {
+  border-color: #1a6fa0;
+  outline: none;
+}
+
+.feedback-comment::placeholder {
+  color: #98a2b3;
+}
+
+/* ── Portfolio view ───────────────────────────────────────── */
+
+.portfolio-rung {
+  font-size: 11px;
+  font-family: monospace;
+  color: #667085;
+}
+
+.archetype-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #101828;
+}
+
+.archetype-desc {
+  font-size: 12px;
+  color: #667085;
+  line-height: 1.6;
+}
+
+.trajectory-label {
+  font-size: 12px;
+  color: #667085;
+}
+
+/* ── Portfolio dim list ───────────────────────────────────── */
+
+.portfolio-dim-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+  background: #f7f8fa;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.portfolio-dim-item {
+  display: contents;
+}
+
+.pdim-key {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 11px;
+  color: #344054;
+}
+
+.pdim-label {
+  font-size: 11px;
+  color: #667085;
+}
+
+.pdim-score {
+  font-size: 11px;
+  color: #344054;
+  text-align: right;
+  font-family: monospace;
+}
+
+.pdim-score.absent {
+  color: #98a2b3;
+}
+
+/* ── Portfolio growth summary ─────────────────────────────── */
+
+.portfolio-growth-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.growth-item {
+  font-size: 12px;
+  color: #667085;
+  line-height: 1.5;
+}
+
+/* ── Insufficient / sessions count ───────────────────────── */
+
+.insufficient-text {
+  font-size: 12px;
+  color: #98a2b3;
+  font-style: italic;
+}
+
+.sessions-count {
+  font-size: 11px;
+  color: #667085;
+}
+
+/* ── Settings view ────────────────────────────────────────── */
+
+.settings-status {
+  font-size: 12px;
+  color: #667085;
+}
+
+/* ── Divider ──────────────────────────────────────────────── */
+
+.divider {
+  border: none;
+  border-top: 1px solid #e4e7ec;
+  margin: 12px 0;
+}
+
+/* ── Danger hint ──────────────────────────────────────────── */
+
+.danger-hint {
+  color: #b91c1c;
+}
