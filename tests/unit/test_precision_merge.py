@@ -18,6 +18,7 @@ from src.merge.precision import (
     STATE_CONDITIONED_FLAG,
     degraded_share,
     merge,
+    turn_precision,
     widening_factor,
 )
 
@@ -142,6 +143,43 @@ def test_widening_factor_composition():
     half_degraded = _strip([(LoadLabel.HIGH_ECL, None), (LoadLabel.LOW_LOAD, None)])
     assert widening_factor(CLEAN, half_degraded) == 1.25
     assert widening_factor(COMPROMISED, half_degraded) == 1.875
+
+
+# ── per-turn precision π_t (Track 2): the single-turn analogue of widening ───
+
+
+def test_turn_precision_absent_state_is_na_not_full():
+    # no assessable label → N/A, NEVER 1.0 (absent ≠ full precision, #12)
+    pi, flags = turn_precision(None, None, compromised=False)
+    assert pi is None
+    assert flags == []
+
+
+def test_turn_precision_undegraded_turn_is_unit():
+    pi, flags = turn_precision(LoadLabel.LOW_LOAD, MetacogLabel.ACTIVE, compromised=False)
+    assert pi == 1.0
+    assert flags == []
+
+
+def test_turn_precision_degraded_label_lowers_pi():
+    # HIGH_ECL → factor 1.5 → π = 1/1.5; mirrors widening_factor exactly
+    pi, flags = turn_precision(LoadLabel.HIGH_ECL, None, compromised=False)
+    assert abs(pi - 1.0 / 1.5) < 1e-6
+    assert flags == ["high_ecl"]
+
+
+def test_turn_precision_surrender_and_compromise_compound():
+    # SURRENDER (×1.5) on a compromised session (×1.5) → π = 1/2.25
+    pi, flags = turn_precision(LoadLabel.LOW_LOAD, MetacogLabel.SURRENDER, compromised=True)
+    assert abs(pi - 1.0 / 2.25) < 1e-6
+    assert "surrender" in flags
+
+
+def test_turn_precision_compromise_flags_undegraded_turn():
+    # an undegraded turn in a compromised session is still widened, and says why
+    pi, flags = turn_precision(LoadLabel.LOW_LOAD, MetacogLabel.ACTIVE, compromised=True)
+    assert abs(pi - 1.0 / 1.5) < 1e-6
+    assert flags == ["session_m_t_collapse"]
 
 
 def test_no_multiplier_on_values_even_via_flags():

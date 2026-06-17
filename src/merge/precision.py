@@ -58,6 +58,42 @@ def degraded_share(strip: list[StateVector]) -> float:
     return degraded / len(strip)
 
 
+def turn_precision(
+    load: LoadLabel | None,
+    metacog: MetacogLabel | None,
+    *,
+    compromised: bool,
+) -> tuple[float | None, list[str]]:
+    """Per-turn evidence precision π_t and the cascade flags that reduced it.
+
+    Single-turn analogue of `widening_factor`: π_t = 1 / w_t where w_t mirrors the
+    session widening at one turn (degraded label → ×(1+gain); session M_t collapse
+    → ×COMPROMISED). This is computed at score time so a chat's per-turn precision
+    is recoverable after the transcript purges — precision is the ONLY meeting
+    point of state and trait (TEAM.md §1), so it owns this definition.
+
+    Returns (None, []) when the turn has no assessable state label at all — absent
+    state is N/A, never full precision (non-negotiable #12). A turn that IS
+    assessable but undegraded returns (1.0, []).
+    """
+    if load is None and metacog is None:
+        return None, []
+    flags: list[str] = []
+    degraded = False
+    if load in _DEGRADED_LOADS:
+        degraded = True
+        flags.append(load.value.lower())
+    if metacog in _DEGRADED_METACOG:
+        degraded = True
+        flags.append(metacog.value.lower())  # "surrender"
+    factor = 1.0 + DEGRADED_SHARE_GAIN * (1.0 if degraded else 0.0)
+    if compromised:
+        factor *= COMPROMISED_WIDENING
+        if "surrender" not in flags:
+            flags.append("session_m_t_collapse")
+    return round(1.0 / factor, 6), flags
+
+
 def _widen(ci: ConfidenceInterval, factor: float) -> ConfidenceInterval:
     """Widen symmetrically around the CI midpoint, clamped to [0, 1]."""
     mid = (ci.low + ci.high) / 2

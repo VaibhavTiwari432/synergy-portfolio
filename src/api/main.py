@@ -1,6 +1,7 @@
 """
 src/api/main.py — the FastAPI app (brief §4.2). OWNER: Chief Engineer.
 
+Scope A endpoints (SQLite-backed, unchanged):
     POST /v1/sessions                  ingest → {session_id, detected_tier, event_count}
     GET  /v1/sessions/{id}/score       full ScoreResponse (claims-gated)
     GET  /v1/users/{ref}/trajectory    multi-session; INSUFFICIENT_HISTORY on 1
@@ -8,11 +9,22 @@ src/api/main.py — the FastAPI app (brief §4.2). OWNER: Chief Engineer.
     GET  /v1/health                    liveness (no auth)
     GET  /v1/contracts                 contract/prompt versions (no auth)
 
-The API is the Scope-A deliverable; everything else hangs off it.
+Scope B endpoints (Postgres-backed — routers/ingest.py + routers/users.py):
+    POST /v1/ingest                               write chat + telemetry → pending
+    GET  /v1/users/{ref}/chats                    list chats + summary
+    GET  /v1/users/{ref}/chats/{id}/score         full ScoreResponse from scores table
+    POST /v1/users/{ref}/chats/{id}/feedback      store match rating
+    GET  /v1/users/{ref}/portfolio                aggregated profile + archetype
+    DELETE /v1/users/{ref}                        cascade-delete all four tables
+
+Postgres pool is initialised at startup. If Postgres is unavailable the Scope B
+endpoints return 503 — Scope A is unaffected (it uses SQLite only).
 """
 
 from __future__ import annotations
 
+import logging
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -28,12 +40,34 @@ from contracts.schemas import (
 )
 from src.api.middleware.auth import require_api_key
 from src.api.pipeline import score_session
+from src.api.routers.ingest import router as ingest_router
+from src.api.routers.users import router as users_router
 from src.api.store import SessionStore
 from src.claims.tier_engine import detect_tier
 from src.ingestion.canonical import IngestionError, ingest
 from src.sustainability.ewma import debt_ewma
 from src.trait.judge.prompt import JUDGE_PROMPT_VERSION
 
+log = logging.getLogger(__name__)
+
+
+# ── lifespan (Postgres pool) ──────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from src.db.connection import close_pool, init_pool
+    try:
+        await init_pool()
+    except Exception as exc:
+        log.warning(
+            "Postgres unavailable — Scope B endpoints will return 503. (%s: %s)",
+            type(exc).__name__, exc,
+        )
+    yield
+    await close_pool()
+
+
+# ── Scope A request/response models (unchanged) ───────────────────────────────
 
 class CreateSessionRequest(BaseModel):
     payload: str | dict | list
@@ -49,12 +83,20 @@ class CreateSessionResponse(BaseModel):
     event_count: int = Field(description="events in the log at ingestion (detectors add more)")
 
 
+# ── app factory ───────────────────────────────────────────────────────────────
+
 def create_app(store: SessionStore | None = None) -> FastAPI:
-    app = FastAPI(title="saf-brain", version=SCHEMA_VERSION)
+    app = FastAPI(title="saf-brain", version=SCHEMA_VERSION, lifespan=lifespan)
     app.state.store = store or SessionStore("saf_brain.db")
+
+    # Scope B routers (Postgres)
+    app.include_router(ingest_router)
+    app.include_router(users_router)
 
     def _store() -> SessionStore:
         return app.state.store
+
+    # ── Scope A routes (SQLite) ──
 
     @app.get("/v1/health")
     async def health() -> dict[str, str]:
@@ -123,7 +165,9 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
                 "user_ref": user_ref,
                 "n_sessions": len(scores),
                 "status": DebtMode.INSUFFICIENT_HISTORY.value,
-                "note": "trajectory requires at least 2 scored sessions",
+                "composite_history": history,
+                "trend_direction": None,
+                "note": "at least two scored sessions are needed for trajectory",
             }
         ewma = debt_ewma(history)
         return {

@@ -333,6 +333,13 @@ class StateVector(_Frozen):
     tom_signal: float | None = None
     a_t: float | None = None
     confidence: float = Field(ge=0.0, le=1.0, default=0.0)
+    #: per-turn evidence precision π_t ∈ (0, 1] — the single-turn analogue of the
+    #: session precision-merge widening (smaller = degraded evidence context).
+    #: None = N/A: the turn has no assessable state (absent ≠ full precision, #12).
+    precision: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: named per-turn conditions that reduced π_t (e.g. "high_ecl", "surrender").
+    #: Empty list = assessed, nothing degraded; never used to imply absence.
+    cascade_flags: list[str] = Field(default_factory=list)
 
 
 class StateValidity(_Frozen):
@@ -580,6 +587,7 @@ class JudgeOutput(_Frozen):
     prompt_version: str
     judge_unavailable: bool = False
     judge_family_conflict: bool = False  # ADR-0002
+    raw_response: str | None = None  # literal model text, retained for audit (Track 1)
 
 
 __all__ = [

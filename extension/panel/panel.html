@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAF</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+
+  <!--
+    STRUCTURAL INVARIANTS (non-negotiables, enforced by DOM order):
+
+    1.  #section-strengths (data-order="1") ALWAYS precedes
+        #section-growth   (data-order="2") — panel.js never reorders these.
+
+    2.  No element with id or class "composite-value" or "composite-score"
+        exists anywhere in this document. The composite number is structurally
+        absent (#6 — no bare composite without CI + rung; the panel never
+        has space for that level of nuance safely).
+
+    3.  Forbidden words — "synergy", "surrender", "dependent", "decline" —
+        never appear as text content. Any pipeline strings pass through
+        panel.js's _safeText() before being written to the DOM.
+
+    4.  #minor-guard activates (JS removes 'hidden') if is_minor: true.
+        All views are hidden when minor guard is active (#15).
+  -->
+
+  <!-- ── minor protection guard (dormant) ──────────────────────────────── -->
+  <div id="minor-guard" class="minor-guard hidden" role="alert" aria-live="assertive">
+    <p class="minor-guard-text">Analysis not available.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VIEW: onboarding-welcome
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="view-onboarding-welcome" class="view" data-view="onboarding-welcome" aria-label="Welcome">
+    <div class="welcome-logo" aria-hidden="true">SAF</div>
+    <h1 class="welcome-title">AI Collaboration Analyser</h1>
+    <p class="welcome-body">
+      Understand <em>how</em> you work with AI — your analytical depth,
+      initiative, and epistemic care. Not what you asked, but how you engaged.
+    </p>
+    <button id="btn-start-onboarding" class="btn btn-primary btn-wide">Get started</button>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VIEW: onboarding-setup
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="view-onboarding-setup" class="view hidden" data-view="onboarding-setup" aria-label="Setup">
+    <h2 class="view-heading">Set up</h2>
+
+    <div class="field-group">
+      <label class="field-label" for="input-user-ref">Your ID <span class="field-hint">(any nickname)</span></label>
+      <input id="input-user-ref" class="text-input" type="text" autocomplete="off"
+             placeholder="e.g. alex" aria-required="true">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="input-api-endpoint">API endpoint</label>
+      <input id="input-api-endpoint" class="text-input" type="url" autocomplete="off"
+             placeholder="http://localhost:8000">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="input-api-key">API key <span class="field-hint">(optional)</span></label>
+      <input id="input-api-key" class="text-input" type="password" autocomplete="off"
+             placeholder="Leave blank if not set">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="input-openai-key">
+        OpenAI key <span class="field-hint">(optional — enables self-assessment)</span>
+      </label>
+      <input id="input-openai-key" class="text-input" type="password" autocomplete="off"
+             placeholder="sk-…">
+    </div>
+
+    <div class="consent-row">
+      <label class="toggle-label" for="toggle-consent">
+        <span class="toggle-text">Save sessions for portfolio</span>
+        <span class="toggle-track" aria-hidden="true">
+          <input id="toggle-consent" class="toggle-input" type="checkbox" role="switch"
+                 aria-describedby="consent-hint">
+          <span class="toggle-thumb" aria-hidden="true"></span>
+        </span>
+      </label>
+      <p id="consent-hint" class="field-hint consent-hint">Off = score only; nothing stored.</p>
+    </div>
+
+    <p id="onboarding-error" class="error-text hidden" role="alert" aria-live="polite"></p>
+
+    <div class="btn-row">
+      <button id="btn-back-welcome" class="btn btn-ghost">Back</button>
+      <button id="btn-save-onboarding" class="btn btn-primary">Save &amp; start</button>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VIEW: pending (waiting for score)
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="view-pending" class="view hidden" data-view="pending" aria-label="Analysing">
+    <div class="status-bar">
+      <span id="health-dot-pending" class="health-dot" data-health="unknown"
+            aria-label="API status" role="img"></span>
+      <span class="status-label">Analysing…</span>
+    </div>
+
+    <div class="progress-track" role="progressbar" aria-label="Scoring in progress"
+         aria-valuemin="0" aria-valuemax="100">
+      <div id="progress-fill" class="progress-fill" style="width:0%"></div>
+    </div>
+
+    <p class="pending-hint">Conversation captured. Results appear here once ready.</p>
+
+    <button id="btn-pending-settings" class="btn btn-ghost btn-sm">Settings</button>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VIEW: main (score display)
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="view-main" class="view hidden" data-view="main" aria-label="Analysis">
+
+    <!-- top bar: health dot + tier rung + settings -->
+    <div class="top-bar">
+      <span id="health-dot-main" class="health-dot" data-health="unknown"
+            aria-label="API status" role="img"></span>
+      <span id="chat-tier-rung" class="tier-rung"></span>
+      <button id="btn-go-settings" class="btn-icon" aria-label="Settings">⚙</button>
+    </div>
+
+    <!-- regime bar (hidden if state invalid or unavailable) -->
+    <div id="regime-bar-container" class="regime-bar-container hidden" aria-label="State context">
+      <svg id="regime-bar-svg" class="regime-bar-svg" viewBox="0 0 320 28"
+           aria-hidden="true" focusable="false"></svg>
+      <p id="regime-label" class="regime-label"></p>
+    </div>
+
+    <!-- ── SECTION 1: STRENGTHS — ALWAYS FIRST (data-order enforced) ────── -->
+    <section id="section-strengths" class="score-section" data-order="1"
+             aria-labelledby="strengths-heading">
+      <h2 id="strengths-heading" class="section-heading">Strengths</h2>
+      <ul id="strengths-list" class="trait-list" aria-label="Strength observations"></ul>
+    </section>
+
+    <!-- ── SECTION 2: GROWTH NUDGE — ALWAYS SECOND (data-order enforced) ── -->
+    <section id="section-growth" class="score-section" data-order="2"
+             aria-labelledby="growth-heading">
+      <h2 id="growth-heading" class="section-heading">Where to grow</h2>
+      <ul id="growth-list" class="trait-list" aria-label="Growth areas"></ul>
+    </section>
+
+    <!-- tier caveat (soft epistemics note) -->
+    <p id="tier-caveat" class="tier-caveat hidden"></p>
+
+    <!-- flag pills -->
+    <div id="flag-pills-container" class="flag-pills hidden" role="list"
+         aria-label="Notable patterns"></div>
+
+    <!-- radar toggle -->
+    <div class="radar-toggle-row hidden">
+      <button id="btn-toggle-radar" class="btn btn-ghost btn-sm"
+              aria-expanded="false" aria-controls="radar-container">
+        Show dimension detail
+      </button>
+    </div>
+
+    <!-- radar chart (hidden by default) -->
+    <div id="radar-container" class="radar-container hidden" aria-label="Dimension chart">
+      <svg id="radar-svg" class="radar-svg" viewBox="-1 -1 2 2"
+           aria-hidden="true" focusable="false"></svg>
+      <ul id="radar-legend" class="radar-legend" aria-label="Dimension scores"></ul>
+    </div>
+
+    <!-- sustainability note (hidden if absent) -->
+    <p id="sustainability-text" class="sustainability-text hidden"></p>
+
+    <!-- action row -->
+    <div class="action-row">
+      <button id="btn-analyse-now" class="btn btn-primary btn-sm">Analyse now</button>
+      <button id="btn-go-portfolio" class="btn btn-ghost btn-sm">Portfolio</button>
+    </div>
+
+    <!-- feedback prompt (shown only when consent ON and feedback not yet given) -->
+    <div id="feedback-section" class="feedback-section hidden" aria-label="Feedback">
+      <p class="feedback-prompt">Does this reflect your session?</p>
+      <div class="feedback-btn-row" role="group" aria-label="Accuracy rating">
+        <button class="btn-feedback" data-rating="yes">Yes</button>
+        <button class="btn-feedback" data-rating="partial">Mostly</button>
+        <button class="btn-feedback" data-rating="no">Not really</button>
+      </div>
+      <textarea id="feedback-comment" class="feedback-comment" maxlength="280"
+                placeholder="Optional note… (280 chars)" aria-label="Feedback comment"></textarea>
+      <button id="btn-submit-feedback" class="btn btn-ghost btn-sm">Submit</button>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VIEW: portfolio
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="view-portfolio" class="view hidden" data-view="portfolio" aria-label="Portfolio">
+
+    <div class="top-bar">
+      <button id="btn-back-main-from-portfolio" class="btn-icon" aria-label="Back">←</button>
+      <h2 class="view-title">Portfolio</h2>
+    </div>
+
+    <p id="portfolio-rung" class="portfolio-rung"></p>
+    <p id="portfolio-archetype" class="archetype-label"></p>
+    <p id="portfolio-archetype-desc" class="archetype-desc hidden"></p>
+    <p id="portfolio-trajectory" class="trajectory-label"></p>
+
+    <ul id="portfolio-dim-list" class="portfolio-dim-list" aria-label="Dimension averages"></ul>
+
+    <div id="portfolio-growth-summary" class="portfolio-growth-summary hidden">
+      <p id="portfolio-strongest" class="growth-item"></p>
+      <p id="portfolio-watch" class="growth-item"></p>
+    </div>
+
+    <p id="portfolio-insufficient" class="insufficient-text hidden">
+      More sessions needed for portfolio trends.
+    </p>
+
+    <p id="portfolio-count" class="sessions-count"></p>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       VIEW: settings
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="view-settings" class="view hidden" data-view="settings" aria-label="Settings">
+
+    <div class="top-bar">
+      <button id="btn-back-main-from-settings" class="btn-icon" aria-label="Back">←</button>
+      <h2 class="view-title">Settings</h2>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="settings-user-ref">Your ID</label>
+      <input id="settings-user-ref" class="text-input" type="text" autocomplete="off">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="settings-api-endpoint">API endpoint</label>
+      <input id="settings-api-endpoint" class="text-input" type="url" autocomplete="off">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="settings-api-key">API key <span class="field-hint">(leave blank to keep existing)</span></label>
+      <input id="settings-api-key" class="text-input" type="password" autocomplete="off">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="settings-openai-key">OpenAI key <span class="field-hint">(leave blank to keep existing)</span></label>
+      <input id="settings-openai-key" class="text-input" type="password" autocomplete="off">
+    </div>
+
+    <div class="consent-row">
+      <label class="toggle-label" for="settings-consent">
+        <span class="toggle-text">Save sessions for portfolio</span>
+        <span class="toggle-track" aria-hidden="true">
+          <input id="settings-consent" class="toggle-input" type="checkbox" role="switch">
+          <span class="toggle-thumb" aria-hidden="true"></span>
+        </span>
+      </label>
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-save-settings" class="btn btn-primary">Save</button>
+    </div>
+
+    <p id="settings-status" class="settings-status hidden" role="status" aria-live="polite"></p>
+
+    <hr class="divider">
+
+    <button id="btn-delete-data" class="btn btn-danger btn-sm">Delete all my data</button>
+    <p class="field-hint danger-hint">Removes all sessions, scores, and feedback from the local database.</p>
+
+  </section>
+
+  <!-- scripts (classic non-module scripts; IIFE globals attach to window) -->
+  <script src="../utils/storage.js"></script>
+  <script src="../utils/api_client.js"></script>
+  <script src="panel.js"></script>
+
+</body>
+</html>

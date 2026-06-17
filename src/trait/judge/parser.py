@@ -104,6 +104,7 @@ def parse_judge_response(
         prompt_version=prompt_version,
         judge_unavailable=False,
         judge_family_conflict=(judge_family == partner_family),
+        raw_response=text,  # literal model output retained for audit (Track 1)
     )
 
 
