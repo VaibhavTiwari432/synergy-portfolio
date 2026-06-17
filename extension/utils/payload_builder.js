@@ -158,6 +158,19 @@
 
     if (telemetry) payload.telemetry = telemetry;
     if (metadata) payload.metadata = metadata;
+    if (typeof input.capture_method === "string" && input.capture_method.trim()) {
+      payload.capture_method = input.capture_method.trim();
+    }
+    const expectedTurnCount = validInteger(input.expected_turn_count ?? input.expectedTurnCount);
+    const capturedTurnCount = validInteger(input.captured_turn_count ?? input.capturedTurnCount);
+    if (expectedTurnCount !== null) payload.expected_turn_count = expectedTurnCount;
+    if (capturedTurnCount !== null) payload.captured_turn_count = capturedTurnCount;
+    if (typeof input.capture_complete === "boolean") {
+      payload.capture_complete = input.capture_complete;
+    }
+    if (typeof input.raw_retention_flag === "string" && input.raw_retention_flag.trim()) {
+      payload.raw_retention_flag = input.raw_retention_flag.trim();
+    }
     return payload;
   }
 

@@ -3,22 +3,16 @@
 (function initContentCapture(globalScope) {
   const SELECTORS = Object.freeze({
     turnContainer: Object.freeze([
-      'article[data-testid^="conversation-turn-"]',
-      '[data-testid^="conversation-turn-"]',
+      '[data-message-id]',
     ]),
     roleTurn: Object.freeze([
       '[data-message-author-role]',
     ]),
     userTurn: Object.freeze([
       '[data-message-author-role="user"]',
-      'article[data-testid^="conversation-turn-"] .user',
-      ".group.w-full .whitespace-pre-wrap",
     ]),
     aiTurn: Object.freeze([
       '[data-message-author-role="assistant"]',
-      'article[data-testid^="conversation-turn-"] .assistant',
-      'article[data-testid^="conversation-turn-"] .prose',
-      ".group.w-full .markdown",
     ]),
     stopButton: Object.freeze([
       'button[aria-label="Stop generating"]',
@@ -31,13 +25,13 @@
     historyItems: Object.freeze([
       'nav [data-testid="history-item"]',
       "nav ol li a",
-      "nav .relative.group a",
     ]),
   });
 
   const MESSAGE_TYPES = Object.freeze({
     CAPTURE_UPDATED: "SAF_CAPTURE_UPDATED",
     CAPTURE_READY: "SAF_CAPTURE_READY",
+    ANALYSE_PROGRESS: "SAF_ANALYSE_PROGRESS",
     GET_CAPTURE_STATE: "SAF_GET_CAPTURE_STATE",
     GET_HISTORY_ITEMS: "SAF_GET_HISTORY_ITEMS",
     ANALYSE_NOW: "SAF_ANALYSE_NOW",
@@ -45,8 +39,8 @@
 
   const STREAM_IDLE_MS = 1500;
   const PAIRS_PER_UPLOAD = 3;
-  const MANUAL_SCROLL_SETTLE_MS = 220;
-  const MANUAL_SCROLL_MAX_STEPS = 90;
+  const MANUAL_SCROLL_SETTLE_MS = 400;
+  const MANUAL_SCROLL_MAX_STEPS = 300;
   const MIN_SCROLL_HARVEST_DELTA = 80;
 
   function queryUsingFallbacks(documentRef, selectors) {
@@ -86,14 +80,14 @@
   }
 
   function closestTurnContainer(node) {
-    return node?.closest?.('article[data-testid^="conversation-turn-"], [data-testid^="conversation-turn-"]') || null;
+    return node?.closest?.("[data-message-id]") || null;
   }
 
   function candidateKey(candidate) {
     const container = closestTurnContainer(candidate.node);
     const stableId =
-      container?.getAttribute?.("data-testid") ||
-      candidate.node.getAttribute?.("data-testid");
+      container?.getAttribute?.("data-message-id") ||
+      candidate.node.getAttribute?.("data-message-id");
     return stableId
       ? `${candidate.role}:${stableId}`
       : `${candidate.role}:text-${stableHash(textOf(candidate.node).slice(0, 500))}`;
@@ -202,11 +196,17 @@
       pendingHumanCapture: false,
       awaitingAssistant: false,
       awaitingFreshSubmit: initialConversationId.startsWith("draft-"),
+      lastCaptureMethod: null,
+      expectedTurnCount: null,
+      captureComplete: null,
       captureEnabled: false,
       started: false,
       stopped: false,
       warned: new Set(),
       domOrderOffset: 0,
+      lastHref: String(locationRef?.href || ""),
+      locationCaptureTimer: null,
+      locationCaptureInFlight: false,
     };
 
     function warnOnce(key, message) {
@@ -248,31 +248,16 @@
       const containers = queryUsingFallbacks(documentRef, SELECTORS.turnContainer);
       const containerCandidates = [];
       const roleCounts = { user: 0, assistant: 0 };
-      let previousRole = null;
       for (const container of containers.nodes) {
         const explicit = container.matches?.("[data-message-author-role]")
           ? container
           : container.querySelector?.("[data-message-author-role]");
-        const markdown = container.querySelector?.(".markdown, .prose");
-        const userBody = container.querySelector?.(
-          '[data-message-author-role="user"], [data-testid*="user"], .user, .whitespace-pre-wrap',
-        );
 
         let role = roleFromAuthorNode(explicit);
         let node = explicit || container;
-        if (!role && markdown) {
-          role = "assistant";
-          node = markdown;
-        } else if (!role && userBody && !markdown) {
-          role = "user";
-          node = userBody;
-        } else if (!role && previousRole) {
-          role = previousRole === "user" ? "assistant" : "user";
-        }
         if (!role) continue;
 
         const roleIndex = roleCounts[role]++;
-        previousRole = role;
         containerCandidates.push({ node, role, roleIndex });
       }
 
@@ -357,14 +342,24 @@
       };
 
       add(documentRef.querySelector?.("main"));
+      add(documentRef.querySelector?.('[role="main"]'));
       add(documentRef.scrollingElement);
       add(documentRef.documentElement);
       add(documentRef.body);
 
       const nested = Array.from(
-        documentRef.querySelectorAll?.("main, main *, [class*='overflow'], [data-testid*='conversation']") || [],
+        documentRef.querySelectorAll?.(
+          'main, [role="main"], [data-testid*="conversation"], [data-message-id], [data-message-author-role]',
+        ) || [],
       );
-      for (const node of nested) add(node);
+      for (const node of nested) {
+        add(node);
+        let parent = node.parentElement;
+        while (parent && parent !== documentRef.body && parent !== documentRef.documentElement) {
+          add(parent);
+          parent = parent.parentElement;
+        }
+      }
 
       const best = candidates
         .map((node) => ({
@@ -394,43 +389,75 @@
       return Boolean(userChanged || aiChanged);
     }
 
-    async function captureFullConversationForManual() {
-      enableCapture();
-      syncConversation();
-      state.awaitingFreshSubmit = false;
-      await captureVisibleConversation(true);
-
+    async function scrollToLoadThenExtract(reportMiss = true) {
       const root = scrollRoot();
-      const maxScroll = () => Math.max(0, Number(root?.scrollHeight || 0) - Number(root?.clientHeight || 0));
-      if (!root || maxScroll() <= 0) return maybeQueueCapture(true);
+      if (!root) {
+        await captureVisibleConversation(reportMiss);
+        return { loaded: false, capturedTurns: orderedRecords().length };
+      }
 
+      const maxScroll = () => Math.max(
+        0,
+        Number(root.scrollHeight || 0) - Number(root.clientHeight || 0),
+      );
+      const height = () => Number(root.scrollHeight || 0);
+      const stepSize = () => Math.max(
+        320,
+        Math.floor(Number(root.clientHeight || globalScope.innerHeight || 800) * 0.75),
+      );
       const originalTop = Number(root.scrollTop || globalScope.scrollY || 0);
-      const stepSize = () => Math.max(320, Math.floor(Number(root.clientHeight || globalScope.innerHeight || 800) * 0.75));
-      let lastTop = -1;
+      let previousHeight = -1;
+      let stableAtBottom = 0;
 
       try {
         scrollToY(root, 0);
         await sleep(MANUAL_SCROLL_SETTLE_MS);
+        await captureVisibleConversation(reportMiss);
+
         for (let step = 0; step < MANUAL_SCROLL_MAX_STEPS; step += 1) {
           state.domOrderOffset = Math.floor(Number(root.scrollTop || 0) * 1000);
-          await captureVisibleConversation(true);
+          await captureVisibleConversation(reportMiss);
 
           const currentTop = Number(root.scrollTop || 0);
           const bottom = maxScroll();
-          if (currentTop >= bottom - 8) break;
+          const currentHeight = height();
+          const atBottom = currentTop >= bottom - 8;
+          const heightStable = currentHeight === previousHeight;
+          const scanPct = bottom > 0 ? 10 + ((Math.min(currentTop, bottom) / bottom) * 65) : 75;
+          notifyAnalyseProgress("capturing", scanPct, "Loading full chat...");
 
-          const nextTop = Math.min(bottom, currentTop + stepSize());
-          if (nextTop === lastTop || nextTop === currentTop) break;
-          lastTop = currentTop;
+          if (atBottom && heightStable) {
+            stableAtBottom += 1;
+            if (stableAtBottom >= 2) break;
+          } else {
+            stableAtBottom = 0;
+          }
+
+          previousHeight = currentHeight;
+          const nextTop = atBottom ? bottom : Math.min(bottom, currentTop + stepSize());
           scrollToY(root, nextTop);
           await sleep(MANUAL_SCROLL_SETTLE_MS);
         }
+
         state.domOrderOffset = Math.floor(Number(root.scrollTop || 0) * 1000);
-        await captureVisibleConversation(true);
+        await captureVisibleConversation(reportMiss);
+        return { loaded: true, capturedTurns: orderedRecords().length };
       } finally {
         state.domOrderOffset = 0;
         scrollToY(root, originalTop);
       }
+    }
+
+    async function captureFullConversationForManual() {
+      enableCapture();
+      syncConversation();
+      state.awaitingFreshSubmit = false;
+      notifyAnalyseProgress("capturing", 8, "Scanning visible chat...");
+      await scrollToLoadThenExtract(true);
+      state.lastCaptureMethod = "dom_scroll_full_load";
+      state.captureComplete = true;
+      state.expectedTurnCount = orderedRecords().length;
+      notifyAnalyseProgress("captured", 75, "Chat captured.");
       return maybeQueueCapture(true);
     }
 
@@ -471,11 +498,29 @@
           title: String(documentRef.title || "").replace(/\s*[|\-]\s*ChatGPT\s*$/i, ""),
           url: locationRef?.href || "",
         },
+        capture_method: state.lastCaptureMethod,
+        expected_turn_count: state.expectedTurnCount,
+        captured_turn_count: records.length,
+        capture_complete: state.captureComplete,
       };
     }
 
     function notifyUpdated() {
       sendMessage({ type: MESSAGE_TYPES.CAPTURE_UPDATED, capture: snapshot() });
+    }
+
+    function notifyAnalyseProgress(stage, percent, message) {
+      sendMessage({
+        type: MESSAGE_TYPES.ANALYSE_PROGRESS,
+        progress: {
+          stage,
+          percent: Math.max(0, Math.min(100, Math.round(Number(percent) || 0))),
+          message,
+          captured_turns: orderedRecords().length,
+          capture: snapshot(),
+          updated_at: Date.now(),
+        },
+      });
     }
 
     function maybeQueueCapture(force = false) {
@@ -654,6 +699,9 @@
       state.pendingHumanCapture = false;
       state.awaitingAssistant = false;
       state.awaitingFreshSubmit = conversationId.startsWith("draft-");
+      state.lastCaptureMethod = null;
+      state.expectedTurnCount = null;
+      state.captureComplete = null;
       state.warned.clear();
       if (state.captureEnabled) scheduleIdleCompletion();
     }
@@ -671,6 +719,32 @@
       }
       state.stopWasPresent = stopIsPresent;
       scheduleIdleCompletion();
+    }
+
+    function scheduleLocationExtraction() {
+      if (state.stopped || !state.captureEnabled) return;
+      if (state.locationCaptureTimer) clearTimeoutRef(state.locationCaptureTimer);
+      state.locationCaptureTimer = setTimeoutRef(async () => {
+        state.locationCaptureTimer = null;
+        if (state.locationCaptureInFlight) return;
+        state.locationCaptureInFlight = true;
+        try {
+          syncConversation();
+          if (!conversationIdFromUrl(locationRef?.href)) return;
+          await captureFullConversationForManual();
+        } catch (error) {
+          warnOnce("location_capture_failed", `location capture failed: ${error.message}`);
+        } finally {
+          state.locationCaptureInFlight = false;
+        }
+      }, MANUAL_SCROLL_SETTLE_MS);
+    }
+
+    function handleDocumentMutations() {
+      const href = String(locationRef?.href || "");
+      if (href === state.lastHref) return;
+      state.lastHref = href;
+      scheduleLocationExtraction();
     }
 
     function handleSubmit() {
@@ -733,12 +807,17 @@
 
     const root = documentRef.querySelector("main") || documentRef.body || documentRef.documentElement;
     const observer = new MutationObserverRef(handleMutations);
+    const locationObserver = new MutationObserverRef(handleDocumentMutations);
 
     function enableCapture() {
       if (state.stopped || state.captureEnabled) return false;
       if (!root) throw new Error("conversation container is unavailable");
       state.captureEnabled = true;
       observer.observe(root, { childList: true, subtree: true, characterData: true });
+      locationObserver.observe(documentRef.documentElement || documentRef, {
+        childList: true,
+        subtree: true,
+      });
       documentRef.addEventListener("submit", handleSubmit, true);
       documentRef.addEventListener("copy", handleCopy, true);
       state.stopWasPresent = stopButtonPresent();
@@ -751,9 +830,14 @@
       if (!state.captureEnabled) return false;
       state.captureEnabled = false;
       observer.disconnect();
+      locationObserver.disconnect();
       if (state.idleTimer) {
         clearTimeoutRef(state.idleTimer);
         state.idleTimer = null;
+      }
+      if (state.locationCaptureTimer) {
+        clearTimeoutRef(state.locationCaptureTimer);
+        state.locationCaptureTimer = null;
       }
       documentRef.removeEventListener("submit", handleSubmit, true);
       documentRef.removeEventListener("copy", handleCopy, true);
