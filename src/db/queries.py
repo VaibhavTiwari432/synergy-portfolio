@@ -79,6 +79,54 @@ def capture_validation_error(turns: list[dict]) -> str | None:
     return None
 
 
+def _intent_tag(text: str, role: str) -> str:
+    value = str(text or "").strip().lower()
+    if role == "assistant":
+        return "response"
+    if not value:
+        return "empty"
+    if "?" in value:
+        return "question"
+    if any(marker in value for marker in ("fix", "debug", "error", "wrong", "not working")):
+        return "debug"
+    if any(marker in value for marker in ("compare", "evaluate", "review", "critique", "analyze", "analyse")):
+        return "evaluate"
+    if any(marker in value for marker in ("create", "build", "write", "generate", "make")):
+        return "create"
+    if any(marker in value for marker in ("change", "update", "refine", "improve", "modify")):
+        return "refine"
+    if value in {"ok", "okay", "yes", "no", "thanks", "thank you"}:
+        return "ack"
+    return "other"
+
+
+def derive_turn_event_log(turns: list[dict]) -> list[dict]:
+    timestamps = [
+        int(t["timestamp_ms"])
+        for t in turns
+        if isinstance(t.get("timestamp_ms"), int)
+    ]
+    base_ts = min(timestamps) if timestamps else None
+    rows: list[dict] = []
+    for idx, turn in enumerate(turns):
+        role = str(turn.get("role") or "").lower()
+        text = str(turn.get("text") or "")
+        timestamp = turn.get("timestamp_ms")
+        offset = (
+            int(timestamp) - base_ts
+            if isinstance(timestamp, int) and base_ts is not None
+            else None
+        )
+        rows.append({
+            "turn_index": int(turn.get("turn_index", idx)),
+            "role": role,
+            "char_count": len(text),
+            "timestamp_offset_ms": offset,
+            "intent_tag": _intent_tag(text, role),
+        })
+    return rows
+
+
 def capture_completeness_error(
     *,
     expected_turn_count: int | None,
@@ -264,6 +312,63 @@ async def upsert_telemetry(
         chat_id, dwell_ms, copy_events, edit_detected,
         selector_health, capture_mode, metadata,
     )
+
+
+async def replace_capture_artifacts(
+    pool: asyncpg.Pool,
+    *,
+    chat_id: UUID,
+    conversation_id: str,
+    turns: list[dict],
+    raw_retention_flag: str = "retain",
+) -> None:
+    event_rows = derive_turn_event_log(turns)
+    raw_rows = [
+        (
+            chat_id,
+            conversation_id,
+            int(turn.get("turn_index", idx)),
+            str(turn.get("role") or "").lower(),
+            str(turn.get("text") or ""),
+            raw_retention_flag,
+        )
+        for idx, turn in enumerate(turns)
+    ]
+
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("DELETE FROM event_log WHERE chat_id = $1", chat_id)
+            await conn.execute("DELETE FROM raw_transcripts WHERE chat_id = $1", chat_id)
+            if event_rows:
+                await conn.executemany(
+                    """
+                    INSERT INTO event_log
+                        (chat_id, conversation_id, turn_index, role, char_count,
+                         timestamp_offset_ms, intent_tag)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """,
+                    [
+                        (
+                            chat_id,
+                            conversation_id,
+                            row["turn_index"],
+                            row["role"],
+                            row["char_count"],
+                            row["timestamp_offset_ms"],
+                            row["intent_tag"],
+                        )
+                        for row in event_rows
+                    ],
+                )
+            if raw_rows:
+                await conn.executemany(
+                    """
+                    INSERT INTO raw_transcripts
+                        (chat_id, conversation_id, turn_index, role, text, retention_flag)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    """,
+                    raw_rows,
+                )
 
 
 async def get_telemetry_for_chat(

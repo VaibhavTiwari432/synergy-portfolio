@@ -14,16 +14,13 @@ const {
 
 test("SELECTORS preserves the ordered contract fallbacks", () => {
   assert.deepEqual(SELECTORS.turnContainer, [
-    'article[data-testid^="conversation-turn-"]',
-    '[data-testid^="conversation-turn-"]',
+    '[data-message-id]',
   ]);
   assert.deepEqual(SELECTORS.roleTurn, [
     '[data-message-author-role]',
   ]);
   assert.deepEqual(SELECTORS.userTurn, [
     '[data-message-author-role="user"]',
-    'article[data-testid^="conversation-turn-"] .user',
-    ".group.w-full .whitespace-pre-wrap",
   ]);
   assert.equal(SELECTORS.stopButton.length, 2);
 });
@@ -195,7 +192,7 @@ test("controller prefers explicit role containers over broad fallback selectors"
     documentElement: {},
     querySelectorAll(selector) {
       if (selector === SELECTORS.roleTurn[0]) return roleNodes;
-      if (selector === SELECTORS.userTurn[2]) return noisyFallbackNodes;
+      if (selector === SELECTORS.userTurn[0]) return noisyFallbackNodes;
       return [];
     },
     querySelector() {
@@ -296,7 +293,7 @@ test("controller falls back for assistants when only user role containers exist"
   );
 });
 
-test("controller captures existing conversation-turn articles without assistant role attributes", () => {
+test("controller refuses legacy message nodes without assistant role attributes", () => {
   function article(role, order, text) {
     const textNode = {
       innerText: text,
@@ -386,15 +383,9 @@ test("controller captures existing conversation-turn articles without assistant 
   controller.enableCapture();
   controller.captureUsers(true);
   controller.captureCompletedAssistants(true);
-  assert.equal(controller.maybeQueueCapture(true), true);
-  const ready = messages.filter((message) => message.type === "SAF_CAPTURE_READY").at(-1);
-  assert.deepEqual(
-    ready.capture.turns.map(({ role, text }) => ({ role, text })),
-    [
-      { role: "user", text: "already open question" },
-      { role: "assistant", text: "already open answer" },
-    ],
-  );
+  assert.equal(controller.maybeQueueCapture(true), false);
+  assert.equal(messages.filter((message) => message.type === "SAF_CAPTURE_READY").length, 0);
+  assert.equal(controller.snapshot().telemetry.selector_health, "selector_miss");
 });
 
 test("controller stays passive until capture is explicitly enabled", () => {
@@ -443,7 +434,7 @@ test("controller stays passive until capture is explicitly enabled", () => {
     assert.equal(observeCalls, 0);
     assert.equal(listeners.length, 1);
     controller.enableCapture();
-    assert.equal(observeCalls, 1);
+    assert.equal(observeCalls, 2);
   } finally {
     global.chrome = previousChrome;
   }
@@ -713,6 +704,9 @@ test("manual scroll harvest uses nested ChatGPT scroll containers", async () => 
       this.scrollTop = top;
     },
   };
+  pages.flat().forEach((item) => {
+    item.parentElement = nestedRoot;
+  });
   const visiblePage = () => Math.min(1, Math.floor(nestedRoot.scrollTop / 300));
   const messages = [];
   const documentRef = {
@@ -721,8 +715,11 @@ test("manual scroll harvest uses nested ChatGPT scroll containers", async () => 
     body: pageRoot,
     documentElement: pageRoot,
     querySelectorAll(selector) {
-      if (selector === "main, main *, [class*='overflow'], [data-testid*='conversation']") {
-        return [nestedRoot];
+      if (
+        selector ===
+        'main, [role="main"], [data-testid*="conversation"], [data-message-id], [data-message-author-role]'
+      ) {
+        return pages[visiblePage()];
       }
       const visible = pages[visiblePage()];
       if (selector === SELECTORS.userTurn[0]) {
@@ -945,7 +942,7 @@ test("forced capture refuses heavily imbalanced transcripts", () => {
   assert.ok(warnings.some((message) => /imbalanced/.test(message)));
 });
 
-test("new-chat navigation clears the old transcript and retains fresh draft turns", () => {
+test("new-chat navigation clears the old transcript and retains fresh draft turns", async () => {
   function turn(role, order, text) {
     return {
       innerText: text,
@@ -1002,7 +999,10 @@ test("new-chat navigation clears the old transcript and retains fresh draft turn
     document: documentRef,
     location: locationRef,
     MutationObserver: FakeMutationObserver,
-    setTimeout: () => 1,
+    setTimeout: (fn) => {
+      fn();
+      return 1;
+    },
     clearTimeout: () => {},
     sendMessage: () => {},
     warn: () => {},
@@ -1012,6 +1012,7 @@ test("new-chat navigation clears the old transcript and retains fresh draft turn
 
   locationRef.href = "https://chat.openai.com/";
   mutationCallback();
+  await Promise.resolve();
   assert.equal(controller.snapshot().turns.length, 0);
 
   turns = [turn("user", 0, "new user")];
@@ -1019,6 +1020,7 @@ test("new-chat navigation clears the old transcript and retains fresh draft turn
   mutationCallback();
   locationRef.href = "https://chat.openai.com/c/new-chat";
   mutationCallback();
+  await Promise.resolve();
   turns.push(turn("assistant", 1, "new assistant"));
   controller.captureCompletedAssistants();
 

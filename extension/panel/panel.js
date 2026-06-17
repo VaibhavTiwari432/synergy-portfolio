@@ -126,12 +126,28 @@
   ];
 
   function _showView(name) {
+    const active = document.activeElement;
+
     for (const v of VIEWS) {
       const el = document.getElementById(`view-${v}`);
       if (!el) continue;
       const visible = v === name;
+
+      if (!visible && active instanceof HTMLElement && el.contains(active)) {
+        active.blur();
+      }
+
       el.classList.toggle('hidden', !visible);
-      el.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+      if (visible) {
+        el.removeAttribute('aria-hidden');
+        el.removeAttribute('inert');
+        el.inert = false;
+      } else {
+        el.removeAttribute('aria-hidden');
+        el.setAttribute('inert', '');
+        el.inert = true;
+      }
     }
   }
 
@@ -169,6 +185,7 @@
   let _userRef = null;
   let _currentChatId = null;
   let _pendingPollTimer = null;
+  let _analysisPollTimer = null;
   let _selectedFeedbackRating = null;
 
   // ── INIT ──────────────────────────────────────────────────────────────────
@@ -179,7 +196,7 @@
       return;
     }
 
-    const { onboardingComplete, userRef, health, latestCapture } = res.data;
+    const { onboardingComplete, userRef, health, latestCapture, analysisProgress } = res.data;
     _userRef = userRef;
     _updateHealthDots(health);
 
@@ -188,7 +205,15 @@
       return;
     }
 
-    if (latestCapture?.conversation_id) {
+    if (analysisProgress?.active && analysisProgress.stage !== 'error' && analysisProgress.stage !== 'complete') {
+      _showView('pending');
+      _renderAnalysisProgress(analysisProgress);
+      _startAnalysisProgressPoll();
+      if (analysisProgress.chatId) {
+        _currentChatId = analysisProgress.chatId;
+        _startPendingPoll(userRef);
+      }
+    } else if (latestCapture?.conversation_id) {
       await _resolveCapture(userRef, latestCapture);
     } else {
       _showView('main');
@@ -230,12 +255,18 @@
   // ── PENDING POLL ──────────────────────────────────────────────────────────
   function _startPendingPoll(userRef) {
     if (_pendingPollTimer) clearInterval(_pendingPollTimer);
+    _startAnalysisProgressPoll();
     let fillPct = 0;
 
     _pendingPollTimer = setInterval(async () => {
-      fillPct = Math.min(fillPct + 5, 90); // synthetic — never reaches 100 until done
-      const fill = document.getElementById('progress-fill');
-      if (fill) fill.style.width = `${fillPct}%`;
+      const statusRes = await _sendBg({ type: 'SAF_PANEL_GET_STATUS' });
+      if (statusRes.ok && statusRes.data?.analysisProgress) {
+        _renderAnalysisProgress(statusRes.data.analysisProgress);
+      } else {
+        fillPct = Math.min(fillPct + 5, 90); // synthetic - never reaches 100 until done
+        const fill = document.getElementById('progress-fill');
+        if (fill) fill.style.width = `${fillPct}%`;
+      }
 
       if (!_currentChatId) return;
 
@@ -249,6 +280,7 @@
       if (chat?.status === 'failed') {
         clearInterval(_pendingPollTimer);
         _pendingPollTimer = null;
+        _stopAnalysisProgressPoll();
         _setPendingHint('Scoring failed — press “Analyse now” to retry.');
         return;
       }
@@ -256,6 +288,7 @@
       if (chat?.status === 'scored') {
         clearInterval(_pendingPollTimer);
         _pendingPollTimer = null;
+        _stopAnalysisProgressPoll();
         const fill2 = document.getElementById('progress-fill');
         if (fill2) fill2.style.width = '100%';
         await _loadAndShowScore(userRef, _currentChatId);
@@ -267,6 +300,42 @@
   function _setPendingHint(text) {
     const el = document.querySelector('#view-pending .pending-hint');
     if (el) el.textContent = text;
+  }
+
+  function _renderAnalysisProgress(progress, fallbackMessage) {
+    const pct = Math.max(0, Math.min(100, Math.round(Number(progress?.percent ?? 0))));
+    const stage = String(progress?.stage || 'analysing').replace(/_/g, ' ');
+    const message = progress?.message || fallbackMessage || 'Working on this chat...';
+    const turns = Number(progress?.capturedTurns || 0);
+
+    const label = document.getElementById('pending-stage-label');
+    if (label) label.textContent = stage.charAt(0).toUpperCase() + stage.slice(1);
+
+    const fill = document.getElementById('progress-fill');
+    if (fill) fill.style.width = `${pct}%`;
+
+    const track = document.querySelector('#view-pending .progress-track');
+    if (track) track.setAttribute('aria-valuenow', String(pct));
+
+    const detail = turns > 0
+      ? `${message} Chat captured: ${turns} turn${turns === 1 ? '' : 's'} (${pct}%).`
+      : `${message} ${pct}%.`;
+    _setPendingHint(detail);
+  }
+
+  function _startAnalysisProgressPoll() {
+    if (_analysisPollTimer) clearInterval(_analysisPollTimer);
+    _analysisPollTimer = setInterval(async () => {
+      const res = await _sendBg({ type: 'SAF_PANEL_GET_STATUS' });
+      if (res.ok && res.data?.analysisProgress) {
+        _renderAnalysisProgress(res.data.analysisProgress);
+      }
+    }, 700);
+  }
+
+  function _stopAnalysisProgressPoll() {
+    if (_analysisPollTimer) clearInterval(_analysisPollTimer);
+    _analysisPollTimer = null;
   }
 
   // Briefly show a message on whichever status line is visible (main or settings).
@@ -879,10 +948,15 @@
       // Query tab from popup context — currentWindow here correctly refers to the
       // parent browser window (not the extension popup), so this reliably finds the ChatGPT tab.
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      _showView('pending');
+      _renderAnalysisProgress({ stage: 'capturing', percent: 1, message: 'Starting capture...' });
+      _startAnalysisProgressPoll();
       const res = await _sendBg({ type: 'SAF_PANEL_ANALYSE_NOW', tabId: tab?.id });
 
       if (!res.ok) {
         // Prefer the background's user-facing message (consent off, no key, etc.)
+        _stopAnalysisProgressPoll();
+        _showView('main');
         _flashStatus(res.message || res.error || 'Could not start analysis.');
         return;
       }
@@ -894,9 +968,11 @@
 
       if (_userRef && _currentChatId) {
         _showView('pending');
-        _setPendingHint('Conversation captured. Results appear here once ready.');
+        _renderAnalysisProgress({ stage: 'scoring', percent: 90, message: 'Conversation captured. Results appear here once ready.' });
         _startPendingPoll(_userRef);
       } else {
+        _stopAnalysisProgressPoll();
+        _showView('main');
         _flashStatus('Could not start analysis — no conversation found.');
       }
     });

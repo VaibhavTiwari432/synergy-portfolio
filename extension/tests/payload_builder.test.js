@@ -224,6 +224,25 @@ test('buildIngestPayload: userRef camelCase alias accepted', () => {
   assert.equal(payload.user_ref, 'alice');
 });
 
+test('buildIngestPayload: capture completeness fields pass through', () => {
+  const payload = pb.buildIngestPayload({
+    user_ref: 'u',
+    conversation_id: 'capture-fields',
+    source: 'live',
+    turns: [{ role: 'user', text: 'hi' }],
+    capture_method: 'dom_scroll_full_load',
+    expected_turn_count: 1,
+    captured_turn_count: 1,
+    capture_complete: true,
+    raw_retention_flag: 'retain_30d',
+  });
+  assert.equal(payload.capture_method, 'dom_scroll_full_load');
+  assert.equal(payload.expected_turn_count, 1);
+  assert.equal(payload.captured_turn_count, 1);
+  assert.equal(payload.capture_complete, true);
+  assert.equal(payload.raw_retention_flag, 'retain_30d');
+});
+
 // ── normaliseSource ────────────────────────────────────────────────────────────
 
 test('normaliseSource: all known aliases', () => {

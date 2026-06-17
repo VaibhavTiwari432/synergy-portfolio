@@ -765,6 +765,49 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-016  [RESOLVED]  — Interceptor (document_start) can fire before content.js attaches its listener (document_idle)
+
+- Raised by: Chief Engineer
+- Date: 2026-06-17
+- File(s): extension/interceptor.js (CE), extension/content.js (Codex-owned;
+  bridge built by CE per the 2026-06-17 reassignment in TEAM.md §9),
+  extension/manifest.json (CE)
+- Problem: `interceptor.js` is injected in the MAIN world at `run_at:
+  "document_start"` and patches `fetch`/`XHR` immediately, but `content.js` runs
+  in the isolated world at `run_at: "document_idle"` AND only attaches its
+  `window` "message" listener inside `enableCapture()` — which is gated on the
+  async onboarding-consent read. On a cold page load, ChatGPT's
+  `/backend-api/conversation/<id>` fetch can therefore complete (and the
+  interceptor `postMessage` fire) BEFORE the listener exists. `postMessage` is not
+  buffered, so that initial-load payload is dropped. Capture then degrades to an
+  SPA re-fetch (caught) or the demoted scroll-probe fallback (D-015 §6). This is a
+  completeness/latency gap on first load, not a correctness bug — the fallback
+  still produces a balanced best-effort capture (`capture_complete:null` → legacy
+  role-balance gate), and no incomplete capture is ever marked complete.
+- Proposed fix (deferred): have `interceptor.js` cache the last conversation
+  payload in the MAIN world and re-emit it when `content.js` posts a "bridge
+  ready" ping after it attaches its listener (a small handshake across the world
+  boundary). This touches CE-owned `interceptor.js` and changes the §1 message
+  protocol, so it must be specified in a separate ADR before implementation.
+- Decision: CHIEF ENGINEER — was OPEN/BLOCKED-on-ADR; project lead then directly
+  authorized the cache-and-replay handshake. Specified in **ADR-0008** and
+  implemented: `interceptor.js` caches every conversation payload and replays it
+  once on a `ready-ping` from `content.js`, labelled `source_: "cache_replay"`;
+  `content.js` sends the ping (then attaches its listener) the moment consent
+  passes in `enableCapture`. The §1 protocol gains `ready-ping` + the
+  `cache_replay` label (forward-compatible: each side ignores the other's unknown
+  kinds). The polling workaround the original entry forbade was NOT used — the
+  authoritative cache lives in the MAIN world where the data is captured.
+- Resolution (2026-06-17): ADR-0008 written; `extension/interceptor.js` (CE),
+  `extension/content.js` (Codex-owned; CE per the §9 bridge reassignment), and
+  `tests/extension/interception_race.test.js` (new, 2 tests) landed. The race test
+  proves a conversation open at install time is rescued from cache and ingested as
+  `capture_method:"interception"` (not the DOM fallback), and that a second ping is
+  a no-op. Full extension JS suite: 69 passed.
+- Status: RESOLVED
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |

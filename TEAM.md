@@ -309,86 +309,77 @@ Each tool has usage limits. The point of three is to **keep building when one is
 
 ---
 
-## 9. Uncommitted-tree authorship ledger (2026-06-17)
+## 9. Authorship ledger — uncommitted and recently committed (updated 2026-06-17)
 
-**Why this section exists:** the entire Scope B layer (Phases 1–4 above, all CLOSED)
-AND the recoverability work (Tracks 0–2, `DISCREPANCY.md` D-013) are complete and
-green in the working tree but were **never committed** — `git log` confirms no
-Scope-B file (`src/db/queries.py`, etc.) exists on any ref. Before the closing
-commits land, this ledger records **who authored what**, so attribution is correct
-and no agent's work is silently folded into another's commit (#21). A CE audit
-(2026-06-17) verified that **none of the recoverability Track 0–2 edits touched a
-Codex-owned file** — the ownership boundary in §3 held throughout.
+**Purpose:** tracks who authored what in this branch so attribution is correct and no
+agent's work is silently folded into another's commit (non-negotiable #21). Section is
+updated at the close of each CE session.
 
-### Codex-authored, uncommitted (Scope B extension leaves + tests)
-Built 2026-06-14 (Phase 2/4 board, §2), contract-driven against `EXTENSION_BUILD_PROMPT.md`:
+### Committed on this branch (newest first)
 
-| File | What it does | Why (source) |
-|---|---|---|
-| `extension/content.js` | MutationObserver turn capture, telemetry, selector fallbacks (IIFE `SAFContentCapture`) | Phase 2 leaf; selector-driven, bounded. **+ D-011 fix (2026-06-17):** zero-completed-pairs hard floor so forced "Analyse now" overrides timing but never the content floor. |
-| `extension/utils/storage.js` | `SAFStorage` wrapper over chrome.storage | Phase 2 leaf. Note: still defines an `OPENAI_API_KEY` slot — harmless post-Track-0 (CE's `background.js` no longer sends it); slot removal is a future Codex cleanup, not a blocker. |
-| `extension/utils/payload_builder.js` | `SAFPayloadBuilder`, source/role normalisation, family=openai enforcement | Phase 2 leaf. |
-| `extension/panel/panel.css` | Panel styling (≈795 lines) | Phase 2 leaf. |
-| `tests/extension/content.test.js` | content.js capture + D-011 regressions | Tests next to a Codex module → Codex-owned (§3). |
-| `tests/extension/storage.test.js`, `tests/extension/payload_builder.test.js`, `extension/tests/payload_builder.test.js` | leaf-module tests | Codex-owned. |
+| Commit | Author | Files | What |
+|---|---|---|---|
+| `cd3d648` `[Codex]` | Codex | `extension/content.js`, `extension/utils/payload_builder.js` | DOM hardening (data-message-id selectors), scroll-progress notifications, location-change auto-capture, D-015 §7 snapshot fields, D-015 §8 payload pass-through |
+| `7f10fdf` `[CE]` | CE | `adr/0007-*`, `extension/interceptor.js`, `DISCREPANCY.md`, `TEAM.md` | ADR-0007 + D-015 spec + release-gate doc; interceptor.js shipped dormant |
+| `cc30e4e` `[CE]` | CE | all Scope B + recoverability files | Scope B Phases 1–4 + recoverability Tracks 0–2 (migrations 001–007, worker, API, extension, panel) |
 
-Codex's other Scope-B contributions were **diagnoses, not code in CE files**: Codex
-raised D-006/D-007/D-008/D-009/D-010 (live-capture requeue, analyse-now reporting
-bugs, HTTP error labels); the fixes landed in CE-owned `background.js`/`panel.js`/
-`queries.py` by CE. The one Codex *implementation* request from CE was D-011, above.
+### CE-authored, uncommitted (this session)
 
-**D-011 review verdict (CE, 2026-06-17): RESOLVED.** The hard floor at
-`content.js:487` precedes the `!force` debounce, matching the agreed semantic
-("forced overrides timing, never minimum content"); 53 extension JS tests green
-incl. the three forced-capture regressions. Marked RESOLVED in `DISCREPANCY.md`.
-
-### CE-authored, uncommitted (everything else in the tree)
-`src/db/**`, `src/worker/**`, `alembic/**`, `infra/**`, `src/api/routers/**`,
-`src/provenance.py`, CE extension files (`manifest.json`, `background.js`,
-`api_client.js`, `panel.html/js`, `injected_icon.js`, `self_rating_prompt.js`),
-DB integration tests, calibration scripts — plus the recoverability deltas in
-tracked files (`contracts/schemas.py`, `pipeline.py`, `precision.py`,
-`estimator.py`, `parser.py`).
-
-### Capture-strategy change (ADR-0007 / D-015, 2026-06-17) — split build, in progress
-The scroll-probe cannot beat ChatGPT virtualization; primary capture moves to
-MAIN-world conversation-JSON interception with a completeness gate. Option-2 split
-(project lead): CE builds the spine, Codex authors the content.js bridge.
-
-**CE-authored, uncommitted (this change):**
 | File | What it does |
 |---|---|
-| `extension/interceptor.js` (new) | MAIN-world fetch/XHR patch; matches the conversation endpoint; postMessage `saf-capture` per D-015 §1; one-shot field-presence shape warning. Ships **unwired** — see release gate. |
-| `extension/manifest.json` | unchanged for now — the MAIN-world activation stanza is **deferred to the joint bridge commit** (D-015 RELEASE GATE) so `main` never injects an interceptor with no consumer |
-| `extension/utils/api_client.js` | carries structured (object) 422 `detail` → `detailData` + message |
-| `extension/background.js` | short-circuits `capture_complete === false` before the network call |
-| `src/api/routers/ingest.py` | 4 optional capture fields; structured-422 completeness quarantine |
-| `src/db/queries.py` | `capture_completeness_error()` (false=block / null=defer) + 3 columns on `upsert_chat` |
-| `alembic/versions/007_capture_completeness.py` (new) | columns + CHECK enforcing the invariant at rest |
-| `src/worker/scorer.py` | worker double-check refuses to score incomplete rows |
-| `tests/unit/test_capture_validation.py`, `tests/extension/interceptor.test.js` (new) | gate + interceptor coverage |
+| `extension/background.js` | `_analyseProgress` map + `_setAnalyseProgress()`; `SAF_ANALYSE_PROGRESS` handler (stores progress from content.js scroll notifications); progress state threaded through the entire analyse-now flow (capturing → ingesting → scoring → complete/error); `SAF_PANEL_GET_STATUS` and `SAF_PANEL_OPEN` include `analysisProgress` |
+| `extension/panel/panel.html` | Added `id="pending-stage-label"` to the pending view status span |
+| `extension/panel/panel.js` | `_renderAnalysisProgress()`, `_startAnalysisProgressPoll()` (700 ms), `_stopAnalysisProgressPoll()`; `inert` attribute for hidden views (keyboard/AT isolation); pending view polls `SAF_PANEL_GET_STATUS` for real progress instead of synthetic fill |
+| `extension/injected_icon.js` | **DEFERRED — excluded from this commit (see note below).** `radarSvg()` + `normaliseProfile()` (8-dim mini radar in score view); `renderProgress()` (replaces static "analysing…" with a live progress bar); `actionButtons()` + `wireMiniNav()` (Analyse / Portfolio / Settings row); CSS for radar, progress bar, action-button layout. This IS CE work, but the file also carries an unrelated non-CE UI-polish layer in the working tree; the whole file is held back so the two can be separated cleanly later. |
+| `src/db/queries.py` | `_intent_tag()`, `derive_turn_event_log()`, `replace_capture_artifacts()` — writes per-turn rows to `event_log` (char_count + intent_tag) and `raw_transcripts` (full text + retention_flag) transactionally on every ingest |
+| `src/api/routers/ingest.py` | Calls `replace_capture_artifacts()` after `upsert_chat`; accepts `raw_retention_flag` in `IngestRequest` |
+| `alembic/versions/008_capture_event_log_raw_transcripts.py` (new) | Creates `event_log` and `raw_transcripts` tables (CASCADE on chat delete, UNIQUE(chat_id, turn_index)); already applied (head=008) |
 
-Verification (2026-06-17): 295 unit + 53 existing-extension + 6 interceptor JS +
-11 integration (Phase-1 G1–G5, rescore R1–R6) green; migration 007 applied to dev
-DB (head=007), CHECK confirmed rejecting `complete=true` with `captured<expected`.
+Verification (this session): 52 JS + 299 Python unit + 36 integration (16 DB-skipped)
+all green; `node --check` clean on all 5 modified JS files; migration 008 confirmed
+applied to dev DB.
 
-**Codex scope (D-015 §1–§9, NOT yet built):** `extension/content.js` (consume the
-`saf-capture` postMessage, walk the active path `current_node`→root, dedupe-merge
-the live tail by stable key — never append-only, buffer-and-retry the mid-stream
-tail, demote the scroll-probe to fire only when `capture_complete` is not proven)
-and `extension/utils/payload_builder.js` (pass the four capture fields through).
-Hand-off note for Codex: the `false`-vs-`null` distinction in §7 is load-bearing —
-fallback paths set `null`, never `false`. Confirm the §3 VERIFY field names in a
-live network tab before wiring.
+### Ownership reassignment — D-015 §1–§6 bridge (CE built Codex-scope files)
 
-### Commit-attribution plan (follows the existing `[Codex]`/`[CE]` precedent)
-1. `[Codex]` commit — the reviewed extension leaves + tests above (D-011 resolved).
-2. `[CE]` commit(s) — Scope B base, then recoverability Tracks 0–2, then the
-   ADR-0007/D-015 capture spine (CE files above).
-3. `[Codex+CE]` JOINT activation commit — D-015 content.js bridge + payload
-   pass-through + the manifest MAIN-world stanza, landing together. This is the
-   first commit where interception is live end-to-end; `main` never passes through
-   an injected-but-unconsumed interceptor (D-015 RELEASE GATE).
+**2026-06-17, project-lead decision:** the D-015 content.js bridge (§1–§6) was
+authored by **CE**, not Codex, by explicit project-lead direction. `extension/content.js`
+and `extension/utils/payload_builder.js` remain **Codex-owned** in §3 going forward; this
+is a one-off reassignment for the bridge build, not a permanent ownership transfer. Recorded
+here per #21 so the `[CE]` attribution on Codex-owned files is intentional and visible, not a
+silent boundary violation. Future edits to these two files revert to Codex ownership.
+
+CE-authored bridge work, uncommitted (this session, on Codex-owned files):
+| File | What CE built |
+|---|---|
+| `extension/content.js` | `activePathFromMapping(convo)` (§2 active-path tree walk, fail-closed, reusable for export backfill §9); `saf-capture` postMessage consumer (`handleWindowMessage`, origin+source guard §1); `ingestInterception`/`emitInterception` feeding the **unchanged** `SAF_CAPTURE_READY → payload_builder → ingest` contract; dedupe-merge of the DOM live tail by `role:message_id` (§6); buffer-and-retry on mid-stream tail (§4); `model_slug` → `partner_model.model_id` with `family:"openai"` kept hardcoded (§5); scroll harvest demoted to fallback (`capture_method:"scroll_probe"`, `capture_complete:null` — §7 false-vs-null) and only run when no complete interception exists for the conversation |
+| `extension/utils/payload_builder.js` | (no change this session — §8 pass-through already committed in `cd3d648`) |
+| `extension/manifest.json` (CE-owned) | MAIN-world `interceptor.js` stanza at `document_start` — the D-015 RELEASE-GATE activation switch; lands now because the bridge consumer exists |
+| `tests/extension/active_path.test.js` (new) | 7 tests for `activePathFromMapping`; centerpiece is a forked-conversation fixture proving only the active branch (root→`current_node`) is returned |
+| `extension/tests/payload_builder.test.js`, `tests/extension/content.test.js` | alignment fixes (Codex-owned tests): selector snapshot → `data-message-id` to match committed `cd3d648`; capture-fields §8 pass-through coverage. Kept, not discarded — they track committed behaviour, not abandoned DOM logic |
+
+Race fix landed: **D-016 → RESOLVED (ADR-0008)** — `interceptor.js` (document_start) could
+fire before `content.js` attached its listener (document_idle), losing the initial page-load
+fetch. Fixed with a cache-and-replay handshake: `interceptor.js` caches every conversation
+payload and replays it once on a `ready-ping` from `content.js` (labelled `source_:
+"cache_replay"`); `content.js` sends the ping then attaches its listener the moment consent
+passes. Covered by `tests/extension/interception_race.test.js` (2 tests). This touched CE-owned
+`interceptor.js` and Codex-owned `content.js` (same bridge reassignment as above).
+
+### Commit-attribution plan (remaining work)
+1. `[CE]` commit (THIS commit) — `[CE] Activate D-015 network-intercept bridge + D-016
+   race fix`. Contains: the bridge (content.js consumer, manifest activation stanza,
+   active_path test), the D-016 race fix (interceptor.js cache-and-replay, content.js
+   ready-ping, interception_race test, ADR-0008), the analyse-progress UI on
+   background.js/panel.js/panel.html, per-turn persistence (queries.py/ingest.py/migration
+   008), the aligned tests, and the TEAM.md/DISCREPANCY.md doc updates. This is the
+   activation commit: interception is live end-to-end (race-free) and `main` never carries
+   an injected-but-unconsumed interceptor (RELEASE GATE).
+   **Excluded from this commit (held back in the working tree):**
+   - `extension/panel/panel.css` — an unrelated UI-polish layer, Codex-owned, not CE work.
+   - `extension/injected_icon.js` — carries CE radar/progress work AND the same non-CE
+     UI-polish layer entangled in one file; deferred whole so the two can be split into a
+     proper `[Codex]`/`[CE]` attribution later. (Background.js/panel.js progress code ships
+     here and degrades gracefully without the mini-panel's consumption of it.)
 
 ---
 

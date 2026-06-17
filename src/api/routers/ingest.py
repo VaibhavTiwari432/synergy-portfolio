@@ -23,6 +23,7 @@ from src.api.middleware.auth import require_api_key
 from src.db.queries import (
     capture_completeness_error,
     get_chats_for_user,
+    replace_capture_artifacts,
     reconcile_captured_count,
     upsert_chat,
     upsert_telemetry,
@@ -71,6 +72,7 @@ class IngestRequest(BaseModel):
     expected_turn_count: int | None = None
     captured_turn_count: int | None = None
     capture_complete: bool | None = None
+    raw_retention_flag: str = "retain"
 
 
 class IngestResponse(BaseModel):
@@ -164,6 +166,14 @@ async def ingest_chat(
         selector_health=tel.selector_health,
         capture_mode=capture_mode,
         metadata=meta,
+    )
+
+    await replace_capture_artifacts(
+        pool,
+        chat_id=row["id"],
+        conversation_id=body.conversation_id,
+        turns=turns_dicts,
+        raw_retention_flag=body.raw_retention_flag,
     )
 
     return IngestResponse(

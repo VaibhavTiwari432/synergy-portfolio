@@ -43,6 +43,15 @@
   const MANUAL_SCROLL_MAX_STEPS = 300;
   const MIN_SCROLL_HARVEST_DELTA = 80;
 
+  // ── network interception bridge (ADR-0007 / D-015 §1-§6) ────────────────────
+  // The MAIN-world interceptor.js posts the conversation-tree JSON the ChatGPT app
+  // already fetched. We consume it here — it is the PRIMARY capture path; the DOM
+  // scroll harvest below is the demoted fallback. These two strings are the §1
+  // postMessage discriminator and must match interceptor.js exactly.
+  const INTERCEPT_SOURCE = "saf-capture";
+  const INTERCEPT_KIND = "conversation_json";
+  const INTERCEPTION_MAX_RETRIES = 20;
+
   function queryUsingFallbacks(documentRef, selectors) {
     for (const selector of selectors) {
       const nodes = Array.from(documentRef.querySelectorAll(selector));
@@ -158,9 +167,114 @@
     return (hash >>> 0).toString(36);
   }
 
+  // The conversation id ChatGPT's own backend call carries, e.g.
+  // /backend-api/conversation/<uuid>. Used to anchor an intercepted capture to the
+  // right conversation even before the /c/<id> URL settles.
+  function conversationIdFromBackendUrl(url) {
+    try {
+      const match = String(url || "").match(
+        /\/backend-api\/conversation\/([0-9a-f-]{16,})/i,
+      );
+      return match ? match[1] : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function textFromMessageContent(content) {
+    if (!content || content.content_type !== "text") return null; // VERIFY: content_type
+    const parts = Array.isArray(content.parts) ? content.parts : []; // VERIFY: content.parts
+    const text = parts.filter((part) => typeof part === "string").join("\n").trim();
+    return text || null;
+  }
+
+  /**
+   * activePathFromMapping(convo) — ADR-0007 / D-015 §2.
+   *
+   * ChatGPT stores a conversation as a TREE (`mapping`); the thread the user sees
+   * is the single path from `current_node` up to the root, reversed into display
+   * order. This walks that active branch ONLY — alternate/edited branches are never
+   * included — and returns turns in the existing snapshot shape.
+   *
+   * Fail-closed (§4): any structural problem yields `{ complete: false, reason }`
+   * with no turns, so a shape mismatch degrades to the DOM fallback instead of
+   * silently emitting a partial transcript. Reused for export backfill (§9): takes
+   * a single `convo` object, no DOM dependency.
+   */
+  function activePathFromMapping(convo) {
+    if (!convo || typeof convo !== "object") {
+      return { turns: [], expected_turn_count: 0, complete: false, reason: "no_convo" };
+    }
+    let nodeId = convo.current_node; // VERIFY: current_node
+    if (!nodeId) {
+      return { turns: [], expected_turn_count: 0, complete: false, reason: "no_current_node" };
+    }
+    const mapping = convo.mapping; // VERIFY: mapping
+    if (!mapping || typeof mapping !== "object") {
+      return { turns: [], expected_turn_count: 0, complete: false, reason: "no_mapping" };
+    }
+
+    const chain = [];
+    const seen = new Set();
+    while (nodeId) {
+      if (seen.has(nodeId)) {
+        return { turns: [], expected_turn_count: 0, complete: false, reason: "cycle" };
+      }
+      seen.add(nodeId);
+      const node = mapping[nodeId];
+      if (node === undefined) {
+        return { turns: [], expected_turn_count: 0, complete: false, reason: "broken_chain" };
+      }
+      chain.push(node);
+      nodeId = node.parent; // VERIFY: node.parent (null/undefined at root → stop)
+    }
+    chain.reverse(); // root → current_node (display order)
+
+    let modelSlug = null;
+    const turns = [];
+    for (const node of chain) {
+      const message = node && node.message; // VERIFY: node.message
+      if (!message) continue;
+      const role = message.author && message.author.role; // VERIFY: message.author.role
+      if (role !== "user" && role !== "assistant") continue; // drop system/tool
+      if (message.metadata && message.metadata.is_visually_hidden_from_conversation) {
+        continue; // VERIFY: metadata.is_visually_hidden_from_conversation
+      }
+      const text = textFromMessageContent(message.content);
+      if (!text) continue;
+      if (
+        role === "assistant" &&
+        message.metadata &&
+        typeof message.metadata.model_slug === "string" // VERIFY: metadata.model_slug
+      ) {
+        modelSlug = message.metadata.model_slug;
+      }
+      const createTime = message.create_time; // VERIFY: message.create_time (seconds)
+      turns.push({
+        role,
+        text,
+        message_id: typeof message.id === "string" ? message.id : null,
+        timestamp_ms: Number.isFinite(createTime) ? Math.round(createTime * 1000) : null,
+        turn_index: turns.length,
+      });
+    }
+
+    if (!turns.length) {
+      return { turns: [], expected_turn_count: 0, complete: false, reason: "no_visible_turns" };
+    }
+    return {
+      turns,
+      expected_turn_count: turns.length,
+      complete: true,
+      reason: null,
+      model_slug: modelSlug,
+    };
+  }
+
   function createCaptureController(options = {}) {
     const documentRef = options.document || globalScope.document;
     const locationRef = options.location || globalScope.location;
+    const windowRef = options.window || globalScope;
     const now = options.now || Date.now;
     const cryptoRef = options.crypto || globalScope.crypto;
     const MutationObserverRef = options.MutationObserver || globalScope.MutationObserver;
@@ -207,6 +321,11 @@
       lastHref: String(locationRef?.href || ""),
       locationCaptureTimer: null,
       locationCaptureInFlight: false,
+      lastConvo: null,
+      interceptionConvoId: null,
+      lastInterceptionCapture: null,
+      interceptionRetries: 0,
+      interceptionRetryTimer: null,
     };
 
     function warnOnce(key, message) {
@@ -454,11 +573,151 @@
       state.awaitingFreshSubmit = false;
       notifyAnalyseProgress("capturing", 8, "Scanning visible chat...");
       await scrollToLoadThenExtract(true);
-      state.lastCaptureMethod = "dom_scroll_full_load";
-      state.captureComplete = true;
-      state.expectedTurnCount = orderedRecords().length;
+      // D-015 §7: the scroll harvest is a best-effort FALLBACK — it cannot PROVE
+      // completeness against virtualization, so completeness is UNKNOWN (null), never
+      // true and never false. null routes the server to its legacy role-balance gate.
+      state.lastCaptureMethod = "scroll_probe";
+      state.captureComplete = null;
+      state.expectedTurnCount = null;
       notifyAnalyseProgress("captured", 75, "Chat captured.");
       return maybeQueueCapture(true);
+    }
+
+    // ── network interception consumer (ADR-0007 / D-015 §1-§6) ─────────────────
+
+    function ownOrigin() {
+      try {
+        return (
+          locationRef?.origin ||
+          (locationRef?.href ? new URL(locationRef.href).origin : null)
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function mergeInterceptionTurns(activePath) {
+      // §6: the active path is the authoritative HISTORY (everything virtualization
+      // hid); the DOM record store owns only the freshly-streamed tail. Dedupe by the
+      // stable `role:message_id` key — ChatGPT's DOM data-message-id === mapping
+      // message.id, so a turn captured both ways collapses to one. JSON wins; any
+      // DOM-only tail turns (newer than the fetched JSON) append in document order.
+      const activeKeys = new Set(
+        activePath.turns
+          .filter((turn) => turn.message_id)
+          .map((turn) => `${turn.role}:${turn.message_id}`),
+      );
+      const tail = orderedRecords().filter((record) => !activeKeys.has(record.key));
+      const merged = [
+        ...activePath.turns.map((turn) => ({
+          role: turn.role,
+          text: turn.text,
+          timestamp_ms: turn.timestamp_ms,
+        })),
+        ...tail.map((record) => ({
+          role: record.role,
+          text: record.text,
+          timestamp_ms: record.timestampMs,
+        })),
+      ];
+      return merged.map((turn, turnIndex) => ({ ...turn, turn_index: turnIndex }));
+    }
+
+    function buildInterceptionCapture(activePath, url) {
+      const turns = mergeInterceptionTurns(activePath);
+      const partner = partnerModelSnapshot();
+      // §5: prefer the JSON's model_slug; family stays hardcoded "openai" (#20).
+      const modelId =
+        typeof activePath.model_slug === "string" && activePath.model_slug.trim()
+          ? activePath.model_slug.trim()
+          : partner.model_id;
+      return {
+        conversation_id: state.conversationId,
+        source: "chatgpt_live",
+        partner_model: { family: "openai", model_id: modelId, era_key: partner.era_key },
+        turns,
+        telemetry: { selector_health: "ok" },
+        metadata: {
+          title: String(documentRef.title || "").replace(/\s*[|\-]\s*ChatGPT\s*$/i, ""),
+          url: locationRef?.href || url || "",
+        },
+        capture_method: "interception",
+        expected_turn_count: activePath.expected_turn_count,
+        // §7: captured_turn_count MUST equal turns.length (the server re-derives it).
+        captured_turn_count: turns.length,
+        capture_complete: true,
+      };
+    }
+
+    function emitInterception(activePath, url) {
+      const convoId = conversationIdFromBackendUrl(url);
+      if (convoId && convoId !== state.conversationId) {
+        // The backend URL's id is authoritative over a draft/placeholder DOM id.
+        state.conversationId = convoId;
+      }
+      const capture = buildInterceptionCapture(activePath, url);
+      state.lastCaptureMethod = "interception";
+      state.captureComplete = true;
+      state.expectedTurnCount = activePath.expected_turn_count;
+      state.interceptionConvoId = state.conversationId;
+      state.lastInterceptionCapture = capture;
+      state.interceptionRetries = 0;
+      sendMessage({
+        type: MESSAGE_TYPES.CAPTURE_READY,
+        reason: "interception",
+        capture,
+      });
+      notifyUpdated();
+      return capture;
+    }
+
+    function scheduleInterceptionRetry(url) {
+      if (state.interceptionRetryTimer) clearTimeoutRef(state.interceptionRetryTimer);
+      if (state.interceptionRetries >= INTERCEPTION_MAX_RETRIES) return;
+      state.interceptionRetries += 1;
+      state.interceptionRetryTimer = setTimeoutRef(() => {
+        state.interceptionRetryTimer = null;
+        if (!state.lastConvo) return;
+        // §4: still streaming → keep buffering, never discard.
+        if (stopButtonPresent()) {
+          scheduleInterceptionRetry(url);
+          return;
+        }
+        const activePath = activePathFromMapping(state.lastConvo);
+        if (activePath.complete) emitInterception(activePath, url);
+      }, STREAM_IDLE_MS);
+    }
+
+    // §1-§6: consume a MAIN-world `saf-capture` payload, walk the active path, and
+    // emit the existing SAF_CAPTURE_READY snapshot. Returns the emitted capture, or
+    // null when the walk did not PROVE completeness (caller falls back to the demoted
+    // DOM scroll harvest). Never sets capture_complete=false here — §4 edge cases
+    // fall through to the fallback (null), only the server quarantines on false.
+    function ingestInterception(convo, url) {
+      const activePath = activePathFromMapping(convo);
+      if (!activePath.complete) return null;
+      state.lastConvo = convo;
+      if (stopButtonPresent()) {
+        // §4: the last kept turn may be mid-stream — buffer and retry, do not discard.
+        scheduleInterceptionRetry(url);
+        return null;
+      }
+      return emitInterception(activePath, url);
+    }
+
+    function handleWindowMessage(event) {
+      if (state.stopped || !state.captureEnabled) return;
+      if (!event || event.origin !== ownOrigin()) return; // §1 origin guard
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      // §1 source/kind guard — trust nothing that fails this.
+      if (data.source !== INTERCEPT_SOURCE || data.kind !== INTERCEPT_KIND) return;
+      try {
+        syncConversation();
+        ingestInterception(data.convo, data.url);
+      } catch (error) {
+        warnOnce("interception_failed", `interception failed: ${error.message}`);
+      }
     }
 
     function stableDraftConversationId() {
@@ -702,6 +961,14 @@
       state.lastCaptureMethod = null;
       state.expectedTurnCount = null;
       state.captureComplete = null;
+      state.lastConvo = null;
+      state.interceptionConvoId = null;
+      state.lastInterceptionCapture = null;
+      state.interceptionRetries = 0;
+      if (state.interceptionRetryTimer) {
+        clearTimeoutRef(state.interceptionRetryTimer);
+        state.interceptionRetryTimer = null;
+      }
       state.warned.clear();
       if (state.captureEnabled) scheduleIdleCompletion();
     }
@@ -792,6 +1059,17 @@
         if (!items.length) warnOnce("history_miss", "all history-item selectors missed");
         sendResponse?.({ ok: true, items });
       } else if (message.type === MESSAGE_TYPES.ANALYSE_NOW) {
+        syncConversation();
+        // D-015 §6: prefer a proven-complete interception capture for this
+        // conversation; the DOM scroll harvest is the demoted fallback and runs only
+        // when interception has not produced a complete capture.
+        if (state.lastConvo && state.interceptionConvoId === state.conversationId) {
+          const capture = ingestInterception(state.lastConvo, locationRef?.href || "");
+          if (capture) {
+            sendResponse?.({ ok: true, capture });
+            return true;
+          }
+        }
         captureFullConversationForManual()
           .then((ok) => sendResponse?.({ ok, capture: snapshot() }))
           .catch((error) => {
@@ -820,6 +1098,19 @@
       });
       documentRef.addEventListener("submit", handleSubmit, true);
       documentRef.addEventListener("copy", handleCopy, true);
+      // D-016 / ADR-0008: ask interceptor.js to replay any conversation JSON it
+      // cached before our listener existed (the document_start → document_idle
+      // race). postMessage delivery is asynchronous, so the listener attached on
+      // the next line is in place before any replay can arrive.
+      try {
+        windowRef.postMessage?.(
+          { source: INTERCEPT_SOURCE, kind: "ready-ping" },
+          ownOrigin() || "*",
+        );
+      } catch (_) {
+        // never break capture on a postMessage failure
+      }
+      windowRef.addEventListener?.("message", handleWindowMessage); // D-015 §1 bridge
       state.stopWasPresent = stopButtonPresent();
       captureUsers();
       scheduleIdleCompletion();
@@ -839,8 +1130,13 @@
         clearTimeoutRef(state.locationCaptureTimer);
         state.locationCaptureTimer = null;
       }
+      if (state.interceptionRetryTimer) {
+        clearTimeoutRef(state.interceptionRetryTimer);
+        state.interceptionRetryTimer = null;
+      }
       documentRef.removeEventListener("submit", handleSubmit, true);
       documentRef.removeEventListener("copy", handleCopy, true);
+      windowRef.removeEventListener?.("message", handleWindowMessage);
       return true;
     }
 
@@ -871,6 +1167,8 @@
       captureCompletedAssistants,
       captureFullConversationForManual,
       maybeQueueCapture,
+      ingestInterception,
+      handleWindowMessage,
       scrapeHistory: () => historyItems(documentRef),
     });
     return controller;
@@ -881,6 +1179,10 @@
     MESSAGE_TYPES,
     STREAM_IDLE_MS,
     PAIRS_PER_UPLOAD,
+    INTERCEPT_SOURCE,
+    INTERCEPT_KIND,
+    activePathFromMapping,
+    conversationIdFromBackendUrl,
     conversationIdFromUrl,
     createCaptureController,
     detectPartnerModel,

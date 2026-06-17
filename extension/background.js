@@ -28,12 +28,27 @@ const MAX_BAG_SIZE = 50;
 // In-memory: tabId → most recent capture snapshot sent by content.js
 const _latestCapture = new Map();
 const _latestReadyCapture = new Map();
+const _analyseProgress = new Map();
 
 // In-memory: conversation_id → last content hash we forwarded to the API.
 // Best-effort only — MV3 workers sleep and lose this; the DB content_hash is
 // the real guard. Worst case after a wake is one redundant forward that the
 // server's idempotent upsert collapses to a no-op. (D-006)
 const _lastForwardedHash = new Map();
+
+function _setAnalyseProgress(tabId, patch) {
+  if (tabId == null) return null;
+  const current = _analyseProgress.get(tabId) || {};
+  const next = {
+    ...current,
+    ...patch,
+    active: patch.active ?? current.active ?? true,
+    percent: Math.max(0, Math.min(100, Math.round(Number(patch.percent ?? current.percent ?? 0)))),
+    updatedAt: Date.now(),
+  };
+  _analyseProgress.set(tabId, next);
+  return next;
+}
 
 // ── health polling ────────────────────────────────────────────────────────────
 
@@ -280,6 +295,22 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return undefined; // no response
   }
 
+  if (message.type === 'SAF_ANALYSE_PROGRESS') {
+    const tabId = sender.tab?.id;
+    if (tabId != null) {
+      const progress = message.progress || {};
+      if (progress.capture) _latestCapture.set(tabId, progress.capture);
+      _setAnalyseProgress(tabId, {
+        stage: progress.stage || 'capturing',
+        percent: progress.percent ?? 0,
+        message: progress.message || 'Capturing chat...',
+        capturedTurns: progress.captured_turns || progress.capture?.turns?.length || 0,
+        conversationId: progress.capture?.conversation_id || null,
+      });
+    }
+    return undefined;
+  }
+
   if (message.type === 'SAF_CAPTURE_READY') {
     if (sender.tab?.id != null) _latestCapture.set(sender.tab.id, message.capture);
     if (sender.tab?.id != null && !_captureValidationError(message.capture)) {
@@ -318,6 +349,9 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         let latestCapture = null;
         for (const [, cap] of _latestCapture) latestCapture = cap;
 
+        let analysisProgress = null;
+        for (const [, progress] of _analyseProgress) analysisProgress = progress;
+
         // Panel is open — clear the "analysing" badge
         _clearBadge();
 
@@ -328,6 +362,7 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           health: vals[SK.HEALTH_STATUS] || 'unknown',
           onboardingComplete: Boolean(vals[SK.ONBOARDING_COMPLETE]),
           latestCapture,
+          analysisProgress,
           bagSize: (await _getBag()).length,
         };
       })());
@@ -336,7 +371,7 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'SAF_PANEL_ANALYSE_NOW': {
       return respond((async () => {
         // panel.js passes tabId queried from popup context (reliable); fall back to window query
-        let tabId = message.tabId;
+        let tabId = message.tabId || sender.tab?.id;
         if (!tabId) {
           const [tab] = await self.chrome.tabs.query({ active: true, lastFocusedWindow: true });
           tabId = tab?.id;
@@ -346,6 +381,12 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           e.userMessage = 'Open ChatGPT in a tab, then try again.';
           throw e;
         }
+        _setAnalyseProgress(tabId, {
+          stage: 'capturing',
+          percent: 3,
+          message: 'Starting chat capture...',
+          capturedTurns: 0,
+        });
 
         let reply = null;
         let sendError = null;
@@ -371,6 +412,12 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (!capture || (reply && reply.ok !== true && !_captureHasTurns(reply.capture))) {
           const e = new Error(sendError?.message || 'nothing_captured');
           e.userMessage = 'No conversation captured yet — start chatting first.';
+          _setAnalyseProgress(tabId, {
+            active: false,
+            stage: 'error',
+            percent: 100,
+            message: e.userMessage,
+          });
           throw e;
         }
 
@@ -378,17 +425,49 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (invalid) {
           const e = new Error('capture_invalid');
           e.userMessage = `Capture incomplete — ${invalid}. Try Analyse now again after the page finishes scanning.`;
+          _setAnalyseProgress(tabId, {
+            active: false,
+            stage: 'error',
+            percent: 100,
+            message: e.userMessage,
+            capturedTurns: capture.turns?.length || 0,
+            conversationId: capture.conversation_id || null,
+          });
           throw e;
         }
 
         // D-008: ingest now and hand the chat_id back so the panel can poll the
         // real score instead of spinning forever at 90%.
+        _setAnalyseProgress(tabId, {
+          stage: 'ingesting',
+          percent: 82,
+          message: `Chat captured: ${capture.turns?.length || 0} turns. Sending to scorer...`,
+          capturedTurns: capture.turns?.length || 0,
+          conversationId: capture.conversation_id || null,
+        });
         const outcome = await _handleCaptureReady(capture);
         if (!outcome.ok) {
           const e = new Error(outcome.skipped || outcome.error || 'ingest_failed');
           e.userMessage = outcome.message;
+          _setAnalyseProgress(tabId, {
+            active: false,
+            stage: 'error',
+            percent: 100,
+            message: e.userMessage,
+            capturedTurns: capture.turns?.length || 0,
+            conversationId: capture.conversation_id || null,
+          });
           throw e;
         }
+        _setAnalyseProgress(tabId, {
+          active: outcome.data?.status !== 'scored',
+          stage: outcome.data?.status === 'scored' ? 'complete' : 'scoring',
+          percent: outcome.data?.status === 'scored' ? 100 : 90,
+          message: outcome.data?.status === 'scored' ? 'Score ready.' : 'Scoring in progress...',
+          capturedTurns: capture.turns?.length || 0,
+          chatId: outcome.data?.chatId || null,
+          conversationId: outcome.data?.conversationId || capture.conversation_id || null,
+        });
         return outcome.data; // { chatId, status, conversationId }
       })());
     }

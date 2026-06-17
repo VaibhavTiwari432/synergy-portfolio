@@ -42,6 +42,15 @@
 
   let warnedShape = false;
 
+  // The most recent valid conversation payload, kept so it can be replayed across
+  // the document_start → document_idle gap (D-016 / ADR-0008). The page may fetch
+  // the conversation at document_start — before content.js (isolated world,
+  // document_idle) has attached its listener — and postMessage is NOT buffered, so
+  // that first-load payload would otherwise be lost and capture would silently fall
+  // back to the DOM scroll probe. content.js sends one `ready-ping` once it is live;
+  // we replay the cache then.
+  let cachedConversationPayload = null;
+
   function looksLikeConversation(value) {
     return Boolean(
       value &&
@@ -83,17 +92,48 @@
     }
   }
 
-  function publish(convo, url) {
-    if (!looksLikeConversation(convo)) return;
-    assertShapeOnce(convo, url);
+  function postCapture(convo, url, replay) {
+    const message = {
+      source: SOURCE,
+      kind: 'conversation_json',
+      url: String(url || ''),
+      convo,
+      capturedAt: Date.now(),
+    };
+    // Label replays so the race-fix's effectiveness (how often the first-load
+    // capture was rescued from the cache vs. arrived live) is measurable downstream.
+    if (replay) message.source_ = 'cache_replay';
     try {
-      win.postMessage(
-        { source: SOURCE, kind: 'conversation_json', url: String(url || ''), convo, capturedAt: Date.now() },
-        ORIGIN,
-      );
+      win.postMessage(message, ORIGIN);
     } catch (_) {
       // postMessage can throw on un-cloneable payloads; never break the page.
     }
+  }
+
+  function publish(convo, url) {
+    if (!looksLikeConversation(convo)) return;
+    assertShapeOnce(convo, url);
+    // Cache the latest valid payload, then post immediately — the normal SPA-nav
+    // path where content.js is already listening and does not race.
+    cachedConversationPayload = { convo, url };
+    postCapture(convo, url, false);
+  }
+
+  // content.js → interceptor handshake (D-016 / ADR-0008): when the bridge signals
+  // it is live (`ready-ping`), replay the cached conversation ONCE so a first-load
+  // fetch that beat the listener is not lost, then clear the cache so a later ping
+  // never replays a stale tree.
+  if (typeof win.addEventListener === 'function') {
+    win.addEventListener('message', function onReadyPing(event) {
+      if (event.origin !== ORIGIN) return;
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+      if (data.source !== SOURCE || data.kind !== 'ready-ping') return;
+      if (!cachedConversationPayload) return;
+      const { convo, url } = cachedConversationPayload;
+      cachedConversationPayload = null;
+      postCapture(convo, url, true);
+    });
   }
 
   function urlOf(input) {
