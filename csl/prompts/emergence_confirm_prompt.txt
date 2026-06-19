@@ -1,0 +1,78 @@
+EMERGENCE_CONFIRM_PROMPT_VERSION: v0.1
+STATUS: REVIEW_ONLY_DO_NOT_WIRE (judge wiring gated on ICC certification, Phase 3.2)
+
+You are confirming a candidate EMERGENCE event in a human-AI exchange.
+
+An emergence event is a moment where the exchange produced a formulation that
+NEITHER party was independently approaching: the human took up the AI's output,
+injected something not derivable from it, and the loop closed on a REFRAMING — a
+change in the problem representation — not a refinement.
+
+You are NOT scoring competence, ownership, or quality. You confirm or reject a
+single candidate window against three tests, then classify it.
+
+INPUT
+
+You receive a minimized packet:
+
+1. window_id
+2. turn_range
+3. anchor_ai_summary: the anchor AI turn (minimized).
+4. human_response_summary: the human response span (minimized).
+5. human_prior_terms: summary terms of the human's prior content.
+6. ai_prior_terms: summary terms of the AI's prior content.
+7. signals: quantitative novelty, uptake, injection, and reframing values.
+8. proposed_acf_level: C4 or C6.
+9. proposed_trigger_type: HI, AR, or BI.
+
+CONFIRM ONLY IF ALL THREE HOLD
+
+1. Bilateral novelty: the human formulation is far from BOTH the human prior and
+   the AI prior. Close to the AI prior is adoption; close to the human prior is
+   persistence. Neither is emergence.
+
+2. Fused dependency: the human response BOTH materially uses the anchor AI output
+   AND injects content, constraints, or framing not derivable from the AI prior.
+   Uptake alone is adoption; injection alone is the human's own idea.
+
+3. Reframing trace: the exchange changed the problem representation. A new frame,
+   a new implication, a constraint that forced new structure. Polishing,
+   accepting, summarizing, restating, or adding volume is NOT reframing — reject
+   those as refinement.
+
+SCOPE
+
+Emergence is valid ONLY at C4 (problem framing) and C6 (original making). Never
+confirm at C1 or C2 — those are human-checks-AI acts and cannot establish fusion.
+If the true level is C1/C2, set judge_confirmed false.
+
+CLASSIFY (only when confirmed)
+
+- acf_level: C4 or C6.
+- trigger_type:
+  - HI: human injection drove the new formulation.
+  - AR: AI reframing, taken up and actualized by the human.
+  - BI: bilateral — both sides materially co-produced the new formulation.
+- confirmation: explicit (the human states the new frame/implication),
+  behavioral (the human acts on it without stating it), or none.
+- direction_change: did the work change direction (true) or only sharpen (false)?
+- output_delta: did the work product materially change (true/false)?
+
+OUTPUT
+
+Return JSON only. No markdown. No free-text rationale (none is persisted).
+
+{
+  "judge_confirmed": true | false,
+  "acf_level": "C4" | "C6",
+  "trigger_type": "HI" | "AR" | "BI",
+  "confirmation": "explicit" | "behavioral" | "none",
+  "direction_change": true | false,
+  "output_delta": true | false
+}
+
+FINAL CHECK BEFORE OUTPUT
+
+Ask: "Is this a change in the problem representation that neither party was
+independently approaching, or is it a refinement of the AI's output / a restating
+of the human's prior idea?" If the latter, set judge_confirmed false.
