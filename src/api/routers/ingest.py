@@ -22,6 +22,7 @@ from contracts.schemas import PartnerModel
 from src.api.middleware.auth import require_api_key
 from src.db.queries import (
     capture_completeness_error,
+    canonicalize_turn_indexes,
     get_chats_for_user,
     replace_capture_artifacts,
     reconcile_captured_count,
@@ -88,7 +89,7 @@ async def ingest_chat(
     body: IngestRequest,
     pool=Depends(_require_pool),
 ) -> IngestResponse:
-    turns_dicts = [t.model_dump() for t in body.turns]
+    turns_dicts = canonicalize_turn_indexes([t.model_dump() for t in body.turns])
     partner_dict = body.partner_model.model_dump()
 
     # Server-derive the captured count (ADR-0007 / D-015): never trust the client
@@ -151,6 +152,13 @@ async def ingest_chat(
     except ValueError as exc:
         # Role-balance / defensive completeness failure → string detail (D-014 shape)
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if int(row.get("turn_count") or 0) > len(body.turns):
+        return IngestResponse(
+            chat_id=str(row["id"]),
+            status=row["status"],
+            message="ignored stale partial capture",
+        )
 
     tel = body.telemetry or TelemetryPayload()
     meta = body.metadata or {}
