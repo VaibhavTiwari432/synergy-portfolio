@@ -669,6 +669,39 @@ async def get_scored_score_row(
     )
 
 
+# ── per-chat artifact blobs (CSL / EIG question-quality / reliance) ─────────────
+# These UPDATE the scores row created by upsert_score (called first in the worker).
+# Each overwrites unconditionally so a re-score never leaves a stale artifact.
+
+async def upsert_csl(
+    conn: asyncpg.Connection, *, chat_id: UUID, csl: dict | None
+) -> None:
+    """Persist the CSL artifact blob (ownership + emergence + 3-panel report).
+    Parallel descriptive layer — never an ARI score; may be {"status": "error"}."""
+    await conn.execute(
+        "UPDATE scores SET csl = $2 WHERE chat_id = $1", chat_id, csl or {}
+    )
+
+
+async def upsert_question_quality(
+    conn: asyncpg.Connection, *, chat_id: UUID, question_quality: dict | None
+) -> None:
+    """Persist the EIG question-quality features + neuron evidence (P5)."""
+    await conn.execute(
+        "UPDATE scores SET question_quality = $2 WHERE chat_id = $1",
+        chat_id, question_quality or {},
+    )
+
+
+async def upsert_reliance(
+    conn: asyncpg.Connection, *, chat_id: UUID, reliance: dict | None
+) -> None:
+    """Persist the appropriate-reliance metrics + EC-11 evidence rows (P11)."""
+    await conn.execute(
+        "UPDATE scores SET reliance = $2 WHERE chat_id = $1", chat_id, reliance or {}
+    )
+
+
 # ── judge_runs (raw judge audit trail, Track 1) ─────────────────────────────────
 
 async def upsert_judge_run(

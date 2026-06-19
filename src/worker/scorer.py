@@ -36,7 +36,10 @@ from src.db.queries import (
     replace_turn_state,
     reset_expired_scoring_leases,
     set_chat_status,
+    upsert_csl,
     upsert_judge_run,
+    upsert_question_quality,
+    upsert_reliance,
     upsert_score,
 )
 from src.trait.judge.prompt import JUDGE_PROMPT_VERSION
@@ -201,6 +204,14 @@ async def _score_one(pool: asyncpg.Pool, chat: asyncpg.Record) -> None:
             await replace_neuron_firings(conn, chat_id=chat_id, rows=run.neuron_firings)
             # Track 2: per-turn state strip + per-turn precision, persisted now.
             await replace_turn_state(conn, chat_id=chat_id, rows=run.turn_state)
+            # Per-chat artifact blobs the pipeline builds but previously discarded
+            # (migration 011). Descriptive/evidence layers only — never ARI scores;
+            # a CSL chain error stores {"status": "error"} and never blocks finalize.
+            await upsert_csl(conn, chat_id=chat_id, csl=run.csl)
+            await upsert_question_quality(
+                conn, chat_id=chat_id, question_quality=run.question_quality
+            )
+            await upsert_reliance(conn, chat_id=chat_id, reliance=run.reliance)
             # Finalize only if the transcript we scored is still current. If a
             # newer ingest reset this row to 'pending' mid-scoring, this is a
             # no-op and the chat will be re-scored against the newer turns.

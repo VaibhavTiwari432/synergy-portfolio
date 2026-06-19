@@ -178,7 +178,10 @@ async def test_artifacts_persist_for_a_scored_chat(pool, clean_user):
     from src.db.queries import (
         replace_neuron_firings,
         replace_turn_state,
+        upsert_csl,
         upsert_judge_run,
+        upsert_question_quality,
+        upsert_reliance,
         upsert_score,
     )
 
@@ -202,6 +205,10 @@ async def test_artifacts_persist_for_a_scored_chat(pool, clean_user):
         await upsert_judge_run(conn, chat_id=chat_id, judge_run=run.judge_run)
         n_firings = await replace_neuron_firings(conn, chat_id=chat_id, rows=run.neuron_firings)
         n_turns = await replace_turn_state(conn, chat_id=chat_id, rows=run.turn_state)
+        # migration 011 — per-chat artifact blobs the pipeline builds but used to drop
+        await upsert_csl(conn, chat_id=chat_id, csl=run.csl)
+        await upsert_question_quality(conn, chat_id=chat_id, question_quality=run.question_quality)
+        await upsert_reliance(conn, chat_id=chat_id, reliance=run.reliance)
 
     assert n_firings > 0 and n_turns > 0
 
@@ -216,6 +223,14 @@ async def test_artifacts_persist_for_a_scored_chat(pool, clean_user):
     # judge audit trail retained
     jr = await pool.fetchrow("SELECT raw_response FROM judge_runs WHERE chat_id = $1", chat_id)
     assert jr["raw_response"], "literal judge output must be persisted"
+
+    # migration-011 artifact blobs landed on the scores row (descriptive/evidence
+    # only — never an ARI score). They are non-null dicts, never silently dropped.
+    art = await pool.fetchrow(
+        "SELECT csl, question_quality, reliance FROM scores WHERE chat_id = $1", chat_id
+    )
+    for col in ("csl", "question_quality", "reliance"):
+        assert art[col] is not None, f"{col} artifact must persist, not be discarded"
 
     # per-turn precision landed; NULL = N/A, never fabricated
     ts = await pool.fetch(
