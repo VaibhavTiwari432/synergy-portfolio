@@ -241,6 +241,83 @@ async def test_artifacts_persist_for_a_scored_chat(pool, clean_user):
     assert all(r["pi_t"] is None or 0.0 < r["pi_t"] <= 1.0 for r in ts)
 
 
+# ── P3b: migration-011 artifact blobs round-trip with no data loss ─────────────
+# JSONB normalises key order + whitespace, so raw-string byte identity is NOT a
+# property it can give. The provable, meaningful round-trip is: the read-back dict
+# equals the written dict, and a CANONICAL (sort_keys) re-serialisation is
+# byte-identical — i.e. nothing was dropped, reordered into loss, or mutated.
+
+def _canon(obj) -> str:
+    return json.dumps(obj, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_artifact_blobs_round_trip_cleanly(pool, clean_user):
+    from src.db.queries import (
+        get_score_row,
+        upsert_csl,
+        upsert_question_quality,
+        upsert_reliance,
+        upsert_score,
+    )
+
+    turns = _turns(4)
+    row = await _ingest(pool, clean_user, "conv_roundtrip", 4)
+    chat_id = row["id"]
+
+    # the scores row must exist first — the upserts UPDATE it (as the worker does)
+    run = score_session_with_artifacts(_session(chat_id, turns), judge=_fake_judge())
+    full = json.loads(run.response.model_dump_json(by_alias=True))
+    async with pool.acquire() as conn:
+        await upsert_score(
+            conn, chat_id=chat_id, prompt_version="test", tier=full["tier"],
+            profile=full["profile"], composite=full.get("composite"),
+            state_strip=full.get("state_strip"), state_validity=full.get("state_validity"),
+            flags=full.get("flags"), reaction_signatures=full.get("reaction_signatures"),
+            regime_overlay=full.get("regime_overlay"), sustainability=full.get("sustainability"),
+            report=full.get("report"), raw_profile=None, telemetry_metrics=run.telemetry_metrics,
+            event_log=run.event_log, provenance=run.provenance,
+        )
+
+    # Case 1 — round-trip the REAL pipeline artifacts the worker would persist.
+    async with pool.acquire() as conn:
+        await upsert_csl(conn, chat_id=chat_id, csl=run.csl)
+        await upsert_question_quality(conn, chat_id=chat_id, question_quality=run.question_quality)
+        await upsert_reliance(conn, chat_id=chat_id, reliance=run.reliance)
+
+    back = await get_score_row(pool, chat_id)
+    for col, original in (
+        ("csl", run.csl),
+        ("question_quality", run.question_quality),
+        ("reliance", run.reliance),
+    ):
+        assert back[col] == original, f"{col} dict must round-trip equal"
+        assert _canon(back[col]) == _canon(original), f"{col} must round-trip byte-identical (canonical)"
+
+    # Case 2 — an adversarial blob: nested dicts/lists, unicode, floats, bools,
+    # null, AND keys written in deliberately non-sorted order. JSONB will reorder
+    # the stored keys; the canonical comparison proves nothing was lost.
+    adversarial = {
+        "zeta": {"nested": [1, 2, {"inner": "café ☕ — naïve"}], "f": 0.123456789},
+        "alpha": [True, False, None, "x"],
+        "mid": "Pattern detected — not proven without retention probe.",
+        "num": -42,
+    }
+    async with pool.acquire() as conn:
+        await upsert_csl(conn, chat_id=chat_id, csl=adversarial)
+    back2 = await get_score_row(pool, chat_id)
+    assert back2["csl"] == adversarial, "adversarial blob must deep-equal on read-back"
+    assert _canon(back2["csl"]) == _canon(adversarial), "adversarial blob: no data lost via JSONB"
+
+    # Case 3 — the CSL failure sentinel and the None→{} coalescing contract.
+    async with pool.acquire() as conn:
+        await upsert_csl(conn, chat_id=chat_id, csl={"status": "error"})
+        await upsert_reliance(conn, chat_id=chat_id, reliance=None)
+    back3 = await get_score_row(pool, chat_id)
+    assert back3["csl"] == {"status": "error"}, "CSL error sentinel must persist verbatim"
+    assert back3["reliance"] == {}, "None artifact coalesces to {} — never NULL/dropped"
+
+
 # ── P4: deletion purges subject + all evidence ────────────────────────────────
 
 @pytest.mark.asyncio(loop_scope="module")
