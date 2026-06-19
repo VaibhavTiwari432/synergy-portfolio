@@ -19,7 +19,8 @@ a time).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
+from enum import Enum
 from typing import Callable
 
 from src.provenance import EXTRACTOR_VERSION, provenance_stamp
@@ -66,6 +67,16 @@ from src.trait.judge.client import JudgeClient
 from src.trait.phase_classifier import classify_phases
 from src.trait.tagger import tag_turns
 
+# CSL (Cognitive Work Layer) — a PARALLEL descriptive layer over ARI. It never
+# modifies an ARI score (#2) and is attached as a ScoreRun artifact only; the
+# frozen ScoreResponse contract is untouched. The whole chain is failure-isolated.
+from csl.ai_side_extractor import extract_ai_contribution
+from csl.crosswalk import load_acf_crosswalk
+from csl.emergence import reportable_events, scan_emergence
+from csl.ownership import CSPCState, compute_ownership
+from csl.projection import NeuronMatrix, project_to_acf
+from csl.report import build_csl_report
+
 #: the eight deterministic extractors, in dimension order
 EXTRACTORS = (al, pr, ec, es, cs, cd, aui, ca)
 
@@ -97,6 +108,11 @@ class ScoreRun:
     #: rows (D-021 approved). EVIDENCE only — never a score (#2) or a new neuron
     #: (#1); appropriate_reliance stays data-gated (None).
     reliance: dict = field(default_factory=dict)
+    #: CSL (Cognitive Work Layer) — the parallel per-ACF-level ownership view +
+    #: 3-panel report (Phase 2) as a JSON-able artifact dict. {"status": "ok"|"error"}.
+    #: Descriptive only: never an ARI score (#2), never in the ScoreResponse. The
+    #: chain is failure-isolated — a CSL error never fails the ARI score.
+    csl: dict = field(default_factory=dict)
 
 
 def telemetry_metrics(session: CanonicalSession) -> dict:
@@ -202,6 +218,67 @@ def _neuron_firing_rows(
                 "extractor_version": EXTRACTOR_VERSION,
             })
     return rows
+
+
+def _jsonable(obj):
+    """Recursively convert dataclasses / pydantic models / enums to JSON-able
+    primitives for artifact persistence."""
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, Enum):
+        return obj.value
+    if hasattr(obj, "model_dump"):  # pydantic (ConfidenceInterval, Censored, ...)
+        return obj.model_dump(mode="json")
+    if is_dataclass(obj):
+        return {f.name: _jsonable(getattr(obj, f.name)) for f in fields(obj)}
+    if isinstance(obj, (list, tuple)):
+        return [_jsonable(x) for x in obj]
+    if isinstance(obj, dict):
+        return {str(k): _jsonable(v) for k, v in obj.items()}
+    return obj
+
+
+def _build_csl_artifact(
+    session: CanonicalSession,
+    tier,
+    profile: dict[Dimension, DimensionScore],
+    neuron_firing_rows: list[dict],
+    state_strip: list[StateVector],
+    state_validity,
+) -> dict:
+    """Run the CSL chain and return a JSON-able artifact dict.
+
+    project_to_acf → extract_ai_contribution → compute_ownership → scan_emergence
+    (dormant; default AbstainingConfirmer ⇒ 0 reportable) → build_csl_report.
+
+    FAILURE-ISOLATED: any error in the CSL chain is captured and returned as
+    {"status": "error", ...}; it never propagates to the ARI score. CSL is a
+    parallel descriptive layer and never modifies an ARI score (#2) or the frozen
+    ScoreResponse contract.
+    """
+    try:
+        crosswalk = load_acf_crosswalk()
+        matrix = NeuronMatrix.from_firing_rows(neuron_firing_rows)
+        human = project_to_acf(matrix, crosswalk)
+        ai = extract_ai_contribution(session, crosswalk)
+        ownership = compute_ownership(
+            human, ai, CSPCState.from_state(state_strip, state_validity)
+        )
+        events = scan_emergence(session)  # dormant: judge unwired ⇒ 0 reportable
+        reportable = reportable_events(events)
+        report = build_csl_report(ownership, events, profile, tier=tier, crosswalk=crosswalk)
+        return {
+            "status": "ok",
+            "report": _jsonable(report),
+            "ownership": {level: _jsonable(r) for level, r in ownership.items()},
+            "emergence": {
+                "reportable_count": len(reportable),
+                "candidate_count": len(events),
+                "events": [_jsonable(e) for e in reportable],
+            },
+        }
+    except Exception as exc:  # noqa: BLE001 — isolation is the whole point
+        return {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
 
 
 def _turn_state_rows(state_strip: list[StateVector]) -> list[dict]:
@@ -404,6 +481,13 @@ def score_session_with_artifacts(
         is_minor=session.is_minor,
     )
 
+    # ── CSL parallel layer: per-ACF-level ownership + 3-panel report ──
+    # Failure-isolated artifact; the ARI ScoreResponse below is never affected.
+    neuron_firing_rows = _neuron_firing_rows(firings, opportunities, log)
+    csl_artifact = _build_csl_artifact(
+        session, tier, profile, neuron_firing_rows, state_strip, state_validity
+    )
+
     response = ScoreResponse(
         session_id=session.session_id,
         tier=tier,
@@ -421,7 +505,7 @@ def score_session_with_artifacts(
         response=enforce(response, is_minor=session.is_minor),
         raw_profile=raw_profile,
         telemetry_metrics=tel_metrics,
-        neuron_firings=_neuron_firing_rows(firings, opportunities, log),
+        neuron_firings=neuron_firing_rows,
         event_log=[ev.model_dump(mode="json") for ev in log.events],
         judge_run=_judge_run_record(judge_output),
         provenance=provenance_stamp(
@@ -438,6 +522,7 @@ def score_session_with_artifacts(
             "metrics": rel.model_dump(),
             "ec_evidence": reliance_evidence_rows(rel),
         },
+        csl=csl_artifact,
     )
 
 
