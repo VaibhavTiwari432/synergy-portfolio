@@ -1,3 +1,13 @@
+# SAF/ARI Rebuild Brief - v3.1 Current Framework Update
+
+**Read this first:** the active v3/v3.1 Claude Code update is recorded in the
+`# SAF/ARI Rebuild Brief - v3.1 Current Framework Update` section appended at
+the end of this file. That section supersedes the stale reset/build-plan parts
+of the historical v3.0 brief below. The historical brief remains useful only for
+unchanged framework invariants.
+
+---
+
 # SAF/ARI Rebuild Brief — v3 (Multi-Agent Integrated)
 **The single mission file. Drop in repo root. All three agents read this first.**
 
@@ -289,3 +299,378 @@ Bug 1 (unobservable counterfactual) → solved by the within-conversation baseli
 ---
 
 *First action — Chief Engineer: Phase 0 reset (tag `v1-final`, preserve per §2.1, delete per §2.2, ADR-0001/0002), then Stage 0 (freeze contracts, publish INTERFACES.md). Then release Codex and Antigravity per `AGENT_KICKOFF.md`. The ratchet decides when we're done.*
+# SAF/ARI Rebuild Brief - v3.1 Current Framework Update
+**The single mission file. Claude Code reads this first.**
+
+> **Current status note - 2026-06-18:** this repo is no longer at the original
+> v3.0 reset stage described later in this file. Scope A works, Scope B extension
+> work exists, and the current framework update is the SAF/ARI v3 + v3.1
+> Claude Code upgrade set:
+>
+> - `SAF_ARI_v3_ClaudeCode_Upgrades.md`
+> - `SAF_ARI_v3_SpecDelta_over_v2.2.md`
+> - `SAF_ARI_v3.1_ClaudeCode_Upgrades.md`
+> - `SAF_ARI_v3.1_SpecDelta_over_v3.md`
+>
+> This section is authoritative for the next Claude Code pass. The older v3.0
+> mission text above is retained as historical background and for unchanged
+> framework invariants.
+
+---
+
+## 0. Current Claude Code Mission
+
+Implement the v3 and v3.1 update as a conservative extension of the current
+working framework. Do not rebuild the repository. Do not change the ontology.
+Add freeze-compliant fields, gates, pre-registration artifacts, and data-gated
+stubs where the new specs require them.
+
+**Non-negotiable priority order:**
+1. Preserve the existing working API, worker, extension, DB, and calibration
+   gates.
+2. Keep the ontology frozen: 107 neurons, 8 dimensions, 4 pillars, 4D CSPC
+   state. New fields are allowed; new constructs are not.
+3. Build only the code that is buildable now. Fitting/analysis stays stubbed
+   when the spec says data-gated.
+4. Surface STOP-for-human-review points explicitly instead of deciding silently.
+5. Do not fit on the 26 gold chats, and do not run causal discovery on the pilot
+   corpus.
+
+## 1. Current Agent Roles
+
+`TEAM.md` is still the ownership source of truth. As of this update:
+
+| Agent | Current role | Owns |
+|---|---|---|
+| Claude Code | Chief Engineer | Contracts, architecture, DB, worker, API routers, scoring spine, reporting/governance gates, migrations, cross-module integration, code review, discrepancy resolution |
+| Codex Plus | Junior Dev A | Bounded leaf modules and extension leaves assigned in `TEAM.md` |
+
+Antigravity is no longer active. Any old references to Antigravity below are
+historical unless `TEAM.md` explicitly reassigns them.
+
+## 2. Current Repo Map For Claude Code
+
+Use this map before editing. It reflects the actual repo shape on 2026-06-18.
+
+```text
+Synergy/
+  AGENT_REBUILD_BRIEF_v3.md           current mission file
+  SAF_ARI_v3_ClaudeCode_Upgrades.md   v3 implementation brief
+  SAF_ARI_v3.1_ClaudeCode_Upgrades.md v3.1 implementation brief
+  SAF_ARI_v3*_SpecDelta*.md           authoritative spec deltas
+  CLAUDE.md                           non-negotiables for Claude Code
+  TEAM.md                             ownership and phase board
+  INTERFACES.md                       frozen leaf signatures
+  DISCREPANCY.md                      blocker/conflict log
+  EXTENSION_BUILD_PROMPT.md           Scope B extension build reference
+
+  contracts/
+    schemas.py                        shared Pydantic contracts
+    contract_table.yaml               frozen 107-neuron ontology
+    neurons_v6.json                   frozen ontology source
+    claims_table.yaml                 tier and forbidden-claim rules
+    event_taxonomy.py, intent_tags.py frozen constants
+    probe_schema.yaml                 retention-probe schema
+    self_rating_prompt.txt            Scope B self-rating prompt
+
+  src/
+    api/                              FastAPI app, pipeline, routers, store
+    db/                               async DB connection and queries
+    worker/                           scorer + self-rater background workers
+    ingestion/                        source adapters and canonical sessions
+    eventlog/                         append-only event log
+    trait/                            tagger, phases, extractors, judge, evidence
+    state/                            CSPC proxy estimators
+    merge/precision.py                only state-trait meeting point
+    aggregate/                        normalization, softmin, gates
+    dynamics/                         reactions, transitions, overlay, reliability
+    sustainability/                   debt, EWMA, lambda/probe stubs
+    claims/                           rungs, tier engine, report rendering
+
+  extension/
+    manifest.json, background.js      CE-owned extension spine
+    content.js, injected_icon.js      capture/interception surface
+    interceptor.js                    network interception
+    panel/                            panel UI
+    utils/                            API client, storage, payload builder, prompt
+
+  alembic/versions/                   DB migrations 001-010
+  calibration/                        gold loader, runner, gate smoke scripts
+  tests/                              unit, contract, integration, property,
+                                     regression, extension JS tests
+```
+
+## 3. v3/v3.1 Build Queue
+
+The queue below supersedes the stale unchecked v3.0 stage list later in this
+file.
+
+### P0 - Security Remediation From v3
+
+**Status:** partially present in repo history via migration
+`004_purge_openai_key_at_rest.py`; verify before treating as closed.
+
+Claude Code checks:
+- Existing rows must not contain secret-shaped values in `telemetry.metadata`.
+- Write paths must reject or scrub secret-shaped metadata.
+- API keys must come from env/user storage and never be persisted in raw DB
+  telemetry.
+- Add/refresh tests around ingest, worker self-rater, and DB queries if the
+  current guard is incomplete.
+
+### P1 - Measurement Saturation State
+
+Add a distinct `MEASUREMENT_SATURATED` / right-censored reporting state without
+collapsing it into structural N/A, insufficient sample, or genuine high/low
+scores.
+
+Likely files:
+- `src/aggregate/gates.py`
+- `src/aggregate/softmin.py`
+- `src/claims/report.py`
+- `contracts/schemas.py`
+- `tests/unit/test_aggregate.py`
+- `tests/unit/test_claims.py`
+
+STOP for human review before changing saturation thresholds.
+
+### P2 - Judge Non-Determinism Protocol
+
+Add judge replication and boundary-band rejudge support without changing the
+interior single-pass path.
+
+Likely files:
+- `src/trait/judge/client.py`
+- `src/trait/judge/parser.py`
+- `src/trait/judge/prompt.py`
+- `src/provenance.py`
+- `calibration/runner.py`
+- `tests/unit/test_judge.py`
+- `tests/unit/test_calibration.py`
+
+STOP for human review of boundary band and replication count before enabling
+batch rejudging.
+
+### P3 - G-Study Harness
+
+Build the harness and D-study projection; refuse to report real estimates when
+under-powered.
+
+New likely files:
+- `src/validation/gtheory/gstudy.py`
+- `src/validation/gtheory/dstudy.py`
+- `tests/unit/test_gstudy.py`
+
+Run only when the subject count gate is satisfied.
+
+### P4 - Q-Matrix + G-DINA Stub
+
+Materialize the 107 x 8 Q-matrix from `contracts/contract_table.yaml`; keep
+G-DINA validation as a data-gated stub.
+
+New likely files:
+- `src/model/qmatrix.py`
+- `src/validation/cdm/gdina_validate.py`
+- `tests/unit/test_qmatrix.py`
+
+STOP for human review before freezing the Q-matrix artifact as canonical.
+
+### P5 - EIG Question-Quality Features
+
+Add question-quality features as evidence fields on existing PR/AL/EC neurons.
+No new dimensions or neurons.
+
+New likely files:
+- `src/trait/question_quality.py`
+- `tests/unit/test_question_quality.py`
+
+STOP for human review of exact feature-to-neuron mapping before scoring uses it.
+
+### P6 - Reporting Views + Theater Rate
+
+Keep four N/A-class states distinct, prevent population comparisons, and add
+view/reporting gates where needed.
+
+Likely files:
+- `src/claims/report.py`
+- `src/claims/tier_engine.py`
+- `src/api/routers/users.py`
+- `extension/panel/panel.js`
+- `extension/panel/panel.css`
+- `tests/unit/test_claims.py`
+- `tests/extension/*.test.js`
+
+STOP for human review of footer/acknowledgement copy if new user-facing text is
+introduced.
+
+### P7 - CDM Backend Stub
+
+Add the CDM scorer interface only. Do not fit.
+
+New likely files:
+- `src/scoring/cdm_scorer.py` or `src/aggregate/cdm_scorer.py` if keeping the
+  current package shape tight
+- `tests/unit/test_cdm_scorer.py`
+
+### P8 - Retention Stability Skeleton
+
+Build the stability interface and synthetic tests; refuse sub-24h or fewer than
+two staggered probes.
+
+New likely files:
+- `src/sustainability/retention_stability.py`
+- `tests/unit/test_retention_stability.py`
+
+### P9 - KT Sustainability Backend Stub
+
+Interface only until the longitudinal/probe corpus exists.
+
+New likely files:
+- `src/sustainability/kt_backend.py`
+- `tests/unit/test_kt_backend.py`
+
+### P10 - Drift/Invariance Scheduler
+
+Build the scheduler and anchor-test interface; real longitudinal analysis is
+data-gated.
+
+New likely files:
+- `src/validation/drift/scheduler.py`
+- `src/validation/drift/invariance.py`
+- `tests/unit/test_drift_scheduler.py`
+
+### P11 - Reliance Metric Extractor
+
+Only extract reliance metrics where transcript evidence supports them. N/A when
+the signal is not observable.
+
+Likely files:
+- `src/sustainability/debt_tracker.py`
+- `src/trait/evidence.py`
+- `src/dynamics/transitions.py`
+- `tests/unit/test_sustainability.py`
+
+### v3.1-A - Brier Calibration Field
+
+Add Brier score alongside calibration slope. Return `None` when no realized
+outcome is observable in-session.
+
+New likely files:
+- `src/inference/calibration.py` or extend `calibration/runner.py` if no
+  inference package exists yet
+- `src/model/neuron_fields.py` or a contracts-adjacent field registry if the
+  model package is introduced with P4
+- `tests/unit/test_calibration_brier.py`
+
+STOP for human review of how Brier and slope combine in the reported
+calibration gap.
+
+### v3.1-B - Causal DAG Pre-Registration
+
+Build a frozen, hashed DAG artifact over existing dimensions, CSPC states, and
+sustainability observables. Estimation raises the data-gated error.
+
+New likely files:
+- `src/validation/causal/dag_hypothesis.py`
+- `src/validation/causal/estimate.py`
+- `tests/unit/test_causal_dag.py`
+
+Hard rule: no PC/FCI/GES fitting on the pilot corpus.
+
+### v3.1-C - Iatrogenic Disclosure Gate
+
+Gate negative summative sustainability disclosures behind adulthood, consent,
+formative framing, actionable next step, and distress routing.
+
+New likely files:
+- `src/reporting/disclosure_gate.py` or `src/claims/disclosure_gate.py`
+- integrate through `src/claims/report.py`, `src/api/routers/users.py`, and
+  `extension/panel/panel.js`
+- `tests/unit/test_disclosure_gate.py`
+
+STOP for human review of distress-signal definition and support resources.
+
+### v3.1-D - Relational-AI Signatures
+
+Extract over-deference, anthropomorphic attribution, override resistance, and
+task-irrelevant disclosure as evidence fields/observations. Do not create a new
+construct.
+
+New likely files:
+- `src/trait/relational_signatures.py`
+- `tests/unit/test_relational_signatures.py`
+
+Mapping rule pending human confirmation:
+- over-deference / failure to correct -> CA-15 inverse
+- anthropomorphic attribution -> CA-06 and CA-13
+- override resistance -> CA-01
+- task-irrelevant disclosure -> report observation only unless reviewed
+
+STOP for human review before wiring these signatures into scoring.
+
+### v3.1-E - Behavioral-Economics Grounding
+
+Documentation/grounding only unless an existing field needs clearer metadata.
+Do not add constructs.
+
+Likely files:
+- `contracts/contract_table.yaml` only if adding field-level notes is already
+  supported
+- otherwise leave as spec documentation
+
+### v3.1-F - A/B Disclosure Effects Scaffold
+
+Build randomized assignment, seed logging, outcome logging, and a data-gated
+analysis stub. The `summative_gated` arm must route through the disclosure gate.
+
+New likely files:
+- `src/validation/experiments/ab_disclosure.py`
+- `tests/unit/test_ab_disclosure.py`
+
+STOP for human review of experiment design and consent language before live
+assignment.
+
+### v3.1-G - Predictive Validity Gate Guard
+
+Make the predictive-validity gate load-bearing and non-configurable. No config
+may disable it or scale its margin.
+
+New/likely files:
+- `src/validation/gates/predictive_validity.py`
+- config/schema tests wherever config is currently defined
+- `tests/unit/test_predictive_validity_gate.py`
+
+Required error text:
+`the predictive-validity gate is load-bearing and not configurable (spec 14.1)`
+
+## 4. Current Test Commands
+
+Prefer focused tests while implementing, then run the relevant broad gate.
+
+```powershell
+pytest tests/unit -q
+pytest tests/contract -q
+pytest tests/integration -q
+node --test extension/tests/*.test.js tests/extension/*.test.js
+```
+
+For DB-gated work:
+
+```powershell
+$env:PHASE1_GATE='1'; pytest tests/integration/test_phase1_gate.py -v
+```
+
+## 5. STOP-For-Human-Review Register
+
+Do not silently decide these:
+
+1. Saturation thresholds.
+2. Judge boundary band and replication count.
+3. Q-matrix confirmation.
+4. Question-quality feature-to-neuron mapping.
+5. Brier plus slope combination.
+6. Relational signature mapping and task-irrelevant disclosure disposition.
+7. Causal DAG edge set before freezing.
+8. Distress-signal definition and support-routing resources.
+9. A/B experiment design and consent language.
+10. Any proposal to parameterize the predictive-validity margin.

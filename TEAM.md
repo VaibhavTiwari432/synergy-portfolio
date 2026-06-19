@@ -1,4 +1,12 @@
 
+# TEAM.md - Current v3/v3.1 Update Pointer
+
+**Read this first:** the current v3/v3.1 framework update is appended at the end
+of this file. It supersedes historical reset/team references only where it is
+more specific about the current active update and ownership.
+
+---
+
 # TEAM.md — Multi-Agent Build Coordination
 **The single source of truth for who builds what, in what order, against which contracts.**
 Every agent reads this file at the start of every work session, before writing any code.
@@ -384,3 +392,26 @@ passes. Covered by `tests/extension/interception_race.test.js` (2 tests). This t
 ---
 
 *Chief Engineer (Claude Code) owns this file. Start at Stage 0. Freeze contracts. Publish INTERFACES.md. Then unleash the juniors in parallel.*
+# TEAM.md - Current v3/v3.1 Framework Update
+
+**Current status - 2026-06-18:** the active work is no longer the original reset
+plan. Scope A is implemented, Scope B extension/DB/worker work exists, and the
+next framework update is driven by:
+
+- `SAF_ARI_v3_ClaudeCode_Upgrades.md`
+- `SAF_ARI_v3.1_ClaudeCode_Upgrades.md`
+- `SAF_ARI_v3_SpecDelta_over_v2.2.md`
+- `SAF_ARI_v3.1_SpecDelta_over_v3.md`
+- the new top section of `AGENT_REBUILD_BRIEF_v3.md`
+
+Claude Code remains Chief Engineer and owns shared contracts, DB, worker, API,
+claims/reporting, migrations, cross-module integration, and all governance
+gates. Codex Plus owns only explicitly assigned leaf modules/extension leaves.
+Antigravity references below are historical unless this file is intentionally
+edited to reassign work.
+
+**Active rule for v3/v3.1:** build freeze-compliant fields, gates, artifacts,
+and data-gated stubs. Do not rebuild the repo, do not add ontology, and do not
+fit on the pilot/gold chats.
+
+---
