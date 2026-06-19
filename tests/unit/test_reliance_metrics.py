@@ -13,8 +13,9 @@ from __future__ import annotations
 
 from contracts.schemas import CanonicalSession, PartnerModel, Turn
 from src.trait.reliance_metrics import (
-    PROPOSED_EC_TARGET,
+    EC_EVIDENCE_TARGET,
     RelianceMetrics,
+    reliance_evidence_rows,
     reliance_metrics,
 )
 
@@ -110,10 +111,10 @@ def test_deterministic():
     assert isinstance(reliance_metrics(s), RelianceMetrics)
 
 
-# ── EC wiring is gated (D-021): proposal references EC-11, not EC-01 ────────
+# ── EC wiring (D-021 approved): EC-11 evidence rows, EC-01 excluded ─────────
 
 
-def test_proposed_ec_target_is_freeze_safe_and_not_ec01():
+def test_ec_evidence_target_is_freeze_safe_and_not_ec01():
     import yaml
     from pathlib import Path
 
@@ -123,8 +124,48 @@ def test_proposed_ec_target_is_freeze_safe_and_not_ec01():
             Path("contracts/contract_table.yaml").read_text(encoding="utf-8")
         )["neurons"]
     }
-    assert set(PROPOSED_EC_TARGET) <= existing          # adds zero neurons (#1)
-    assert all(nid.startswith("EC-") for nid in PROPOSED_EC_TARGET)
+    assert set(EC_EVIDENCE_TARGET) <= existing          # adds zero neurons (#1)
+    assert all(nid.startswith("EC-") for nid in EC_EVIDENCE_TARGET)
     # EC-01 is deliberately excluded — P5 graesser→EC-01 already lands there;
     # reusing it would double-count verification behaviour.
-    assert "EC-01" not in PROPOSED_EC_TARGET
+    assert "EC-01" not in EC_EVIDENCE_TARGET
+
+
+def test_evidence_rows_feed_ec11_only_when_derivable():
+    derivable = reliance_metrics(_session([
+        "sounds good", "no, use recursion instead", "are you sure that's correct?",
+    ]))
+    rows = reliance_evidence_rows(derivable)
+    assert {r["neuron_code"] for r in rows} == {"EC-11"}
+    assert {r["feature"] for r in rows} == {"weight_of_advice", "switch_fraction"}
+    assert all(r["source"] == "reliance_v1" and r["scope"] == "session" for r in rows)
+    assert "EC-01" not in {r["neuron_code"] for r in rows}
+
+    # not derivable → no fabricated rows
+    not_derivable = reliance_metrics(_session(["what is a parser?"]))
+    assert reliance_evidence_rows(not_derivable) == []
+
+
+def test_pipeline_surfaces_reliance_as_evidence_only():
+    import json
+    from contracts.schemas import Dimension
+    from src.api.pipeline import score_session_with_artifacts
+    from src.trait.judge.client import JudgeClient
+
+    entry = {"score": 0.5, "confidence": 0.8, "evidence_turns": [0], "tom_tag": None}
+    data = {d.value: dict(entry) for d in Dimension}
+    data["ES"]["score"] = None
+    judge = JudgeClient(
+        generate=lambda s, u: json.dumps(data), fallback=None, sleep=lambda _: None
+    )
+    run = score_session_with_artifacts(
+        _session(["sounds good", "no, use recursion instead"]), judge=judge
+    )
+
+    assert set(run.reliance) == {"metrics", "ec_evidence"}
+    ev_codes = {r["neuron_code"] for r in run.reliance["ec_evidence"]}
+    assert ev_codes == {"EC-11"}
+    # EVIDENCE only: EC-11 (llm_judge) is not a deterministic firing, and EC's
+    # judge score is untouched (no multiplier; #2)
+    assert ev_codes & {r["neuron_code"] for r in run.neuron_firings} == set()
+    assert run.raw_profile[Dimension.EC].value == 0.5

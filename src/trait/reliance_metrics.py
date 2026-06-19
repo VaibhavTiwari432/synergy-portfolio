@@ -41,13 +41,14 @@ them) so they are not the same number.
 The self-rating widget feeds ONLY the metacognitive calibration gap, never these
 behavioral scores. This extractor reads behaviour (tags), never self-ratings.
 
-── Neuron wiring (brief §P11 → DISCREPANCY D-021, OPEN) ──────────────────────
-The proposed feed of the behavioral reliance signal into EC is surfaced for human
-review (D-021), NOT wired. Proposed target: EC-11 (calibrated asymmetric
-skepticism) — the on-construct, currently-unfed neuron — explicitly NOT EC-01, to
-avoid double-counting the P5 graesser→EC-01 edge and evidence.py verification.
-appropriate_reliance, when it later becomes derivable, feeds the calibration gap,
-not a behavioral neuron score.
+── Neuron wiring (brief §P11 → DISCREPANCY D-021, APPROVED 2026-06-19) ───────
+The behavioral reliance signal (weight_of_advice proxy + switch_fraction) feeds
+EC-11 (calibrated asymmetric skepticism) as an EVIDENCE FIELD — never a firing,
+never a score multiplier (#2), never a new neuron (#1). EC-01 is deliberately
+EXCLUDED to avoid double-counting the P5 graesser→EC-01 edge and evidence.py
+verification. `reliance_evidence_rows()` emits the rows; the pipeline surfaces
+them on `ScoreRun.reliance`. appropriate_reliance, when it later becomes derivable
+via the judge-advisor tasklet, feeds the calibration gap, not a behavioral score.
 """
 
 from __future__ import annotations
@@ -63,11 +64,14 @@ _HOLD = IntentTag.OVERRIDE
 _VERIFY = IntentTag.VERIFY
 _ENGAGED = frozenset({_ADOPT, _HOLD, _VERIFY})
 
-#: proposed EC target for the behavioral reliance signal — REVIEW ONLY (D-021),
-#: NOT wired. EC-11 = calibrated asymmetric skepticism (the appropriate-reliance
-#: construct). EC-01 is deliberately excluded (P5 graesser→EC-01 already lands
-#: there; reusing it would double-count verification behaviour).
-PROPOSED_EC_TARGET = ("EC-11",)
+#: approved EC target for the behavioral reliance signal (D-021, 2026-06-19).
+#: EC-11 = calibrated asymmetric skepticism (the appropriate-reliance construct).
+#: EC-01 is deliberately excluded (P5 graesser→EC-01 already lands there; reusing
+#: it would double-count verification behaviour).
+EC_EVIDENCE_TARGET = ("EC-11",)
+
+#: marks rows as derived from this instrument version (audit/provenance)
+EVIDENCE_SOURCE = "reliance_v1"
 
 
 class _Frozen(BaseModel):
@@ -157,3 +161,31 @@ def reliance_metrics(session: CanonicalSession) -> RelianceMetrics:
         n_hold=hold,
         n_verify=verify,
     )
+
+
+def reliance_evidence_rows(metrics: RelianceMetrics) -> list[dict]:
+    """Session-scoped EVIDENCE rows feeding EC-11, per the D-021-approved map.
+
+    One row per derivable behavioral proxy. Evidence only: enriches EC-11's judge
+    context + audit trail; never a firing, never a score (#2), adds no neuron (#1).
+    Returns [] when the metrics were not derivable (no rows fabricated from None).
+    """
+    if not metrics.derivable:
+        return []
+    rows: list[dict] = []
+    for nid in EC_EVIDENCE_TARGET:
+        if metrics.weight_of_advice is not None:
+            rows.append(_evidence_row(nid, "weight_of_advice", metrics.weight_of_advice))
+        if metrics.switch_fraction is not None:
+            rows.append(_evidence_row(nid, "switch_fraction", metrics.switch_fraction))
+    return rows
+
+
+def _evidence_row(neuron_code: str, feature: str, value: float) -> dict:
+    return {
+        "neuron_code": neuron_code,
+        "feature": feature,
+        "value": float(value),
+        "scope": "session",
+        "source": EVIDENCE_SOURCE,
+    }

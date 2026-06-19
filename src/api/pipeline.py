@@ -43,6 +43,7 @@ from src.aggregate.gates import gate_dimension
 from src.aggregate.normalize import normalize_counts
 from src.aggregate.saturation import saturation_for
 from src.trait.question_quality import question_evidence_rows, score_questions
+from src.trait.reliance_metrics import reliance_evidence_rows, reliance_metrics
 from src.aggregate.softmin import compute_composite
 from src.claims.report import generate_report
 from src.claims.tier_engine import detect_tier, enforce
@@ -92,6 +93,10 @@ class ScoreRun:
     #: complexity summary + neuron-tagged evidence rows (D-020 approved map).
     #: EVIDENCE only — never alters a DimensionScore value (#2) or the 107 (#1).
     question_quality: dict = field(default_factory=dict)
+    #: P11 appropriate-reliance: behavioral proxies (WoA/switch) + EC-11 evidence
+    #: rows (D-021 approved). EVIDENCE only — never a score (#2) or a new neuron
+    #: (#1); appropriate_reliance stays data-gated (None).
+    reliance: dict = field(default_factory=dict)
 
 
 def telemetry_metrics(session: CanonicalSession) -> dict:
@@ -339,6 +344,9 @@ def score_session_with_artifacts(
     # ── P5 EIG question-quality (deterministic; evidence only, no score impact) ──
     qq = score_questions(session)
 
+    # ── P11 appropriate-reliance (deterministic; evidence only, no score impact) ──
+    rel = reliance_metrics(session)
+
     # ── trait channel ──
     judge = judge or JudgeClient()
     judge_output = judge.score_session(session)
@@ -425,6 +433,10 @@ def score_session_with_artifacts(
             "features": [f.model_dump() for f in qq.per_turn],
             "session_summary": qq.session_summary.model_dump(),
             "neuron_evidence": question_evidence_rows(qq),
+        },
+        reliance={
+            "metrics": rel.model_dump(),
+            "ec_evidence": reliance_evidence_rows(rel),
         },
     )
 

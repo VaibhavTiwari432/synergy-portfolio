@@ -920,7 +920,7 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
-## D-021  [OPEN — STOP for human review]  — v3 P11 reliance metrics: EC-neuron wiring
+## D-021  [RESOLVED]  — v3 P11 reliance metrics: EC-neuron wiring
 - Raised by: Chief Engineer
 - Date: 2026-06-19
 - File(s): src/trait/reliance_metrics.py, tests/unit/test_reliance_metrics.py;
@@ -948,7 +948,16 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 - Asked of human reviewer: (a) confirm EC-11 as the target (or adjust); (b) confirm
   reliance feeds EC as an evidence FIELD, never a score multiplier (#2) and adds no
   neuron (#1); (c) confirm appropriate_reliance routes to the calibration gap.
-- Status: OPEN — extractor dormant pending sign-off; no live EC wiring.
+- Decision (human review, 2026-06-19): APPROVED as proposed. The behavioral
+  reliance signal (weight_of_advice proxy + switch_fraction) feeds **EC-11** as an
+  evidence field via `reliance_evidence_rows()`, surfaced on `ScoreRun.reliance`.
+  EC-01 stays excluded (no double-count with P5 graesser→EC-01 / evidence.py).
+  appropriate_reliance stays data-gated (None) until the judge-advisor tasklet;
+  when derivable it routes to the calibration gap, not a behavioral score.
+- Tests: test_reliance_metrics.py — evidence rows feed EC-11 only when derivable
+  (none fabricated otherwise), EC-01 never targeted; pipeline surfaces reliance as
+  evidence-only (EC-11 absent from firings; EC judge score untouched). 10 passed.
+- Status: RESOLVED — wired evidence-only per the approved map.
 
 ---
 
