@@ -869,7 +869,7 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
-## D-020  [OPEN — STOP for human review]  — v3 P5 EIG features: which neurons each feeds + missing taxonomy assets
+## D-020  [RESOLVED]  — v3 P5 EIG features: which neurons each feeds + missing taxonomy assets
 - Raised by: Chief Engineer
 - Date: 2026-06-19
 - File(s): src/trait/question_quality.py, tests/unit/test_question_quality.py;
@@ -897,7 +897,26 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
   (b) confirm the self-contained Bloom/Graesser tables are acceptable, or point to
       the canonical asset to swap in;
   (c) approve wiring into the evidence stream as new evidence FIELDS (not neurons).
-- Status: OPEN — extractor dormant (built, tested) pending sign-off; no live wiring.
+- Decision (human review, 2026-06-19): the **adjusted** map was approved after a
+  rubric-by-rubric review. Three originally-proposed edges were dropped as construct
+  mismatches and one was scoped:
+  - specificity   → PR-01                       (dropped PR-09 — hierarchy ≠ presence)
+  - eig_proxy     → PR-03, PR-01                (dropped AL-01 — wrong construct)
+  - graesser_type → EC-01, PR-11  — ONLY {verification, expectational}
+  - bloom_tier    → NOT neuron-wired; session complexity-summary only (granularity/
+    construct mismatch with PR-03/AL-07)
+  Wired as EVIDENCE fields in `NEURON_EVIDENCE_MAP` + `question_evidence_rows()`;
+  surfaced on `ScoreRun.question_quality` (features + session_summary +
+  neuron_evidence). The target neurons are all llm_judge (dimension-grain) — the
+  features never fire a neuron, never alter a DimensionScore value (#2), and add
+  zero neurons (#1, asserted). On the missing-asset item: the self-contained
+  Bloom/Graesser tables in question_quality.py are accepted; swap for a canonical
+  asset later behind the same signatures if one lands.
+- Tests: test_question_quality.py — evidence rows follow the approved map exactly
+  (dropped edges absent, bloom never neuron-wired, graesser→EC only for the
+  verification family); pipeline surfaces the artifact as evidence-only (target
+  codes never appear as firings; judge score untouched). 13 passed.
+- Status: RESOLVED — extractor wired (evidence-only) per the approved adjusted map.
 
 ---
 

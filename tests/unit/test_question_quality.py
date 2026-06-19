@@ -15,10 +15,12 @@ from __future__ import annotations
 
 from contracts.schemas import CanonicalSession, PartnerModel, Turn
 from src.trait.question_quality import (
-    PROPOSED_NEURON_MAP,
+    NEURON_EVIDENCE_MAP,
+    VERIFICATION_FAMILY,
     QuestionQualityResult,
     classify_bloom,
     classify_graesser,
+    question_evidence_rows,
     score_questions,
     specificity,
 )
@@ -131,10 +133,10 @@ def test_deterministic():
     assert a == b
 
 
-# ── freeze-safety: the PROPOSED mapping references only existing PR/AL/EC ────
+# ── freeze-safety: the APPROVED mapping references only existing PR/AL/EC ────
 
 
-def test_proposed_neuron_map_is_freeze_safe():
+def test_neuron_evidence_map_is_freeze_safe():
     import yaml
     from pathlib import Path
 
@@ -144,8 +146,89 @@ def test_proposed_neuron_map_is_freeze_safe():
     existing = {n["id"] for n in raw["neurons"]}
     assert len(existing) == 107  # ontology freeze (non-negotiable #1)
 
-    mapped = {nid for ids in PROPOSED_NEURON_MAP.values() for nid in ids}
-    # every proposed target is an EXISTING neuron — the mapping adds zero neurons
+    mapped = {nid for ids in NEURON_EVIDENCE_MAP.values() for nid in ids}
+    # every approved target is an EXISTING neuron — the mapping adds zero neurons
     assert mapped <= existing
-    # and only the three intended dimensions are touched
+    # only PR/AL/EC are touched (spec V9); the approved adjusted map lands on PR+EC
     assert all(nid[:2] in {"PR", "AL", "EC"} for nid in mapped)
+
+
+# ── approved wiring (D-020): evidence rows obey the adjusted map exactly ─────
+
+
+def test_evidence_rows_follow_approved_adjusted_map():
+    # a verification question (feeds EC) and a non-verification synthesis question
+    result = score_questions(_session([
+        "are you sure that estimate is correct?",                    # verification → EC-01/PR-11
+        "design a retry policy for this queue and justify the trade-offs",  # not verification
+    ]))
+    rows = question_evidence_rows(result)
+    by_neuron = {}
+    for r in rows:
+        by_neuron.setdefault(r["neuron_code"], []).append(r["feature"])
+
+    # specificity always lands on PR-01; eig_proxy on PR-03 and PR-01
+    assert "specificity" in by_neuron.get("PR-01", [])
+    assert "eig_proxy" in by_neuron.get("PR-03", [])
+    assert "eig_proxy" in by_neuron.get("PR-01", [])
+
+    # graesser feeds EC-01/PR-11 ONLY for the verification family
+    ec_features = by_neuron.get("EC-01", [])
+    assert any(f.startswith("graesser_verification") for f in ec_features)
+    assert "PR-11" in by_neuron
+    # the verification rows trace to turn 0 (the verification question), not turn 2
+    ec_turns = {r["turn_index"] for r in rows if r["neuron_code"] == "EC-01"}
+    assert ec_turns == {0}
+
+    # dropped edges never appear; bloom_tier is never neuron-wired
+    assert "PR-09" not in by_neuron   # dropped from specificity
+    assert "AL-07" not in by_neuron   # dropped from bloom_tier
+    assert "AL-01" not in by_neuron   # dropped from eig_proxy
+    assert all("bloom" not in f for fs in by_neuron.values() for f in fs)
+
+    # every row carries provenance and references an existing-shaped neuron id
+    assert all(r["source"] == "question_quality_v1" for r in rows)
+
+
+def test_verification_family_is_the_only_ec_gate():
+    # a pure lookup question yields ZERO EC/PR-11 evidence
+    result = score_questions(_session(["what is a binary tree?"]))
+    rows = question_evidence_rows(result)
+    assert not any(r["neuron_code"] in {"EC-01", "PR-11"} for r in rows)
+    # the lookup question is not in the verification family (so it gated EC out)
+    assert all(f.graesser_type not in VERIFICATION_FAMILY for f in result.per_turn)
+
+
+# ── pipeline: features ride on the ScoreRun as EVIDENCE, never as a score ────
+
+
+def test_pipeline_surfaces_question_quality_as_evidence_only():
+    import json
+    from contracts.schemas import Dimension
+    from src.api.pipeline import score_session_with_artifacts
+    from src.trait.judge.client import JudgeClient
+
+    entry = {"score": 0.5, "confidence": 0.8, "evidence_turns": [0], "tom_tag": None}
+    data = {d.value: dict(entry) for d in Dimension}
+    data["ES"]["score"] = None
+    judge = JudgeClient(
+        generate=lambda s, u: json.dumps(data), fallback=None, sleep=lambda _: None
+    )
+
+    run = score_session_with_artifacts(
+        _session(["are you sure?", "how do I fix it in Python?"]), judge=judge
+    )
+
+    qq = run.question_quality
+    assert set(qq) == {"features", "session_summary", "neuron_evidence"}
+    assert qq["features"] and qq["neuron_evidence"]
+
+    # EVIDENCE only: the question-quality target neurons are llm_judge (dimension-
+    # grain) — they must NOT appear as deterministic firings injected by P5.
+    fired_codes = {r["neuron_code"] for r in run.neuron_firings}
+    evidence_codes = {r["neuron_code"] for r in qq["neuron_evidence"]}
+    assert evidence_codes and not (evidence_codes & fired_codes)
+
+    # and the judge score is untouched — every dimension still carries the 0.5 the
+    # judge returned (P5 added evidence, not a score multiplier; non-negotiable #2)
+    assert run.raw_profile[Dimension.PR].value == 0.5

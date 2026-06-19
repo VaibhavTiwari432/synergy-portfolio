@@ -19,7 +19,7 @@ a time).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 from src.provenance import EXTRACTOR_VERSION, provenance_stamp
@@ -42,6 +42,7 @@ from contracts.schemas import (
 from src.aggregate.gates import gate_dimension
 from src.aggregate.normalize import normalize_counts
 from src.aggregate.saturation import saturation_for
+from src.trait.question_quality import question_evidence_rows, score_questions
 from src.aggregate.softmin import compute_composite
 from src.claims.report import generate_report
 from src.claims.tier_engine import detect_tier, enforce
@@ -87,6 +88,10 @@ class ScoreRun:
     judge_run: dict              # raw judge output + model id + per-dim confidence
     provenance: dict             # framework/schema/contract/git_sha/judge model
     turn_state: list[dict]       # per-human-turn state strip + per-turn π (Track 2)
+    #: P5 EIG question-quality: deterministic per-prompt features + session
+    #: complexity summary + neuron-tagged evidence rows (D-020 approved map).
+    #: EVIDENCE only — never alters a DimensionScore value (#2) or the 107 (#1).
+    question_quality: dict = field(default_factory=dict)
 
 
 def telemetry_metrics(session: CanonicalSession) -> dict:
@@ -331,6 +336,9 @@ def score_session_with_artifacts(
     phases = classify_phases(session, tags)
     firings, opportunities = _run_extractors(session, tags, phases, log)
 
+    # ── P5 EIG question-quality (deterministic; evidence only, no score impact) ──
+    qq = score_questions(session)
+
     # ── trait channel ──
     judge = judge or JudgeClient()
     judge_output = judge.score_session(session)
@@ -413,6 +421,11 @@ def score_session_with_artifacts(
             judge_model_version=None,
         ),
         turn_state=_turn_state_rows(state_strip),
+        question_quality={
+            "features": [f.model_dump() for f in qq.per_turn],
+            "session_summary": qq.session_summary.model_dump(),
+            "neuron_evidence": question_evidence_rows(qq),
+        },
     )
 
 

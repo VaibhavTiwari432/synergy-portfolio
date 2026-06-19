@@ -36,13 +36,14 @@ them). They are therefore implemented self-contained here, as documented
 enumerations, rather than imported. If a canonical taxonomy asset lands later,
 swap these tables for it behind the same function signatures.
 
-── STOP-FOR-HUMAN-REVIEW (brief §P5; not bypassable in code) ─────────────────
-Which exact neuron each feature feeds (PR vs AL vs EC) is an OPEN QUESTION, not a
-silent decision. `PROPOSED_NEURON_MAP` below is a *proposal for review only* — it
-is NOT wired into the pipeline or the neuron evidence stream. Wiring happens after
-human sign-off (see DISCREPANCY D-020). The proposal references only existing
-PR/AL/EC neuron ids (freeze-safe); `test_question_quality.py` asserts it adds zero
-new neurons.
+── Neuron wiring (brief §P5 STOP — REVIEWED & APPROVED, DISCREPANCY D-020) ───
+Which neuron each feature feeds was the §P5 human-review gate. It was reviewed
+against the PR/AL/EC micro-rubrics and the *adjusted* map approved (2026-06-19):
+`NEURON_EVIDENCE_MAP` below. The features attach as EVIDENCE FIELDS on existing
+PR/AL/EC neurons — they never fire a neuron, never alter a score (non-negotiable
+#2), and never add to the 107 (non-negotiable #1). The target neurons are all
+`llm_judge` (dimension-grain); these deterministic features enrich the judge
+context + audit trail, surfaced on the ScoreRun, not the score value.
 """
 
 from __future__ import annotations
@@ -285,19 +286,59 @@ def score_questions(session: CanonicalSession) -> QuestionQualityResult:
     return QuestionQualityResult(per_turn=tuple(features), session_summary=summary)
 
 
-# ── PROPOSED feature→neuron mapping — REVIEW ONLY, NOT WIRED (brief §P5 STOP) ─
-# This is a proposal for human sign-off, surfaced rather than decided silently.
-# It is NOT consumed by the pipeline. Every target is an existing PR/AL/EC neuron
-# id (freeze-safe — adds zero neurons); the mapping is the open question for review.
-PROPOSED_NEURON_MAP: dict[str, tuple[str, ...]] = {
-    # prompt targeting / constraint specification → prompt-reasoning neurons
-    "specificity": ("PR-01", "PR-09"),
-    # cognitive tier of the ask → prompt-reasoning depth + capability-mapping AL
-    "bloom_tier": ("PR-03", "AL-07"),
-    # information-seeking value of the question → iterative-refinement + AL
-    "eig_proxy": ("PR-03", "AL-01"),
-    # verification-shaped questions → error-correction / verification-protocol
+# ── APPROVED feature→neuron evidence map (D-020 adjusted map, approved 2026-06-19) ──
+# EVIDENCE fields on existing PR/AL/EC neurons. Adjusted from the original proposal
+# after a rubric-by-rubric review; the dropped edges were construct mismatches:
+#   • dropped specificity→PR-09   (PR-09 scores constraint *hierarchy*, not presence)
+#   • dropped bloom_tier→PR-03/AL-07 (tier ≠ refinement; AL-07 is chat-scope capability map)
+#   • dropped eig_proxy→AL-01      (AL-01 is fluency-vs-accuracy verification, wrong construct)
+# bloom_tier is intentionally NOT neuron-wired — it lives in the session
+# complexity-summary (longitudinal layer, spec V9), not a per-neuron field.
+NEURON_EVIDENCE_MAP: dict[str, tuple[str, ...]] = {
+    # prompt scaffolding quality (context/constraints/success criteria) → PR-01
+    "specificity": ("PR-01",),
+    # information-seeking value of the question → iterative refinement + scaffolding
+    "eig_proxy": ("PR-03", "PR-01"),
+    # verification-shaped questions → error-correction + in-prompt verification
     "graesser_type": ("EC-01", "PR-11"),
-    # session_summary (mean_complexity, complexity_trend, originality) is a
-    # longitudinal/sustainability observable (V9), NOT a single-neuron field.
 }
+#: graesser categories that carry verification / error-correction signal — the
+#: ONLY ones that feed EC-01/PR-11. Every other category contributes no neuron
+#: evidence (a "what is X" question is not error-correction behaviour).
+VERIFICATION_FAMILY = frozenset({"verification", "expectational"})
+
+#: marks rows as derived from this instrument version (audit/provenance)
+EVIDENCE_SOURCE = "question_quality_v1"
+
+
+def question_evidence_rows(result: QuestionQualityResult) -> list[dict]:
+    """Flatten per-turn features into neuron-tagged EVIDENCE rows per the
+    D-020-approved map. One row per (neuron, turn, feature).
+
+    Evidence only: these enrich the PR/AL/EC judge context and audit trail; they
+    do NOT fire a neuron, change a score (#2), or add to the 107 (#1). Every
+    `neuron_code` is an existing neuron id.
+    """
+    rows: list[dict] = []
+    for f in result.per_turn:
+        for nid in NEURON_EVIDENCE_MAP["specificity"]:
+            rows.append(_evidence_row(nid, f.turn_id, "specificity", f.specificity))
+        for nid in NEURON_EVIDENCE_MAP["eig_proxy"]:
+            rows.append(_evidence_row(nid, f.turn_id, "eig_proxy", f.eig_proxy))
+        # graesser feeds EC-01/PR-11 ONLY for the verification family
+        if f.graesser_type in VERIFICATION_FAMILY:
+            for nid in NEURON_EVIDENCE_MAP["graesser_type"]:
+                rows.append(
+                    _evidence_row(nid, f.turn_id, f"graesser_{f.graesser_type}", 1.0)
+                )
+    return rows
+
+
+def _evidence_row(neuron_code: str, turn_index: int, feature: str, value: float) -> dict:
+    return {
+        "neuron_code": neuron_code,
+        "feature": feature,
+        "value": float(value),
+        "turn_index": turn_index,
+        "source": EVIDENCE_SOURCE,
+    }
