@@ -7,12 +7,16 @@
     ]),
     roleTurn: Object.freeze([
       '[data-message-author-role]',
+      '[data-testid="user-message"], [data-testid="human-message"], [data-testid="assistant-message"]',
     ]),
     userTurn: Object.freeze([
       '[data-message-author-role="user"]',
+      '[data-testid="user-message"]',
+      '[data-testid="human-message"]',
     ]),
     aiTurn: Object.freeze([
       '[data-message-author-role="assistant"]',
+      '[data-testid="assistant-message"]',
     ]),
     stopButton: Object.freeze([
       'button[aria-label="Stop generating"]',
@@ -20,6 +24,8 @@
     ]),
     modelSelector: Object.freeze([
       '[data-testid="model-switcher-dropdown-button"]',
+      '[data-testid="model-selector-dropdown"]',
+      '[data-testid="model-selector"]',
       'button[aria-label*="model"]',
     ]),
     historyItems: Object.freeze([
@@ -39,9 +45,24 @@
 
   const STREAM_IDLE_MS = 1500;
   const PAIRS_PER_UPLOAD = 3;
-  const MANUAL_SCROLL_SETTLE_MS = 400;
-  const MANUAL_SCROLL_MAX_STEPS = 300;
+  const MANUAL_SCROLL_SETTLE_MS = 180;
+  // The DOM scroll harvest is bounded by ELAPSED TIME, not a fixed step count: a
+  // long chat virtualizes thousands of turns and a fixed step cap either stops
+  // short (truncated/imbalanced capture → hard reject → "not available") or, with
+  // a high cap, blows past the background's CONTENT_CAPTURE_TIMEOUT_MS (45 s) and
+  // shows "capture timed out". The budget keeps the harvest safely under that
+  // timeout while still reaching the bottom of any chat that fits in the window.
+  const MANUAL_SCROLL_BUDGET_MS = 26000;
+  const MANUAL_SCROLL_MAX_STEPS = 1200; // hard safety ceiling; the budget governs.
   const MIN_SCROLL_HARVEST_DELTA = 80;
+  // A long chat's /backend-api/conversation/<id> response is larger and resolves
+  // LATER than a short one's. Poll for the passively-intercepted tree before
+  // demoting to the DOM scroll, so a late-arriving complete capture is preferred
+  // over a partial virtualized-DOM harvest (ADR-0007 / D-015 §1-§6). Kept short so
+  // poll + scroll budget stays under the background CONTENT_CAPTURE_TIMEOUT_MS.
+  const INTERCEPTION_POLL_MS = 300;
+  const INTERCEPTION_QUICK_TICKS = 3;  // ~0.9 s: catch an already-cached/replayed tree
+  const INTERCEPTION_POLL_TICKS = 12;  // ~3.6 s fallback poll after the backend fetch
 
   // ── network interception bridge (ADR-0007 / D-015 §1-§6) ────────────────────
   // The MAIN-world interceptor.js posts the conversation-tree JSON the ChatGPT app
@@ -85,6 +106,9 @@
   function roleFromAuthorNode(node) {
     const role = String(node?.getAttribute?.("data-message-author-role") || "").toLowerCase();
     if (role === "user" || role === "assistant") return role;
+    const testId = String(node?.getAttribute?.("data-testid") || "").toLowerCase();
+    if (testId === "user-message" || testId === "human-message") return "user";
+    if (testId === "assistant-message") return "assistant";
     return null;
   }
 
@@ -99,11 +123,41 @@
       candidate.node.getAttribute?.("data-message-id");
     return stableId
       ? `${candidate.role}:${stableId}`
-      : `${candidate.role}:text-${stableHash(textOf(candidate.node).slice(0, 500))}`;
+      : `${candidate.role}:idx-${candidate.roleIndex}:text-${stableHash(textOf(candidate.node).slice(0, 500))}`;
   }
 
-  function modelIdFromText(value) {
+  function platformFromUrl(url) {
+    try {
+      const hostname = new URL(String(url || "")).hostname.toLowerCase();
+      if (hostname === "claude.ai" || hostname.endsWith(".claude.ai")) return "claude";
+      if (
+        hostname === "chatgpt.com" ||
+        hostname.endsWith(".chatgpt.com") ||
+        hostname === "chat.openai.com"
+      ) {
+        return "chatgpt";
+      }
+    } catch (_) {
+      // Legacy tests call helpers without a URL.
+    }
+    return "chatgpt";
+  }
+
+  function modelIdFromText(value, platform = "chatgpt") {
     const text = String(value || "").toLowerCase().replace(/[–—]/g, "-");
+    if (platform === "claude") {
+      const claude = text.match(
+        /\bclaude\s*(opus|sonnet|haiku)?\s*(\d+(?:[.]\d+)?)?(?:\s*([a-z]+))?\b/,
+      );
+      if (claude) {
+        return ["claude", claude[1], claude[2], claude[3]]
+          .filter(Boolean)
+          .map((part) => part.replace(/\s+/g, "-"))
+          .join("-");
+      }
+      return "unknown";
+    }
+
     const gpt = text.match(
       /\b(?:chat)?gpt[\s-]*(\d+(?:[.]\d+)?o?)(?:[\s-]+(mini|nano|pro))?\b/,
     );
@@ -116,18 +170,23 @@
     return "unknown";
   }
 
-  function detectPartnerModel(documentRef, now = new Date()) {
+  function detectPartnerModel(documentRef, now = new Date(), locationRef = null) {
     const { node } = firstUsingFallbacks(documentRef, SELECTORS.modelSelector);
+    const platform = platformFromUrl(locationRef?.href || locationRef || "");
     return {
-      family: "openai",
-      model_id: modelIdFromText(textOf(node)),
+      family: platform === "claude" ? "anthropic" : "openai",
+      model_id: modelIdFromText(textOf(node), platform),
       era_key: now.toISOString().slice(0, 7),
     };
   }
 
   function conversationIdFromUrl(url) {
     try {
-      const match = new URL(url).pathname.match(/\/c\/([^/?#]+)/);
+      const parsed = new URL(url);
+      const platform = platformFromUrl(parsed.href);
+      const match = platform === "claude"
+        ? parsed.pathname.match(/\/(?:chat|chats)\/([^/?#]+)/)
+        : parsed.pathname.match(/\/c\/([^/?#]+)/);
       return match ? decodeURIComponent(match[1]) : null;
     } catch (_) {
       return null;
@@ -181,11 +240,111 @@
     }
   }
 
+  function collectTextParts(value, depth = 0) {
+    if (depth > 6 || value == null) return [];
+    if (typeof value === "string") return [value];
+    if (Array.isArray(value)) {
+      return value.flatMap((item) => collectTextParts(item, depth + 1));
+    }
+    if (typeof value !== "object") return [];
+    const preferred = [];
+    for (const key of ["text", "content", "value"]) {
+      if (typeof value[key] === "string") preferred.push(value[key]);
+    }
+    if (preferred.length) return preferred;
+    return [];
+  }
+
   function textFromMessageContent(content) {
-    if (!content || content.content_type !== "text") return null; // VERIFY: content_type
-    const parts = Array.isArray(content.parts) ? content.parts : []; // VERIFY: content.parts
-    const text = parts.filter((part) => typeof part === "string").join("\n").trim();
+    if (!content || typeof content !== "object") return null;
+    const parts = Array.isArray(content.parts)
+      ? collectTextParts(content.parts)
+      : collectTextParts(content.text ?? content.content ?? content);
+    const text = parts.join("\n").trim();
     return text || null;
+  }
+
+  function inferCurrentNode(mapping) {
+    if (!mapping || typeof mapping !== "object") return null;
+    const ids = Object.keys(mapping);
+    const referencedParents = new Set();
+    const referencedChildren = new Set();
+    for (const [id, node] of Object.entries(mapping)) {
+      if (!node || typeof node !== "object") continue;
+      if (node.parent) referencedParents.add(String(node.parent));
+      if (Array.isArray(node.children)) {
+        for (const child of node.children) referencedChildren.add(String(child));
+      }
+      if (Array.isArray(node.child_ids)) {
+        for (const child of node.child_ids) referencedChildren.add(String(child));
+      }
+      if (node.parent && mapping[String(node.parent)] && !referencedChildren.has(id)) {
+        referencedChildren.add(id);
+      }
+    }
+    const leaves = ids.filter((id) => {
+      const node = mapping[id];
+      const children = Array.isArray(node?.children) ? node.children : node?.child_ids;
+      return !referencedParents.has(id) && (!Array.isArray(children) || children.length === 0);
+    });
+    const candidates = leaves.length ? leaves : ids.filter((id) => !referencedChildren.has(id));
+    let best = null;
+    let bestDepth = -1;
+    for (const id of candidates) {
+      let depth = 0;
+      let cursor = id;
+      const seen = new Set();
+      while (cursor && mapping[cursor] && !seen.has(cursor)) {
+        seen.add(cursor);
+        depth += 1;
+        cursor = mapping[cursor].parent;
+      }
+      if (depth > bestDepth) {
+        best = id;
+        bestDepth = depth;
+      }
+    }
+    return best;
+  }
+
+  function conversationPayloadFromValue(value, depth = 0, seen = new Set()) {
+    if (!value || typeof value !== "object" || depth > 10 || seen.has(value)) return null;
+    seen.add(value);
+    if (value.mapping && typeof value.mapping === "object") {
+      const currentNode = value.current_node || value.currentNode || inferCurrentNode(value.mapping);
+      if (currentNode) return { ...value, current_node: currentNode };
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = conversationPayloadFromValue(item, depth + 1, seen);
+        if (found) return found;
+      }
+      return null;
+    }
+    for (const key of [
+      "conversation",
+      "data",
+      "shared_conversation",
+      "share",
+      "item",
+      "props",
+      "pageProps",
+      "dehydratedState",
+      "queries",
+      "state",
+      "result",
+      "response",
+    ]) {
+      if (key in value) {
+        const found = conversationPayloadFromValue(value[key], depth + 1, seen);
+        if (found) return found;
+      }
+    }
+    for (const child of Object.values(value)) {
+      const found = conversationPayloadFromValue(child, depth + 1, seen);
+      if (found) return found;
+    }
+    return null;
   }
 
   /**
@@ -202,12 +361,16 @@
    * a single `convo` object, no DOM dependency.
    */
   function activePathFromMapping(convo) {
+    convo = conversationPayloadFromValue(convo) || convo;
     if (!convo || typeof convo !== "object") {
       return { turns: [], expected_turn_count: 0, complete: false, reason: "no_convo" };
     }
     let nodeId = convo.current_node; // VERIFY: current_node
     if (!nodeId) {
-      return { turns: [], expected_turn_count: 0, complete: false, reason: "no_current_node" };
+      nodeId = inferCurrentNode(convo.mapping);
+      if (!nodeId) {
+        return { turns: [], expected_turn_count: 0, complete: false, reason: "no_current_node" };
+      }
     }
     const mapping = convo.mapping; // VERIFY: mapping
     if (!mapping || typeof mapping !== "object") {
@@ -280,6 +443,9 @@
     const MutationObserverRef = options.MutationObserver || globalScope.MutationObserver;
     const setTimeoutRef = options.setTimeout || globalScope.setTimeout.bind(globalScope);
     const clearTimeoutRef = options.clearTimeout || globalScope.clearTimeout.bind(globalScope);
+    const fetchRef =
+      options.fetch ||
+      (typeof globalScope.fetch === "function" ? globalScope.fetch.bind(globalScope) : null);
     const warn = options.warn || ((message) => globalScope.console?.warn?.(message));
     const sendMessage = options.sendMessage || ((message) => {
       try {
@@ -326,6 +492,7 @@
       lastInterceptionCapture: null,
       interceptionRetries: 0,
       interceptionRetryTimer: null,
+      backendFetchStatus: null,
     };
 
     function warnOnce(key, message) {
@@ -356,11 +523,17 @@
       const { node } = firstUsingFallbacks(documentRef, SELECTORS.modelSelector);
       if (node) markSelectorSuccess("modelSelector");
       else markSelectorMiss("modelSelector", "all model selectors missed");
+      const platform = platformFromUrl(locationRef?.href || "");
       return {
-        family: "openai",
-        model_id: modelIdFromText(textOf(node)),
+        family: platform === "claude" ? "anthropic" : "openai",
+        model_id: modelIdFromText(textOf(node), platform),
         era_key: new Date(now()).toISOString().slice(0, 7),
       };
+    }
+
+    function pageTitle() {
+      const suffix = platformFromUrl(locationRef?.href || "") === "claude" ? "Claude" : "ChatGPT";
+      return String(documentRef.title || "").replace(new RegExp(`\\s*[|\\-]\\s*${suffix}\\s*$`, "i"), "");
     }
 
     function allCandidates() {
@@ -508,6 +681,28 @@
       return Boolean(userChanged || aiChanged);
     }
 
+    function harvestEmbeddedConversation() {
+      const scripts = Array.from(documentRef.querySelectorAll?.("script") || []);
+      for (const script of scripts) {
+        const raw = String(script.textContent || "").trim();
+        if (!raw || (!raw.includes("mapping") && !raw.includes("current_node"))) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          const convo = conversationPayloadFromValue(parsed);
+          if (convo) return convo;
+        } catch (_) {
+          // Non-JSON scripts are ignored. Network interception remains primary.
+        }
+      }
+      return null;
+    }
+
+    function captureFromEmbeddedConversation() {
+      const convo = harvestEmbeddedConversation();
+      if (!convo) return null;
+      return ingestInterception(convo, locationRef?.href || "");
+    }
+
     async function scrollToLoadThenExtract(reportMiss = true) {
       const root = scrollRoot();
       if (!root) {
@@ -525,6 +720,7 @@
         Math.floor(Number(root.clientHeight || globalScope.innerHeight || 800) * 0.75),
       );
       const originalTop = Number(root.scrollTop || globalScope.scrollY || 0);
+      const deadline = now() + MANUAL_SCROLL_BUDGET_MS;
       let previousHeight = -1;
       let stableAtBottom = 0;
 
@@ -552,6 +748,16 @@
             stableAtBottom = 0;
           }
 
+          // Time budget, not a fixed step count: stop before the background's
+          // capture timeout rather than truncating a long chat at an arbitrary step.
+          if (now() >= deadline) {
+            warnOnce(
+              "scroll_budget_exhausted",
+              "DOM scroll budget exhausted before reaching the end of the chat",
+            );
+            break;
+          }
+
           previousHeight = currentHeight;
           const nextTop = atBottom ? bottom : Math.min(bottom, currentTop + stepSize());
           scrollToY(root, nextTop);
@@ -569,8 +775,77 @@
 
     async function captureFullConversationForManual() {
       enableCapture();
+      // D-016: always send a fresh ready-ping so the interceptor replays any cached
+      // conversation payload. enableCapture() sends the ping on the FIRST call, but
+      // if capture was already enabled from page load the second call returns early
+      // and no ping is sent — the interceptor's cache is never replayed. Sending an
+      // extra ping is harmless (the interceptor no-ops when its cache is empty).
+      try {
+        windowRef.postMessage?.(
+          { source: INTERCEPT_SOURCE, kind: "ready-ping" },
+          ownOrigin() || "*",
+        );
+      } catch (_) { /* never break capture on postMessage failure */ }
       syncConversation();
       state.awaitingFreshSubmit = false;
+      const isSharePage = /\/share\//.test(String(locationRef?.href || ""));
+      const embedded = captureFromEmbeddedConversation();
+      if (embedded) {
+        notifyAnalyseProgress("captured", 85, "Full chat captured.");
+        return true;
+      }
+      // Helper: has passive interception (handleWindowMessage on a live/replayed
+      // post) already produced a complete capture for THIS conversation? If a tree
+      // arrived but hasn't emitted (listener race / deferred mid-stream retry), force
+      // the walk — ingestInterception no-ops while the assistant is still streaming.
+      const tryInterception = () => {
+        if (state.lastConvo && state.interceptionConvoId === state.conversationId) return true;
+        if (state.lastConvo && ingestInterception(state.lastConvo, locationRef?.href || "")) return true;
+        return false;
+      };
+
+      // 1) A brief wait for an interception that is essentially already here (the
+      //    document_start fetch the interceptor cached, replayed on our ready-ping).
+      for (let tick = 0; tick < INTERCEPTION_QUICK_TICKS; tick += 1) {
+        await sleep(INTERCEPTION_POLL_MS);
+        if (tryInterception()) {
+          notifyAnalyseProgress("captured", 85, "Full chat captured.");
+          return true;
+        }
+      }
+
+      // 2) D-015 §9: actively fetch the conversation endpoint ourselves. This is the
+      //    authoritative, virtualization-proof path — it works even when ChatGPT
+      //    server-rendered the page and never fetched the tree (interception silent),
+      //    which is exactly the case where the DOM scroll loses long assistant turns
+      //    and the balance gate then rejects the capture. Runs for share pages too
+      //    (their /backend-api/share/<id> tree), since their DOM is equally
+      //    virtualized. Never originates with our own credentials — the browser
+      //    attaches the existing session cookie.
+      notifyAnalyseProgress("capturing", 40, "Fetching the full chat…");
+      const backfilled = await fetchConversationFromBackend();
+      if (backfilled) {
+        notifyAnalyseProgress("captured", 85, "Full chat captured.");
+        return true;
+      }
+
+      // 3) Backend fetch unavailable (e.g. cookie auth rejected). Keep polling for a
+      //    passively-intercepted tree the page may still be fetching, re-sending the
+      //    ready-ping each tick, before demoting to the DOM scroll.
+      for (let tick = 0; tick < INTERCEPTION_POLL_TICKS; tick += 1) {
+        await sleep(INTERCEPTION_POLL_MS);
+        if (tryInterception()) {
+          notifyAnalyseProgress("captured", 85, "Full chat captured.");
+          return true;
+        }
+        notifyAnalyseProgress("capturing", 30, "Waiting for the full chat to load…");
+        try {
+          windowRef.postMessage?.(
+            { source: INTERCEPT_SOURCE, kind: "ready-ping" },
+            ownOrigin() || "*",
+          );
+        } catch (_) { /* never break capture on postMessage failure */ }
+      }
       notifyAnalyseProgress("capturing", 8, "Scanning visible chat...");
       await scrollToLoadThenExtract(true);
       // D-015 §7: the scroll harvest is a best-effort FALLBACK — it cannot PROVE
@@ -580,6 +855,18 @@
       state.captureComplete = null;
       state.expectedTurnCount = null;
       notifyAnalyseProgress("captured", 75, "Chat captured.");
+      if (isSharePage) {
+        markSelectorMiss(
+          "shareConversationJson",
+          "shared conversation JSON unavailable; refusing partial DOM capture",
+        );
+        notifyAnalyseProgress(
+          "error",
+          0,
+          "Full shared chat was not available. Reload the share page and try again.",
+        );
+        return false;
+      }
       return maybeQueueCapture(true);
     }
 
@@ -596,7 +883,7 @@
       }
     }
 
-    function mergeInterceptionTurns(activePath) {
+    function mergeInterceptionTurns(activePath, includeDomTail = true) {
       // §6: the active path is the authoritative HISTORY (everything virtualization
       // hid); the DOM record store owns only the freshly-streamed tail. Dedupe by the
       // stable `role:message_id` key — ChatGPT's DOM data-message-id === mapping
@@ -607,7 +894,9 @@
           .filter((turn) => turn.message_id)
           .map((turn) => `${turn.role}:${turn.message_id}`),
       );
-      const tail = orderedRecords().filter((record) => !activeKeys.has(record.key));
+      const tail = includeDomTail
+        ? orderedRecords().filter((record) => !activeKeys.has(record.key))
+        : [];
       const merged = [
         ...activePath.turns.map((turn) => ({
           role: turn.role,
@@ -624,7 +913,8 @@
     }
 
     function buildInterceptionCapture(activePath, url) {
-      const turns = mergeInterceptionTurns(activePath);
+      const isSharePage = /\/share\//.test(String(locationRef?.href || url || ""));
+      const turns = mergeInterceptionTurns(activePath, !isSharePage);
       const partner = partnerModelSnapshot();
       // §5: prefer the JSON's model_slug; family stays hardcoded "openai" (#20).
       const modelId =
@@ -634,11 +924,11 @@
       return {
         conversation_id: state.conversationId,
         source: "chatgpt_live",
-        partner_model: { family: "openai", model_id: modelId, era_key: partner.era_key },
+        partner_model: { family: partner.family, model_id: modelId, era_key: partner.era_key },
         turns,
         telemetry: { selector_health: "ok" },
         metadata: {
-          title: String(documentRef.title || "").replace(/\s*[|\-]\s*ChatGPT\s*$/i, ""),
+          title: pageTitle(),
           url: locationRef?.href || url || "",
         },
         capture_method: "interception",
@@ -705,6 +995,103 @@
       return emitInterception(activePath, url);
     }
 
+    // Active backfill (D-015 §9): the interceptor only PASSIVELY observes the fetch
+    // the page makes. On a hard reload ChatGPT may server-render the conversation
+    // and never fetch /backend-api/conversation/<id>, so interception delivers
+    // nothing and the DOM scroll is left to fight virtualization (long assistant
+    // turns get unmounted before they can be read → a lopsided user/assistant
+    // count → the balance gate rejects the capture). When passive interception has
+    // produced nothing, request that same endpoint ourselves from the page's own
+    // origin. The browser attaches the existing session cookie automatically — we
+    // never read, store, or forward any auth token; a 401/non-JSON response just
+    // returns null and the caller falls through to the DOM scroll. The mapping is
+    // the whole tree, so the active-path walk is complete and balanced by
+    // construction.
+    // The backend endpoint that returns this page's conversation tree. Normal chats
+    // live at /backend-api/conversation/<id>; a read-only SHARE page (no /c/ id,
+    // virtualized DOM, no composer) exposes the same tree at /backend-api/share/<id>.
+    function backendConversationEndpoint() {
+      const origin = ownOrigin();
+      if (!origin) return null;
+      const href = String(locationRef?.href || "");
+      const convoId = conversationIdFromUrl(href);
+      if (convoId) return `${origin}/backend-api/conversation/${convoId}`;
+      const shareMatch = href.match(/\/share\/(?:e\/)?([^/?#]+)/);
+      if (shareMatch) return `${origin}/backend-api/share/${shareMatch[1]}`;
+      return null;
+    }
+
+    // The short-lived access token the ChatGPT web app itself obtains from its own
+    // cookie-authed /api/auth/session endpoint. ChatGPT's /backend-api authorizes
+    // with `Authorization: Bearer <token>`, not the cookie alone, so a cookie-only
+    // backfill is rejected 401. We read this token transiently to authorize reading
+    // the user's OWN conversation; it is never logged, persisted, or sent to the SAF
+    // server (Track 0: credentials never enter the corpus at rest).
+    async function fetchSessionAccessToken() {
+      const origin = ownOrigin();
+      if (!origin || !fetchRef) return null;
+      try {
+        const res = await fetchRef(`${origin}/api/auth/session`, {
+          credentials: "include",
+          headers: { accept: "application/json" },
+        });
+        if (!res || !res.ok) return null;
+        const data = await res.json();
+        return data && typeof data.accessToken === "string" && data.accessToken
+          ? data.accessToken
+          : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    async function fetchConversationFromBackend() {
+      if (!fetchRef) {
+        state.backendFetchStatus = "no_fetch_api";
+        return null;
+      }
+      const url = backendConversationEndpoint();
+      if (!url) {
+        state.backendFetchStatus = "no_conversation_id";
+        return null;
+      }
+      const attempt = (authHeader) =>
+        fetchRef(url, {
+          credentials: "include",
+          headers: authHeader
+            ? { accept: "application/json", authorization: authHeader }
+            : { accept: "application/json" },
+        });
+      try {
+        let res = await attempt(null);
+        // Cookie alone rejected → retry once with the page's own bearer token.
+        if (res && (res.status === 401 || res.status === 403)) {
+          const token = await fetchSessionAccessToken();
+          if (token) {
+            state.backendFetchStatus = "retry_with_token";
+            res = await attempt(`Bearer ${token}`);
+          }
+        }
+        if (!res || !res.ok) {
+          state.backendFetchStatus = res ? `http_${res.status}` : "no_response";
+          warnOnce(
+            "backend_fetch_failed",
+            `backend conversation fetch returned ${res ? res.status : "no response"}`,
+          );
+          return null;
+        }
+        const json = await res.json();
+        syncConversation();
+        const capture = ingestInterception(json, url);
+        state.backendFetchStatus = capture ? "ok" : "ok_but_incomplete";
+        return capture;
+      } catch (error) {
+        state.backendFetchStatus = "error";
+        warnOnce("backend_fetch_error", `backend conversation fetch failed: ${error.message}`);
+        return null;
+      }
+    }
+
     function handleWindowMessage(event) {
       if (state.stopped || !state.captureEnabled) return;
       if (!event || event.origin !== ownOrigin()) return; // §1 origin guard
@@ -735,6 +1122,41 @@
       return `draft-${stableHash(`${url}\n${title}\n${firstUser.text.slice(0, 500)}`)}`;
     }
 
+    // A human-readable account of WHY a manual capture produced nothing usable —
+    // surfaced in the widget and the console so a failure is diagnosable in one
+    // attempt instead of a blind retry. Names the path that ran (interception vs
+    // DOM scroll), the user/assistant turn counts, and any missed selector groups.
+    function captureDiagnostic() {
+      const records = orderedRecords();
+      const userCount = records.filter((r) => r.role === "user").length;
+      const assistantCount = records.filter((r) => r.role === "assistant").length;
+      const interceptionFired = Boolean(state.lastConvo);
+      const misses = Array.from(state.selectorMisses);
+      let path = "";
+      try { path = new URL(String(locationRef?.href || "")).pathname; } catch (_) { path = String(locationRef?.href || ""); }
+      const parts = [
+        `captured user=${userCount}, assistant=${assistantCount}`,
+        `interception=${interceptionFired ? "delivered" : "none"}`,
+        `backend_fetch=${state.backendFetchStatus || "not_tried"}`,
+        `url=${path}`,
+        `selectors=${state.selectorHealth}`,
+      ];
+      if (misses.length) parts.push(`missed=[${misses.join(",")}]`);
+      let reason;
+      if (userCount === 0 && assistantCount === 0) {
+        reason = interceptionFired
+          ? "the conversation tree arrived but no user/assistant turns could be read from it"
+          : "no chat turns were found on the page (selectors may not match this ChatGPT layout)";
+      } else if (Math.abs(userCount - assistantCount) > 1) {
+        reason = "the captured turns are imbalanced — part of the chat did not load before capture finished";
+      } else {
+        reason = "capture did not complete";
+      }
+      const detail = `${reason} — ${parts.join("; ")}.`;
+      try { globalScope.console?.warn?.(`[SAF] capture failed: ${detail}`); } catch (_) {}
+      return detail;
+    }
+
     function snapshot() {
       const records = orderedRecords();
       return {
@@ -754,7 +1176,7 @@
           selector_health: state.selectorHealth,
         },
         metadata: {
-          title: String(documentRef.title || "").replace(/\s*[|\-]\s*ChatGPT\s*$/i, ""),
+          title: pageTitle(),
           url: locationRef?.href || "",
         },
         capture_method: state.lastCaptureMethod,
@@ -1071,7 +1493,25 @@
           }
         }
         captureFullConversationForManual()
-          .then((ok) => sendResponse?.({ ok, capture: snapshot() }))
+          .then((ok) => {
+            // A long chat's backend fetch can resolve during the manual wait. Prefer
+            // that complete interception capture over the partial DOM snapshot —
+            // background's reconciler would otherwise favour reply.capture when it
+            // has any turns, letting a virtualized-DOM partial win.
+            const intercepted =
+              state.lastConvo && state.interceptionConvoId === state.conversationId
+                ? state.lastInterceptionCapture
+                : null;
+            const capture =
+              intercepted && Array.isArray(intercepted.turns) && intercepted.turns.length
+                ? intercepted
+                : snapshot();
+            sendResponse?.({
+              ok,
+              capture,
+              message: ok ? undefined : `Couldn't capture the chat — ${captureDiagnostic()} Reload ChatGPT and try again.`,
+            });
+          })
           .catch((error) => {
             warnOnce("manual_capture_failed", `manual capture failed: ${error.message}`);
             sendResponse?.({ ok: false, error: error.message, capture: snapshot() });
@@ -1182,12 +1622,14 @@
     INTERCEPT_SOURCE,
     INTERCEPT_KIND,
     activePathFromMapping,
+    conversationPayloadFromValue,
     conversationIdFromBackendUrl,
     conversationIdFromUrl,
     createCaptureController,
     detectPartnerModel,
     historyItems,
     modelIdFromText,
+    platformFromUrl,
     queryUsingFallbacks,
   });
 

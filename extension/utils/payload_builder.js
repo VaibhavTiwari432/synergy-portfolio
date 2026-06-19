@@ -109,9 +109,14 @@
     const eraKey = /^(\d{4}-\d{2}|unknown)$/.test(String(model.era_key || ""))
       ? String(model.era_key)
       : currentEraKey(now);
+    const family = ["anthropic", "openai", "google", "unknown"].includes(
+      String(model.family || "").toLowerCase(),
+    )
+      ? String(model.family).toLowerCase()
+      : "openai";
 
     return {
-      family: "openai",
+      family,
       model_id:
         typeof model.model_id === "string" && model.model_id.trim()
           ? model.model_id.trim()
@@ -162,9 +167,11 @@
       payload.capture_method = input.capture_method.trim();
     }
     const expectedTurnCount = validInteger(input.expected_turn_count ?? input.expectedTurnCount);
-    const capturedTurnCount = validInteger(input.captured_turn_count ?? input.capturedTurnCount);
     if (expectedTurnCount !== null) payload.expected_turn_count = expectedTurnCount;
-    if (capturedTurnCount !== null) payload.captured_turn_count = capturedTurnCount;
+    // Always derive captured_turn_count from the normalised turns array, not the
+    // client-provided scalar. normaliseTurns may drop empty-text turns, making the
+    // client scalar stale → reconcile_captured_count would throw a 422.
+    payload.captured_turn_count = turns.length;
     if (typeof input.capture_complete === "boolean") {
       payload.capture_complete = input.capture_complete;
     }

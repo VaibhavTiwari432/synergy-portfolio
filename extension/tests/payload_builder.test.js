@@ -111,7 +111,7 @@ test('buildIngestPayload: throws if user_ref missing', () => {
   }, TypeError);
 });
 
-test('buildIngestPayload: partner_model.family is always "openai"', () => {
+test('buildIngestPayload: partner_model.family preserves supported families', () => {
   const payload = pb.buildIngestPayload({
     user_ref: 'u',
     conversation_id: 'c8',
@@ -119,8 +119,7 @@ test('buildIngestPayload: partner_model.family is always "openai"', () => {
     partner_model: { family: 'anthropic', model_id: 'claude-3', era_key: '2025-01' },
     turns: [{ role: 'user', text: 'hi' }],
   });
-  // family is hardcoded to "openai" regardless of input (non-negotiable)
-  assert.equal(payload.partner_model.family, 'openai');
+  assert.equal(payload.partner_model.family, 'anthropic');
 });
 
 test('buildIngestPayload: turn_index is assigned sequentially after filtering', () => {
