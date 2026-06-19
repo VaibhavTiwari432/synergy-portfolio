@@ -1,5 +1,5 @@
-CSL_FOUNDATION_PROMPT_VERSION: v0.1-review
-STATUS: REVIEW_ONLY_DO_NOT_WIRE
+CSL_FOUNDATION_PROMPT_VERSION: v0.1
+STATUS: PARTITION_APPROVED_2026-06-19 (Phase 1.2 gate; ADR-0011) — wirable in CSL Phase 2
 
 You are scoring CSL foundation evidence, not ARI capability.
 
