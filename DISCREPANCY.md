@@ -374,7 +374,7 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
 
 ---
 
-## D-012  [OPEN]  — Expected_CODEX reporting/API hierarchy exceeds current Scope B contracts
+## D-012  [RESOLVED]  — Expected_CODEX reporting/API hierarchy exceeds current Scope B contracts
 - Raised by: Codex
 - Date: 2026-06-17
 - File(s): C:\Users\vt144\Downloads\Expected_CODEX.txt; src/api/routers/users.py;
@@ -412,7 +412,29 @@ If the fix changed a contract, add: `Contract bumped: <file> — re-read require
   collapse IDs until that contract lands. The opaque-subject precedent set here
   (random token, deletion cascades, no PII-derived ids) is the pattern the rest
   must follow.
-- Status: OPEN
+- Decision (final, 2026-06-20, CE): RESOLVED. The remaining Scope-C contract is
+  now FROZEN in `contracts/scope_c_contract.md` (v1.0). Key calls:
+  • `project_id` = server-minted random opaque UUID (`gen_random_uuid()`),
+    following the opaque-subject precedent — the extension never invents it.
+  • `saf_session_id` = an ALIAS of `raw_chats.id` (chat_id), NOT a new id or
+    mapping table. One canonical identity for a scored conversation; this is an
+    alias, not an ID collapse. Re-score history as distinct sessions, if ever
+    needed, is an additive v1.1 `score_runs` child table — not a breaking change.
+  • Data model: `projects`, `project_sessions` (m2m project↔chat), `portfolio_ack`
+    (snapshot-hash scoped) — all UUID PKs, subject-cascade delete (#16).
+  • The four radar states (scored / STRUCTURAL_NA / INSUFFICIENT_SAMPLE /
+    MEASUREMENT_SATURATED) are frozen with an aggregation rule (INSUFFICIENT below
+    3 contributing sessions). NO project-level composite/total is ever emitted (#6);
+    every dim value carries state + CI + rung (#14).
+  • Scalability invariants are part of the contract: keyset (not offset)
+    pagination, optimistic concurrency via `version` + `If-Match` → 409,
+    `Idempotency-Key` on creates, deletion propagation, `contract_version` echo.
+  Build sequence: CE ships migration 012 + routers next; then `background.js`
+  emits `SAF_PROJECTS_API_READY` and `api_client.js` gains the S8/S9 functions;
+  Codex may build S8/S9 markup/styles against the frozen shapes now (local
+  fixture) but stays disabled-until-signal. Codex: re-read required.
+- Contract bumped: contracts/scope_c_contract.md (NEW, v1.0) — re-read required by: Codex
+- Status: RESOLVED
 
 ---
 
