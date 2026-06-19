@@ -920,6 +920,38 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-021  [OPEN — STOP for human review]  — v3 P11 reliance metrics: EC-neuron wiring
+- Raised by: Chief Engineer
+- Date: 2026-06-19
+- File(s): src/trait/reliance_metrics.py, tests/unit/test_reliance_metrics.py;
+  AGENT_REBUILD_BRIEF_v3.md (§P11), SAF_ARI_v3_ClaudeCode_Upgrades.md (§P11 / spec V12)
+- Context: the P11 extractor is built, tested, and DORMANT (computes
+  weight_of_advice + switch_fraction as labeled behavioral proxies; appropriate_
+  reliance is data-gated → None). Spec says these "feed the EC dimension and the
+  metacognitive calibration gap." Which EC neuron, and avoiding double-count, is a
+  review decision (same gate pattern as D-020).
+- Proposed (REVIEW ONLY — `PROPOSED_EC_TARGET`, NOT wired):
+  - behavioral reliance signal (WoA proxy + switch_fraction) → **EC-11**
+    (calibrated asymmetric skepticism — the on-construct neuron, currently unfed by
+    deterministic evidence). High WoA/switch with no scrutiny ⇒ low EC-11.
+  - **EC-01 deliberately EXCLUDED**: P5's graesser→EC-01 edge already lands there,
+    and evidence.py already scores verification depth/theater — feeding reliance to
+    EC-01 too would double-count the same verification behaviour.
+  - appropriate_reliance (when later derivable via the judge-advisor tasklet) →
+    the metacognitive **calibration gap**, NOT a behavioral neuron score (standing
+    rule: self-rating/calibration gap stays separate from behavioral scores).
+- Double-count map (why EC-11 is clean):
+  - EC-01 verification depth ← P5 graesser + evidence.py  → crowded, avoid.
+  - EC-11 calibrated skepticism ← (nothing yet)           → clean target.
+  - VERIFY tag overlap: used only in the switch_fraction denominator, not as a
+    positive EC signal, so verification depth is not re-scored.
+- Asked of human reviewer: (a) confirm EC-11 as the target (or adjust); (b) confirm
+  reliance feeds EC as an evidence FIELD, never a score multiplier (#2) and adds no
+  neuron (#1); (c) confirm appropriate_reliance routes to the calibration gap.
+- Status: OPEN — extractor dormant pending sign-off; no live EC wiring.
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |
