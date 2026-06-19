@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -21,14 +22,41 @@ import asyncpg
 #: metadata keys stripped before any write — credentials never persist (Track 0)
 _SECRET_METADATA_KEYS = ("openai_api_key", "openai_key", "api_key")
 
+#: value-shape guard (D-019): catches a credential that arrives under an
+#: UNEXPECTED key name, which the name-only strip above would miss. Matches
+#: well-known provider credential prefixes ONLY — distinctive enough that
+#: content hashes (hex), UUIDs, and conversation ids never false-positive.
+_SECRET_VALUE_RE = re.compile(
+    r"""(?x)^(?:
+        sk-[A-Za-z0-9_\-]{12,}        # OpenAI / OpenRouter (sk-, sk-or-, sk-proj-)
+      | AKIA[0-9A-Z]{16}              # AWS access key id
+      | AIza[0-9A-Za-z_\-]{20,}       # Google API key
+      | gh[posru]_[0-9A-Za-z]{20,}    # GitHub tokens (ghp_/gho_/ghs_/ghr_/ghu_)
+      | xox[baprs]-[0-9A-Za-z\-]{10,} # Slack tokens
+    )""",
+)
+
+
+def _is_secret_shaped(value: Any) -> bool:
+    """True iff a string value looks like a known provider credential."""
+    return isinstance(value, str) and _SECRET_VALUE_RE.match(value.strip()) is not None
+
 
 def scrub_secrets(metadata: dict | None) -> dict:
-    """Return a copy of metadata with credential keys removed. The OpenAI key
-    used to ride in telemetry.metadata; it must never be written to the corpus
-    at rest — the self-rater now reads a server-side env secret instead."""
+    """Return a copy of metadata with credentials removed. The OpenAI key used to
+    ride in telemetry.metadata; it must never be written to the corpus at rest —
+    the self-rater now reads a server-side env secret instead.
+
+    Two layers (D-019): strip the known credential KEY NAMES, and drop any VALUE
+    that matches a provider key shape regardless of its key — so a secret renamed
+    to an unexpected field can no longer slip past the name list."""
     if not isinstance(metadata, dict):
         return {}
-    return {k: v for k, v in metadata.items() if k not in _SECRET_METADATA_KEYS}
+    return {
+        k: v
+        for k, v in metadata.items()
+        if k not in _SECRET_METADATA_KEYS and not _is_secret_shaped(v)
+    }
 
 
 # ── content hashing ────────────────────────────────────────────────────────────
@@ -42,6 +70,16 @@ def hash_turns(turns: list[dict]) -> str:
         separators=(",", ":"),
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def canonicalize_turn_indexes(turns: list[dict]) -> list[dict]:
+    """Return turns with dense, list-order turn_index values.
+
+    Extension DOM strategies can change, and a broken bridge may send duplicate
+    or sparse indexes. The payload list order is the source of truth at ingest;
+    database uniqueness and downstream evidence joins require dense indexes.
+    """
+    return [{**turn, "turn_index": idx} for idx, turn in enumerate(turns)]
 
 
 def capture_validation_error(turns: list[dict]) -> str | None:
@@ -118,7 +156,7 @@ def derive_turn_event_log(turns: list[dict]) -> list[dict]:
             else None
         )
         rows.append({
-            "turn_index": int(turn.get("turn_index", idx)),
+            "turn_index": idx,
             "role": role,
             "char_count": len(text),
             "timestamp_offset_ms": offset,
@@ -253,15 +291,41 @@ async def upsert_chat(
         VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT subject_id FROM subj),
                 $8, $9, $10)
         ON CONFLICT (user_ref, conversation_id) DO UPDATE
-            SET turns        = EXCLUDED.turns,
-                turn_count   = EXCLUDED.turn_count,
-                source       = EXCLUDED.source,
-                content_hash = EXCLUDED.content_hash,
+            SET turns        = CASE
+                    WHEN EXCLUDED.turn_count >= raw_chats.turn_count
+                    THEN EXCLUDED.turns
+                    ELSE raw_chats.turns
+                END,
+                turn_count   = GREATEST(raw_chats.turn_count, EXCLUDED.turn_count),
+                source       = CASE
+                    WHEN EXCLUDED.turn_count >= raw_chats.turn_count
+                    THEN EXCLUDED.source
+                    ELSE raw_chats.source
+                END,
+                content_hash = CASE
+                    WHEN EXCLUDED.turn_count >= raw_chats.turn_count
+                    THEN EXCLUDED.content_hash
+                    ELSE raw_chats.content_hash
+                END,
                 subject_id   = COALESCE(raw_chats.subject_id, EXCLUDED.subject_id),
-                expected_turn_count = EXCLUDED.expected_turn_count,
-                captured_turn_count = EXCLUDED.captured_turn_count,
-                capture_complete    = EXCLUDED.capture_complete,
+                expected_turn_count = CASE
+                    WHEN EXCLUDED.turn_count >= raw_chats.turn_count
+                    THEN EXCLUDED.expected_turn_count
+                    ELSE raw_chats.expected_turn_count
+                END,
+                captured_turn_count = CASE
+                    WHEN EXCLUDED.turn_count >= raw_chats.turn_count
+                    THEN EXCLUDED.captured_turn_count
+                    ELSE raw_chats.captured_turn_count
+                END,
+                capture_complete    = CASE
+                    WHEN EXCLUDED.turn_count >= raw_chats.turn_count
+                    THEN EXCLUDED.capture_complete
+                    ELSE raw_chats.capture_complete
+                END,
                 status = CASE
+                    WHEN EXCLUDED.turn_count < raw_chats.turn_count
+                    THEN raw_chats.status
                     WHEN raw_chats.content_hash IS DISTINCT FROM EXCLUDED.content_hash
                     THEN 'pending'              -- transcript changed → re-queue
                     WHEN raw_chats.status = 'failed'
@@ -269,12 +333,14 @@ async def upsert_chat(
                     ELSE raw_chats.status       -- identical re-ingest → leave it
                 END,
                 scoring_started_at = CASE
+                    WHEN EXCLUDED.turn_count < raw_chats.turn_count
+                    THEN raw_chats.scoring_started_at
                     WHEN raw_chats.content_hash IS DISTINCT FROM EXCLUDED.content_hash
                       OR raw_chats.status = 'failed'
                     THEN NULL
                     ELSE raw_chats.scoring_started_at
                 END
-        RETURNING id, status, captured_at, content_hash
+        RETURNING id, status, captured_at, content_hash, turn_count
         """,
         user_ref, conversation_id, source, partner_model, turns, turn_count, content_hash,
         expected_turn_count, captured_turn_count, capture_complete,
@@ -327,7 +393,7 @@ async def replace_capture_artifacts(
         (
             chat_id,
             conversation_id,
-            int(turn.get("turn_index", idx)),
+            idx,
             str(turn.get("role") or "").lower(),
             str(turn.get("text") or ""),
             raw_retention_flag,
@@ -457,6 +523,57 @@ async def set_chat_status(
     await conn.execute(
         "UPDATE raw_chats SET status = $1, scoring_started_at = NULL WHERE id = $2",
         status, chat_id,
+    )
+
+
+async def reset_expired_scoring_leases(
+    conn: asyncpg.Connection, *, lease_timeout_seconds: int
+) -> list[asyncpg.Record]:
+    """Reset chats stuck in 'scoring' past the lease back to 'pending'.
+
+    A worker that claimed a chat (status → 'scoring') but never finalized it — it
+    crashed or hung mid-score — would otherwise wedge that chat forever. This
+    watchdog query resets every such row whose lease has exceeded
+    `lease_timeout_seconds` and records the reset in scoring_lease_events with
+    reason 'lease_timeout'.
+
+    The reset AND its audit row are written in a SINGLE statement (one CTE chain),
+    so the state change can never happen without a durable, observable record of it
+    — and if the audit insert fails the whole statement rolls back, leaving the row
+    'scoring' for the next tick rather than silently resetting it. `FOR UPDATE SKIP
+    LOCKED` keeps the watchdog disjoint from concurrent workers / a second watchdog.
+
+    Returns one row per reset ({id, conversation_id, lease_age_seconds}) so the
+    caller can log each one — no silent failures.
+    """
+    return await conn.fetch(
+        """
+        WITH expired AS (
+            SELECT id, conversation_id, scoring_started_at,
+                   EXTRACT(EPOCH FROM (NOW() - scoring_started_at))::bigint
+                       AS lease_age_seconds
+            FROM raw_chats
+            WHERE status = 'scoring'
+              AND scoring_started_at IS NOT NULL
+              AND scoring_started_at < NOW() - make_interval(secs => $1::double precision)
+            FOR UPDATE SKIP LOCKED
+        ),
+        reset AS (
+            UPDATE raw_chats
+            SET status = 'pending', scoring_started_at = NULL
+            WHERE id IN (SELECT id FROM expired)
+        ),
+        logged AS (
+            INSERT INTO scoring_lease_events
+                (chat_id, conversation_id, reason, previous_status,
+                 scoring_started_at, lease_age_seconds)
+            SELECT id, conversation_id, 'lease_timeout', 'scoring',
+                   scoring_started_at, lease_age_seconds
+            FROM expired
+        )
+        SELECT id, conversation_id, lease_age_seconds FROM expired
+        """,
+        int(lease_timeout_seconds),
     )
 
 

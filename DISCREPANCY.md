@@ -808,6 +808,67 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-017  [RESOLVED]  — v3 Phase-0 "frozen quantile cuts" is N/A in this architecture
+- Raised by: Chief Engineer
+- Date: 2026-06-19
+- File(s): src/aggregate/normalize.py; SAF_ARI_v3_ClaudeCode_Upgrades.md (P2/0.2),
+  SAF_ARI_v3.2_ClaudeCode_Implementation.md (Phase 0.2)
+- Problem: The v3/v3.2 Phase-0 determinism brief calls for freezing quantile cut
+  points and failing loudly if they are recomputed at runtime. That brief was
+  written against the ChatClassifier-v2 layout. This Scope-B build has no quantile
+  concept: dimension normalization is `fired_weight / len(dim_opps)`
+  (normalize.py) — a deterministic ratio with no cut points to freeze.
+- Decision: N/A — recorded, not actioned. There are no quantile cuts to freeze and
+  normalization is already deterministic. NO forward gate: only if the aggregator
+  ever moves to quantile/percentile cuts does this requirement re-activate, and
+  then a frozen-cuts artifact + recompute guard must land in that same change.
+- Status: RESOLVED
+
+---
+
+## D-018  [RESOLVED]  — v3 Phase-0 "deterministic embedding batching" is N/A until embeddings go live
+- Raised by: Chief Engineer
+- Date: 2026-06-19
+- File(s): src/sustainability/debt_tracker.py (redundancy_of),
+  src/trait/extractors/per_dimension/{cd,cs}.py;
+  SAF_ARI_v3_ClaudeCode_Upgrades.md (0.2 Tier-B)
+- Problem: The Phase-0 brief calls for deterministic embedding batching (Tier-B).
+  This build has no live embedding step: embedding-typed CD/CS neurons are
+  structurally stubbed, and `redundancy_of()` is a lexical placeholder noting a
+  future sentence-transformers cosine upgrade that "swaps in behind
+  redundancy_of()". With no embeddings computed, there is no batch variance to
+  make deterministic.
+- Decision: N/A now — recorded WITH a forward gate. When the sentence-transformers
+  redundancy upgrade lands (behind redundancy_of()), Tier-B determinism
+  re-activates: pin batch composition (deterministic batching by turn index) and
+  add a twice-run byte-identical regression over the embedded path. Do not build
+  batching machinery for an embedder that does not exist yet — revisit at that PR.
+- Status: RESOLVED
+
+---
+
+## D-019  [RESOLVED]  — Secret write-guard was key-name only; added a value-shape guard
+- Raised by: Chief Engineer
+- Date: 2026-06-19
+- File(s): src/db/queries.py (scrub_secrets), tests/unit/test_secret_guard.py;
+  SAF_ARI_v3_ClaudeCode_Upgrades.md (P0), SAF_ARI_v3.2_ClaudeCode_Implementation.md (0.1)
+- Problem: Confirming the Phase-0.1 security top-up requested by the brief:
+  `scrub_secrets()` stripped only three known key names (openai_api_key /
+  openai_key / api_key). A credential arriving under any OTHER key name (or a
+  renamed field) would persist to telemetry.metadata at rest — the exact class of
+  bug Track 0 / migration 004 closed, reachable again through an unexpected key.
+  The brief asks the guard to reject secret-SHAPED values, not just known names.
+- Decision: Added a conservative value-shape guard to scrub_secrets(): any string
+  value matching a well-known provider credential prefix (sk-/sk-or-/sk-proj-,
+  AKIA…, AIza…, gh[posru]_…, xox[baprs]-) is dropped regardless of its key.
+  Prefixes ONLY — chosen so content hashes (hex), UUIDs, and conversation ids
+  never false-positive. Key-name strip retained (belt and suspenders). Regression
+  test tests/unit/test_secret_guard.py: a secret under an unexpected key name is
+  scrubbed; a SHA-256 hash, a UUID, and a model slug survive. 9 passed.
+- Status: RESOLVED
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |
