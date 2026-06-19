@@ -869,6 +869,38 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-020  [OPEN — STOP for human review]  — v3 P5 EIG features: which neurons each feeds + missing taxonomy assets
+- Raised by: Chief Engineer
+- Date: 2026-06-19
+- File(s): src/trait/question_quality.py, tests/unit/test_question_quality.py;
+  AGENT_REBUILD_BRIEF_v3.md (§P5), SAF_ARI_v3_ClaudeCode_Upgrades.md (§P5 / spec V9)
+- Problem (two items, both surfaced rather than decided silently):
+  1. **Feature→neuron mapping is the §P5 STOP gate.** The brief requires human
+     review of which exact PR/AL/EC neuron each question-quality feature feeds
+     BEFORE the features are wired into the neuron evidence stream. The extractor
+     is built and green, but NOTHING is wired live.
+  2. **Claimed taxonomy assets are absent.** Spec V9 / §P5 state the Bloom mapping
+     and Graesser & Person taxonomy are "already in project files." They are not
+     in the repo (grep finds only the spec docs). They were implemented
+     self-contained in question_quality.py as documented enumerations.
+- Proposed mapping (REVIEW ONLY — `PROPOSED_NEURON_MAP`, not consumed by pipeline):
+  - specificity   → PR-01 (prompt specification/constraints), PR-09 (constraint hierarchy)
+  - bloom_tier    → PR-03 (iterative refinement), AL-07 (capability mapping)
+  - eig_proxy     → PR-03, AL-01 (fluency-vs-reliability literacy)
+  - graesser_type → EC-01 (multi-step verification), PR-11 (verification protocol in prompt)
+  - session_summary (mean_complexity / complexity_trend / originality) → longitudinal/
+    sustainability observable (V9), NOT a single-neuron field.
+- Freeze check: every proposed target is one of the existing 107 neurons; the map
+  adds zero neurons (asserted by test_proposed_neuron_map_is_freeze_safe).
+- Asked of human reviewer:
+  (a) confirm/adjust each feature→neuron assignment above;
+  (b) confirm the self-contained Bloom/Graesser tables are acceptable, or point to
+      the canonical asset to swap in;
+  (c) approve wiring into the evidence stream as new evidence FIELDS (not neurons).
+- Status: OPEN — extractor dormant (built, tested) pending sign-off; no live wiring.
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |
