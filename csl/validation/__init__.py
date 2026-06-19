@@ -7,10 +7,17 @@ from csl.validation.harness import (
     csl_row,
     run_independence_check,
 )
+from csl.validation.icc import certify_levels
 from csl.validation.independence import (
     CorrelationResult,
     IndependenceResult,
     independence,
+)
+from csl.validation.predictive_validity import run_predictive_validity
+from csl.validation.preregistration import (
+    Preregistration,
+    RegisteredTest,
+    load_preregistration,
 )
 
 __all__ = [
@@ -23,4 +30,9 @@ __all__ = [
     "CorrelationResult",
     "IndependenceResult",
     "independence",
+    "certify_levels",
+    "run_predictive_validity",
+    "Preregistration",
+    "RegisteredTest",
+    "load_preregistration",
 ]
