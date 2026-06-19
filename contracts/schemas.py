@@ -166,11 +166,19 @@ class RegimeLabel(str, Enum):
 
 
 class ScoreStatus(str, Enum):
-    """Why a value is present or absent. Absent ≠ zero (non-negotiable #12)."""
+    """Why a value is present or absent. Absent ≠ zero (non-negotiable #12).
+
+    The three non-OK states are the censored-reporting siblings (v3 §A3/V3):
+    NOT_APPLICABLE (the applicability condition never arose — spec STRUCTURAL_NA),
+    INSUFFICIENT_SAMPLE (too few items), and MEASUREMENT_SATURATED (the dimension
+    topped/bottomed out the instrument's resolution; report "≥ X" / "≤ X", never
+    "= max"). These four are NEVER collapsed into one label downstream
+    (never-collapse rule, v3 §9 / v3.2 §0.3)."""
 
     OK = "OK"
     INSUFFICIENT_SAMPLE = "INSUFFICIENT_SAMPLE"
     NOT_APPLICABLE = "N/A"
+    MEASUREMENT_SATURATED = "MEASUREMENT_SATURATED"
 
 
 class DebtMode(str, Enum):
@@ -288,6 +296,19 @@ class ConfidenceInterval(_Frozen):
         return self.high - self.low
 
 
+class Censored(_Frozen):
+    """Right/left-censored bound for a MEASUREMENT_SATURATED dimension (v3 §A3).
+
+    direction "high" → the true value is ≥ bound (instrument ceiling);
+    direction "low"  → the true value is ≤ bound (instrument floor).
+    The bound is reported in place of a point value, which stays None — stating
+    the truth is unknown beyond the saturation point rather than fabricating a
+    ceiling/floor value."""
+
+    direction: Literal["high", "low"]
+    bound: float = Field(ge=0.0, le=1.0)
+
+
 class DimensionScore(_Frozen):
     """One ARI dimension's session score. value present iff status == OK.
 
@@ -306,6 +327,9 @@ class DimensionScore(_Frozen):
     evidence_turns: list[int] = Field(default_factory=list)
     provenance_share_displayed: float | None = Field(default=None, ge=0.0, le=1.0)
     status_reason: str | None = None  # e.g. "no_ethics_events_detected" (ES)
+    #: present iff status == MEASUREMENT_SATURATED — the censored "≥ X"/"≤ X"
+    #: bound that replaces the (still-None) point value (v3 §A3/V3).
+    censored: Censored | None = None
     flags: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -314,6 +338,15 @@ class DimensionScore(_Frozen):
             raise ValueError("status OK requires a value")
         if self.status != ScoreStatus.OK and self.value is not None:
             raise ValueError(f"status {self.status.value} must not carry a value (absent != zero)")
+        return self
+
+    @model_validator(mode="after")
+    def _censored_iff_saturated(self) -> "DimensionScore":
+        saturated = self.status == ScoreStatus.MEASUREMENT_SATURATED
+        if saturated and self.censored is None:
+            raise ValueError("MEASUREMENT_SATURATED requires a censored bound (report ≥ X / ≤ X)")
+        if not saturated and self.censored is not None:
+            raise ValueError("censored bound is only valid for MEASUREMENT_SATURATED")
         return self
 
 

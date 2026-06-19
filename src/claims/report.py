@@ -88,12 +88,28 @@ def generate_report(
     hypothesized: list[str] = []
 
     # ── observed: things countable in the transcript/log ──
+    # The three non-OK states are reported as DISTINCT clauses, never merged
+    # into one "no evidence" bucket (never-collapse rule, v3 §9 / v3.2 §0.3).
     scored = [d for d, s in profile.items() if s.status == ScoreStatus.OK]
-    absent = [d for d, s in profile.items() if s.status != ScoreStatus.OK]
-    observed.append(
-        f"{len(scored)} of 8 dimensions had scoreable evidence"
-        + (f"; no evidence basis for: {', '.join(d.value for d in absent)}" if absent else "")
-    )
+    saturated = [
+        (d, s) for d, s in profile.items() if s.status == ScoreStatus.MEASUREMENT_SATURATED
+    ]
+    insufficient = [
+        d for d, s in profile.items() if s.status == ScoreStatus.INSUFFICIENT_SAMPLE
+    ]
+    not_applicable = [
+        d for d, s in profile.items() if s.status == ScoreStatus.NOT_APPLICABLE
+    ]
+    line = f"{len(scored)} of 8 dimensions had scoreable evidence"
+    for dim, s in saturated:
+        cmp = "≥" if s.censored and s.censored.direction == "high" else "≤"
+        bound = _fmt(s.censored.bound) if s.censored else "?"
+        line += f"; {dim.value} {cmp} {bound} (instrument saturated)"
+    if insufficient:
+        line += f"; too few items to score: {', '.join(d.value for d in insufficient)}"
+    if not_applicable:
+        line += f"; no applicable evidence for: {', '.join(d.value for d in not_applicable)}"
+    observed.append(line)
     if flags.accept_run_max is not None:
         observed.append(
             f"longest run of consecutive unmodified acceptances: {flags.accept_run_max} turns"
