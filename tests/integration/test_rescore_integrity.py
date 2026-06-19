@@ -271,3 +271,62 @@ async def test_r7_imbalanced_capture_rejected_before_write(pool, clean_user):
         clean_user,
     )
     assert count == 0
+
+
+# ── R8: lease watchdog resets a wedged 'scoring' row AND records it ───────────
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_r8_lease_watchdog_resets_and_audits(pool, clean_user):
+    from src.db.queries import reset_expired_scoring_leases
+
+    # Wedged: claimed then the worker died 20 minutes ago.
+    stuck = await _ingest(pool, clean_user, "conv_r8_stuck", 2)
+    stuck_id = stuck["id"]
+    await pool.execute(
+        "UPDATE raw_chats SET status='scoring', "
+        "scoring_started_at = NOW() - INTERVAL '20 minutes' WHERE id=$1",
+        stuck_id,
+    )
+
+    # Healthy: claimed just now — must NOT be touched by the watchdog.
+    fresh = await _ingest(pool, clean_user, "conv_r8_fresh", 2)
+    fresh_id = fresh["id"]
+    await pool.execute(
+        "UPDATE raw_chats SET status='scoring', scoring_started_at = NOW() WHERE id=$1",
+        fresh_id,
+    )
+
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            reset = await reset_expired_scoring_leases(conn, lease_timeout_seconds=600)
+
+    reset_ids = {r["id"] for r in reset}
+    assert stuck_id in reset_ids, "expired lease must be reset"
+    assert fresh_id not in reset_ids, "a fresh lease must be left alone"
+
+    # The wedged row is back to pending with the lease cleared.
+    stuck_row = await pool.fetchrow(
+        "SELECT status, scoring_started_at FROM raw_chats WHERE id=$1", stuck_id
+    )
+    assert stuck_row["status"] == "pending"
+    assert stuck_row["scoring_started_at"] is None
+
+    # The fresh row is untouched.
+    assert await _status(pool, fresh_id) == "scoring"
+
+    # Every reset is observable: exactly one audit row, reason='lease_timeout'.
+    audit = await pool.fetch(
+        "SELECT reason, previous_status, lease_age_seconds "
+        "FROM scoring_lease_events WHERE chat_id=$1",
+        stuck_id,
+    )
+    assert len(audit) == 1, "exactly one audit row per reset"
+    assert audit[0]["reason"] == "lease_timeout"
+    assert audit[0]["previous_status"] == "scoring"
+    assert audit[0]["lease_age_seconds"] >= 600, "recorded age reflects how long it was stuck"
+
+    # No audit row was written for the healthy chat.
+    fresh_audit = await pool.fetchval(
+        "SELECT COUNT(*) FROM scoring_lease_events WHERE chat_id=$1", fresh_id
+    )
+    assert fresh_audit == 0

@@ -34,6 +34,7 @@ from src.db.queries import (
     mark_scored,
     replace_neuron_firings,
     replace_turn_state,
+    reset_expired_scoring_leases,
     set_chat_status,
     upsert_judge_run,
     upsert_score,
@@ -41,6 +42,22 @@ from src.db.queries import (
 from src.trait.judge.prompt import JUDGE_PROMPT_VERSION
 
 POLL_INTERVAL: int = int(os.environ.get("WORKER_POLL_INTERVAL", "3"))
+
+# Lease watchdog (stuck-scoring recovery). A chat enters status='scoring' when a
+# worker claims it; if that worker crashes or hangs before finalizing, the row is
+# wedged. The watchdog resets such rows to 'pending' after LEASE_TIMEOUT_SECONDS
+# and records every reset in scoring_lease_events (reason='lease_timeout'). The
+# default (600 s) must exceed the longest legitimate single-chat scoring time so a
+# slow-but-live score is never reset out from under itself.
+LEASE_TIMEOUT_SECONDS: int = int(os.environ.get("LEASE_TIMEOUT_SECONDS", "600"))
+# How often the watchdog checks. Default = a quarter of the lease, clamped to
+# [30 s, 300 s] so a check always lands well within the lease window.
+LEASE_WATCHDOG_INTERVAL: int = int(
+    os.environ.get(
+        "LEASE_WATCHDOG_INTERVAL",
+        str(max(30, min(300, LEASE_TIMEOUT_SECONDS // 4))),
+    )
+)
 
 #: metadata keys that must never enter the corpus or a scoring session (Track 0)
 _SECRET_METADATA_KEYS = frozenset({"openai_api_key", "openai_key", "api_key"})
@@ -225,13 +242,46 @@ async def _trigger_self_rater(
         log.warning("[WORKER] self-rater trigger failed for %s: %s", chat_id, exc)
 
 
+# ── lease watchdog ─────────────────────────────────────────────────────────────
+
+async def _lease_watchdog(pool: asyncpg.Pool) -> None:
+    """Periodically reset chats wedged in 'scoring' past the lease back to 'pending'.
+
+    Runs alongside the poll loop. Every reset is BOTH persisted to
+    scoring_lease_events (durable, queryable) AND logged at WARNING (visible in the
+    worker's stream) — there is no path where a chat silently leaves 'scoring'. Any
+    error in the check is logged with a stack trace and the loop continues; the
+    watchdog must never take the worker down.
+    """
+    log.info(
+        "[WATCHDOG] lease timeout %ds — checking every %ds",
+        LEASE_TIMEOUT_SECONDS,
+        LEASE_WATCHDOG_INTERVAL,
+    )
+    while True:
+        try:
+            async with pool.acquire() as conn:
+                async with conn.transaction():
+                    reset = await reset_expired_scoring_leases(
+                        conn, lease_timeout_seconds=LEASE_TIMEOUT_SECONDS
+                    )
+            for row in reset:
+                log.warning(
+                    "[WATCHDOG] reset chat %s (conversation %s) scoring→pending "
+                    "after %ss stuck — reason=lease_timeout",
+                    row["id"],
+                    row["conversation_id"],
+                    row["lease_age_seconds"],
+                )
+        except Exception as exc:
+            log.error("[WATCHDOG] lease check failed: %s", exc, exc_info=True)
+
+        await asyncio.sleep(LEASE_WATCHDOG_INTERVAL)
+
+
 # ── main loop ────────────────────────────────────────────────────────────────
 
-async def run() -> None:
-    await init_pool()
-    pool = get_pool()
-    log.info("[WORKER] started — poll interval %ds", POLL_INTERVAL)
-
+async def _poll_loop(pool: asyncpg.Pool) -> None:
     while True:
         try:
             async with pool.acquire() as conn:
@@ -245,6 +295,16 @@ async def run() -> None:
             log.error("[WORKER] poll error: %s", exc, exc_info=True)
 
         await asyncio.sleep(POLL_INTERVAL)
+
+
+async def run() -> None:
+    await init_pool()
+    pool = get_pool()
+    log.info("[WORKER] started — poll interval %ds", POLL_INTERVAL)
+    # Poll loop and lease watchdog run concurrently; if either coroutine ever
+    # raises out of its own try/except (it shouldn't), gather surfaces it loudly
+    # rather than leaving a half-dead worker.
+    await asyncio.gather(_poll_loop(pool), _lease_watchdog(pool))
 
 
 if __name__ == "__main__":
