@@ -87,16 +87,29 @@ def compute_composite(
             rung=Rung.MEASURABLE,
         )
 
-    ok = {d: s for d, s in profile.items() if s.status == ScoreStatus.OK and s.value is not None}
-    value = _aggregate({d: s.value for d, s in ok.items()})
+    # OK dims contribute their value; a MEASUREMENT_SATURATED dim contributes its
+    # censored bound (TAU_CEILING[dim]) so a topped-out dimension still PARTICIPATES
+    # in the soft-min instead of being silently dropped (§5.1). The bound is high by
+    # construction, so it can never BIND the soft-min (a censored ceiling is never
+    # below an actual low score) — but it is no longer erased from the composite.
+    agg_value: dict[Dimension, float] = {}
+    ok: dict[Dimension, DimensionScore] = {}
+    for d, s in profile.items():
+        v = s.value if s.value is not None else (s.censored.bound if s.censored else None)
+        if v is None:
+            continue
+        agg_value[d] = v
+        ok[d] = s
+    value = _aggregate(agg_value)
 
     ci: ConfidenceInterval | None = None
     with_ci = {d: s for d, s in ok.items() if s.ci is not None}
     if with_ci and value is not None:
         # monotone aggregation → endpoint propagation is exact; dims without a
-        # CI contribute their point value at both ends (no invented width)
-        lows = {d: (s.ci.low if s.ci else s.value) for d, s in ok.items()}
-        highs = {d: (s.ci.high if s.ci else s.value) for d, s in ok.items()}
+        # CI (incl. saturated dims) contribute their aggregation value at both
+        # ends (no invented width)
+        lows = {d: (s.ci.low if s.ci else agg_value[d]) for d, s in ok.items()}
+        highs = {d: (s.ci.high if s.ci else agg_value[d]) for d, s in ok.items()}
         low, high = _aggregate(lows), _aggregate(highs)
         if low is not None and high is not None:
             ci = ConfidenceInterval(low=min(low, value), high=max(high, value))

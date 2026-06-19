@@ -41,6 +41,7 @@ from contracts.schemas import (
 )
 from src.aggregate.gates import gate_dimension
 from src.aggregate.normalize import normalize_counts
+from src.aggregate.saturation import saturation_for
 from src.aggregate.softmin import compute_composite
 from src.claims.report import generate_report
 from src.claims.tier_engine import detect_tier, enforce
@@ -278,6 +279,25 @@ def _profile_from_judge(
                 "extractor_opportunities": norm.applicable_opportunities,
                 "extractor_fired_pct": int(round(100 * (norm.normalized or 0.0))),
             }
+
+        # instrument saturation: a confident, well-sampled, unflagged ceiling-hit
+        # becomes a censored "≥ tau" rather than a point value (v3 P1 / ADR-0010).
+        # Precision only — the score value is never asserted past saturation.
+        censored = saturation_for(dim, js.score, float(n_human), js.confidence, flags)
+        if censored is not None:
+            profile[dim] = DimensionScore(
+                dim=dim,
+                status=ScoreStatus.MEASUREMENT_SATURATED,
+                censored=censored,
+                n_eff=float(n_human),
+                raw_counts=raw_counts,
+                rung=Rung.MEASURABLE,
+                evidence_turns=js.evidence_turns,
+                provenance_share_displayed=share,
+                status_reason=f"score {js.score:g} >= ceiling tau {censored.bound:g}",
+                flags=flags,
+            )
+            continue
 
         profile[dim] = DimensionScore(
             dim=dim,
