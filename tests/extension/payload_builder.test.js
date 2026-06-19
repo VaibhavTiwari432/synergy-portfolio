@@ -33,7 +33,7 @@ test("buildIngestPayload creates a dense API request and aligns telemetry", () =
 
   assert.equal(payload.source, "chatgpt_live");
   assert.deepEqual(payload.partner_model, {
-    family: "openai",
+    family: "google",
     model_id: "gpt-4o",
     era_key: "2026-06",
   });

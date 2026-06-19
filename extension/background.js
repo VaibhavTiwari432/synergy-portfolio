@@ -12,11 +12,385 @@
  *   - API key / OpenAI key never appear in logs or error messages.
  */
 
-importScripts(
-  'utils/storage.js',
-  'utils/payload_builder.js',
-  'utils/api_client.js',
-);
+// SELF-CONTAINED WORKER (build 0.2.0): the three utility modules are INLINED here
+// rather than pulled in with importScripts(). On some Chrome builds a service-worker
+// UPDATE fails to fetch importScripts() targets ("An unknown error occurred when
+// fetching the script") — the new worker then never installs and Chrome keeps the
+// OLD worker alive, so code changes silently never take effect. Inlining removes
+// that fetch entirely: the worker has no external dependency and always installs.
+// The utils remain separate files for the content-script / panel contexts (manifest).
+console.info('[SAF] background service worker build 0.2.0 starting');
+
+(function initStorage(globalScope) {
+  const STORAGE_KEYS = Object.freeze({
+    ONBOARDING_COMPLETE: "onboarding_complete",
+    USER_REF: "user_ref",
+    API_ENDPOINT: "api_endpoint",
+    API_KEY: "api_key",
+    OPENAI_API_KEY: "openai_api_key",
+    CONSENT_ENABLED: "consent_enabled",
+    LAST_CAPTURE: "last_capture",
+    HEALTH_STATUS: "health_status",
+  });
+
+  function storageArea() {
+    const area = globalScope.chrome?.storage?.local;
+    if (!area) {
+      throw new Error("chrome.storage.local is unavailable");
+    }
+    return area;
+  }
+
+  function lastRuntimeError() {
+    return globalScope.chrome?.runtime?.lastError;
+  }
+
+  function invoke(method, ...args) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const callback = (result) => {
+        if (settled) return;
+        settled = true;
+        const error = lastRuntimeError();
+        if (error) {
+          reject(new Error(error.message || String(error)));
+          return;
+        }
+        resolve(result);
+      };
+
+      try {
+        const returned = storageArea()[method](...args, callback);
+        if (returned && typeof returned.then === "function") {
+          returned.then(callback, reject);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  async function get(key, fallback = undefined) {
+    if (typeof key !== "string" || !key) {
+      throw new TypeError("storage key must be a non-empty string");
+    }
+    const values = await invoke("get", key);
+    return Object.prototype.hasOwnProperty.call(values || {}, key) && values[key] !== undefined
+      ? values[key]
+      : fallback;
+  }
+
+  async function getMany(keys = null) {
+    if (
+      keys !== null &&
+      !Array.isArray(keys) &&
+      (typeof keys !== "object" || keys === null)
+    ) {
+      throw new TypeError("keys must be an array, defaults object, or null");
+    }
+    return (await invoke("get", keys)) || {};
+  }
+
+  async function set(keyOrValues, value = undefined) {
+    const values =
+      typeof keyOrValues === "string"
+        ? { [keyOrValues]: value }
+        : keyOrValues;
+
+    if (!values || typeof values !== "object" || Array.isArray(values)) {
+      throw new TypeError("set expects a key/value pair or an object");
+    }
+    await invoke("set", values);
+  }
+
+  async function remove(keys) {
+    if (
+      !(typeof keys === "string" && keys) &&
+      !(Array.isArray(keys) && keys.every((key) => typeof key === "string" && key))
+    ) {
+      throw new TypeError("remove expects a key or array of keys");
+    }
+    await invoke("remove", keys);
+  }
+
+  async function clear() {
+    await invoke("clear");
+  }
+
+  async function update(key, updater, fallback = undefined) {
+    if (typeof updater !== "function") {
+      throw new TypeError("updater must be a function");
+    }
+    const next = await updater(await get(key, fallback));
+    await set(key, next);
+    return next;
+  }
+
+  globalScope.SAFStorage = Object.freeze({
+    STORAGE_KEYS, get, getMany, set, remove, clear, update,
+  });
+})(self);
+
+(function initPayloadBuilder(globalScope) {
+  const SOURCE_MAP = Object.freeze({
+    history: "chatgpt_history",
+    history_import: "chatgpt_history",
+    chatgpt_history: "chatgpt_history",
+    live: "chatgpt_live",
+    live_capture: "chatgpt_live",
+    chatgpt_live: "chatgpt_live",
+  });
+
+  const ROLE_MAP = Object.freeze({
+    human: "user",
+    user: "user",
+    ai: "assistant",
+    assistant: "assistant",
+  });
+
+  function requireString(value, field) {
+    if (typeof value !== "string" || !value.trim()) {
+      throw new TypeError(`${field} must be a non-empty string`);
+    }
+    return value.trim();
+  }
+
+  function normaliseSource(source) {
+    const mapped = SOURCE_MAP[String(source || "live").toLowerCase()];
+    if (!mapped) {
+      throw new TypeError(`unsupported capture source: ${source}`);
+    }
+    return mapped;
+  }
+
+  function normaliseTimestamp(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const timestamp = Number(value);
+    return Number.isFinite(timestamp) && timestamp >= 0
+      ? Math.trunc(timestamp)
+      : null;
+  }
+
+  function normaliseTurns(turns) {
+    if (!Array.isArray(turns)) {
+      throw new TypeError("turns must be an array");
+    }
+
+    return turns.reduce((result, turn, sourceIndex) => {
+      const role = ROLE_MAP[String(turn?.role || "").toLowerCase()];
+      const text = typeof turn?.text === "string" ? turn.text.trim() : "";
+      if (!role || !text) return result;
+
+      result.push({
+        role,
+        text,
+        timestamp_ms: normaliseTimestamp(turn.timestamp_ms ?? turn.timestamp),
+        turn_index: result.length,
+        _sourceIndex: sourceIndex,
+      });
+      return result;
+    }, []);
+  }
+
+  function validInteger(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? Math.trunc(number) : null;
+  }
+
+  function mapCompleteIntegerArray(values, sourceIndices) {
+    if (!Array.isArray(values)) return undefined;
+    const mapped = sourceIndices.map((index) => validInteger(values[index]));
+    return mapped.every((value) => value !== null) ? mapped : undefined;
+  }
+
+  function mapCompleteBooleanArray(values, sourceIndices) {
+    if (!Array.isArray(values)) return undefined;
+    const mapped = sourceIndices.map((index) => values[index]);
+    return mapped.every((value) => typeof value === "boolean") ? mapped : undefined;
+  }
+
+  function normaliseTelemetry(telemetry, sourceIndices) {
+    if (!telemetry || typeof telemetry !== "object") return undefined;
+
+    const result = {};
+    const dwell = mapCompleteIntegerArray(telemetry.dwell_ms, sourceIndices);
+    const copies = mapCompleteIntegerArray(telemetry.copy_events, sourceIndices);
+    const edits = mapCompleteBooleanArray(telemetry.edit_detected, sourceIndices);
+
+    if (dwell) result.dwell_ms = dwell;
+    if (copies) result.copy_events = copies;
+    if (edits) result.edit_detected = edits;
+    if (
+      typeof telemetry.selector_health === "string" &&
+      telemetry.selector_health.trim()
+    ) {
+      result.selector_health = telemetry.selector_health.trim();
+    }
+
+    return Object.keys(result).length ? result : undefined;
+  }
+
+  function currentEraKey(now = new Date()) {
+    return now.toISOString().slice(0, 7);
+  }
+
+  function normalisePartnerModel(partnerModel, now) {
+    const model = partnerModel && typeof partnerModel === "object" ? partnerModel : {};
+    const eraKey = /^(\d{4}-\d{2}|unknown)$/.test(String(model.era_key || ""))
+      ? String(model.era_key)
+      : currentEraKey(now);
+    const family = ["anthropic", "openai", "google", "unknown"].includes(
+      String(model.family || "").toLowerCase(),
+    )
+      ? String(model.family).toLowerCase()
+      : "openai";
+
+    return {
+      family,
+      model_id:
+        typeof model.model_id === "string" && model.model_id.trim()
+          ? model.model_id.trim()
+          : "unknown",
+      era_key: eraKey,
+    };
+  }
+
+  function normaliseMetadata(metadata) {
+    if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+      return undefined;
+    }
+    return { ...metadata };
+  }
+
+  function buildIngestPayload(input, now = new Date()) {
+    if (!input || typeof input !== "object") {
+      throw new TypeError("payload input must be an object");
+    }
+
+    const turnsWithIndices = normaliseTurns(input.turns);
+    if (!turnsWithIndices.length) {
+      throw new TypeError("at least one non-empty turn is required");
+    }
+
+    const sourceIndices = turnsWithIndices.map((turn) => turn._sourceIndex);
+    const turns = turnsWithIndices.map(({ _sourceIndex, ...turn }) => turn);
+    const telemetry = normaliseTelemetry(input.telemetry, sourceIndices);
+    const metadata = normaliseMetadata(input.metadata);
+
+    const payload = {
+      user_ref: requireString(input.user_ref ?? input.userRef, "user_ref"),
+      conversation_id: requireString(
+        input.conversation_id ?? input.conversationId,
+        "conversation_id",
+      ),
+      source: normaliseSource(input.source),
+      partner_model: normalisePartnerModel(
+        input.partner_model ?? input.partnerModel,
+        now,
+      ),
+      turns,
+    };
+
+    if (telemetry) payload.telemetry = telemetry;
+    if (metadata) payload.metadata = metadata;
+    if (typeof input.capture_method === "string" && input.capture_method.trim()) {
+      payload.capture_method = input.capture_method.trim();
+    }
+    const expectedTurnCount = validInteger(input.expected_turn_count ?? input.expectedTurnCount);
+    if (expectedTurnCount !== null) payload.expected_turn_count = expectedTurnCount;
+    payload.captured_turn_count = turns.length;
+    if (typeof input.capture_complete === "boolean") {
+      payload.capture_complete = input.capture_complete;
+    }
+    if (typeof input.raw_retention_flag === "string" && input.raw_retention_flag.trim()) {
+      payload.raw_retention_flag = input.raw_retention_flag.trim();
+    }
+    return payload;
+  }
+
+  globalScope.SAFPayloadBuilder = Object.freeze({
+    SOURCE_MAP, ROLE_MAP, buildIngestPayload, normalisePartnerModel,
+    normaliseSource, normaliseTelemetry, normaliseTurns,
+  });
+})(self);
+
+(function initApiClient(globalScope) {
+  const DEFAULT_ENDPOINT = 'http://localhost:8000';
+
+  async function _getConfig() {
+    const storage = globalScope.SAFStorage;
+    if (!storage) throw new Error('SAFStorage not loaded');
+    const keys = storage.STORAGE_KEYS;
+    const values = await storage.getMany([keys.API_ENDPOINT, keys.API_KEY]);
+    return {
+      endpoint: values[keys.API_ENDPOINT] || DEFAULT_ENDPOINT,
+      key: values[keys.API_KEY] || '',
+    };
+  }
+
+  async function _request(method, path, body) {
+    let cfg;
+    try {
+      cfg = await _getConfig();
+    } catch (err) {
+      return { ok: false, error: 'storage_unavailable' };
+    }
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (cfg.key) headers['X-API-Key'] = cfg.key;
+
+    try {
+      const res = await fetch(`${cfg.endpoint}${path}`, {
+        method,
+        headers,
+        body: body != null ? JSON.stringify(body) : undefined,
+      });
+
+      if (!res.ok) {
+        console.warn(`[SAF API] ${method} ${path} → ${res.status}`);
+        let detail = null;
+        let detailData = null;
+        try {
+          const data = await res.json();
+          if (typeof data?.detail === 'string') {
+            detail = data.detail;
+          } else if (data?.detail && typeof data.detail === 'object') {
+            detailData = data.detail;
+            detail = typeof data.detail.message === 'string' ? data.detail.message : null;
+          }
+        } catch (_) {
+          detail = null;
+        }
+        return { ok: false, error: `HTTP ${res.status}`, status: res.status, detail, detailData };
+      }
+      return { ok: true, data: await res.json(), status: res.status };
+    } catch (err) {
+      console.warn(`[SAF API] ${method} ${path} unreachable`);
+      return { ok: false, error: 'api_unreachable', status: 0 };
+    }
+  }
+
+  globalScope.SAFApiClient = Object.freeze({
+    ingestChat: (payload) => _request('POST', '/v1/ingest', payload),
+    listChats: (userRef) => _request('GET', `/v1/users/${encodeURIComponent(userRef)}/chats`),
+    getScore: (userRef, chatId) =>
+      _request('GET', `/v1/users/${encodeURIComponent(userRef)}/chats/${encodeURIComponent(chatId)}/score`),
+    postFeedback: (userRef, chatId, body) =>
+      _request('POST', `/v1/users/${encodeURIComponent(userRef)}/chats/${encodeURIComponent(chatId)}/feedback`, body),
+    getPortfolio: (userRef) => _request('GET', `/v1/users/${encodeURIComponent(userRef)}/portfolio`),
+    deleteUser: (userRef) => _request('DELETE', `/v1/users/${encodeURIComponent(userRef)}`),
+    checkHealth: async () => {
+      let cfg;
+      try { cfg = await _getConfig(); } catch { return false; }
+      try {
+        const res = await fetch(`${cfg.endpoint}/v1/health`);
+        return res.ok;
+      } catch { return false; }
+    },
+    DEFAULT_ENDPOINT,
+  });
+})(self);
 
 /* globals SAFStorage, SAFPayloadBuilder, SAFApiClient */
 
@@ -24,17 +398,110 @@ const SK = SAFStorage.STORAGE_KEYS;
 const HEALTH_POLL_ALARM = 'saf_health_poll';
 const COLLECTOR_BAG_KEY = 'saf_collector_bag';
 const MAX_BAG_SIZE = 50;
+const AUTO_CAPTURE_DEBOUNCE_MS = 1200;
+const CONTENT_CAPTURE_TIMEOUT_MS = 45000;
 
 // In-memory: tabId → most recent capture snapshot sent by content.js
 const _latestCapture = new Map();
 const _latestReadyCapture = new Map();
 const _analyseProgress = new Map();
+const _pendingAutomaticCaptures = new Map();
 
 // In-memory: conversation_id → last content hash we forwarded to the API.
 // Best-effort only — MV3 workers sleep and lose this; the DB content_hash is
 // the real guard. Worst case after a wake is one redundant forward that the
 // server's idempotent upsert collapses to a no-op. (D-006)
 const _lastForwardedHash = new Map();
+
+// In-memory: conversation_id → turn count of the best capture forwarded so far.
+// Guards against a DOM partial (3 turns) arriving after a full interception capture
+// (30 turns) and overwriting the complete transcript at the DB layer (race condition
+// between concurrent SAF_CAPTURE_READY messages for the same conversation).
+const _lastForwardedTurnCount = new Map();
+
+function _captureTurnCount(capture) {
+  return Array.isArray(capture?.turns) ? capture.turns.length : 0;
+}
+
+function _captureConversationId(capture) {
+  return typeof capture?.conversation_id === 'string' && capture.conversation_id.trim()
+    ? capture.conversation_id.trim()
+    : null;
+}
+
+function _captureRank(capture) {
+  return {
+    turns: _captureTurnCount(capture),
+    complete: capture?.capture_complete === true ? 1 : 0,
+  };
+}
+
+function _isBetterCapture(candidate, current) {
+  if (!current) return true;
+  const next = _captureRank(candidate);
+  const prev = _captureRank(current);
+  if (next.turns !== prev.turns) return next.turns > prev.turns;
+  return next.complete > prev.complete;
+}
+
+function _rememberBestReadyCapture(tabId, capture) {
+  if (tabId == null || _captureValidationError(capture)) return;
+  const current = _latestReadyCapture.get(tabId);
+  if (_isBetterCapture(capture, current)) {
+    _latestReadyCapture.set(tabId, capture);
+  }
+}
+
+function _claimAutomaticCapture(capture) {
+  const convId = _captureConversationId(capture);
+  if (!convId) return { accepted: true };
+  const turnCount = _captureTurnCount(capture);
+  const bestCount = _lastForwardedTurnCount.get(convId) || 0;
+  if (turnCount < bestCount) {
+    return { accepted: false, reason: 'stale_partial', bestCount, turnCount };
+  }
+  _lastForwardedTurnCount.set(convId, Math.max(turnCount, bestCount));
+  return { accepted: true };
+}
+
+function _scheduleAutomaticCapture(capture) {
+  const convId = _captureConversationId(capture);
+  if (!convId) {
+    _handleCaptureReady(capture).catch(console.warn);
+    return;
+  }
+  const pending = _pendingAutomaticCaptures.get(convId);
+  const bestCapture = _isBetterCapture(capture, pending?.capture)
+    ? capture
+    : pending.capture;
+  if (pending?.timer) clearTimeout(pending.timer);
+  const timer = setTimeout(() => {
+    const item = _pendingAutomaticCaptures.get(convId);
+    _pendingAutomaticCaptures.delete(convId);
+    if (item?.capture) _handleCaptureReady(item.capture).catch(console.warn);
+  }, AUTO_CAPTURE_DEBOUNCE_MS);
+  _pendingAutomaticCaptures.set(convId, { capture: bestCapture, timer });
+}
+
+function _sendAnalyseNowToTab(tabId) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('capture_timeout'));
+    }, CONTENT_CAPTURE_TIMEOUT_MS);
+
+    self.chrome.tabs.sendMessage(tabId, { type: 'SAF_ANALYSE_NOW' }, (res) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const err = self.chrome.runtime.lastError;
+      if (err) reject(new Error(err.message || 'send_failed'));
+      else resolve(res);
+    });
+  });
+}
 
 function _setAnalyseProgress(tabId, patch) {
   if (tabId == null) return null;
@@ -79,13 +546,30 @@ async function _addToBag(payload) {
   await SAFStorage.set(COLLECTOR_BAG_KEY, bag);
 }
 
+// A bagged payload is only worth retrying if the failure was TRANSIENT — the
+// server was unreachable (status 0/undefined) or errored internally (5xx, e.g. a
+// server still starting up). A 422 is a PERMANENT rejection (capture incomplete /
+// count mismatch): the same payload will be rejected every time, so re-queuing it
+// makes the health poll re-POST it forever (a self-sustaining flood). Drop those —
+// and any other 4xx — instead of retrying. (Mirrors _addToBag, which already
+// refuses to bag a 422 on the live path.)
+function _isRetryableIngestFailure(result) {
+  const status = result?.status;
+  return status === 0 || status === undefined || (status >= 500 && status <= 599);
+}
+
 async function _flushBag() {
   const bag = await _getBag();
   if (!bag.length) return;
   const remaining = [];
   for (const item of bag) {
     const result = await SAFApiClient.ingestChat(item.payload);
-    if (!result.ok) remaining.push(item);
+    if (result.ok) continue;            // ingested → drop from bag
+    if (_isRetryableIngestFailure(result)) {
+      remaining.push(item);             // transient → keep for the next poll
+    } else {
+      console.warn(`[SAF] dropping un-ingestable bagged capture (HTTP ${result.status})`);
+    }
   }
   await SAFStorage.set(COLLECTOR_BAG_KEY, remaining);
 }
@@ -197,7 +681,7 @@ async function _findChat(userRef, conversationId) {
  *   { ok: false, skipped: 'consent_off' | 'no_user', message }
  *   { ok: false, error, message }                       (build/API failure)
  */
-async function _handleCaptureReady(capture) {
+async function _handleCaptureReady(capture, { force = false } = {}) {
   const invalid = _captureValidationError(capture);
   if (invalid) {
     return { ok: false, error: 'capture_invalid',
@@ -214,6 +698,32 @@ async function _handleCaptureReady(capture) {
     const counts = (exp != null && got != null) ? ` (captured ${got} of ${exp} turns)` : '';
     return { ok: false, error: 'capture_incomplete',
              message: `Capture incomplete${counts} — reload ChatGPT and try Analyse now again.` };
+  }
+
+  if (force) {
+    const convId = _captureConversationId(capture);
+    if (convId) {
+      _lastForwardedTurnCount.set(
+        convId,
+        Math.max(_captureTurnCount(capture), _lastForwardedTurnCount.get(convId) || 0),
+      );
+    }
+  } else {
+    const claim = _claimAutomaticCapture(capture);
+    if (!claim.accepted) {
+      return {
+        ok: true,
+        noop: true,
+        skipped: claim.reason,
+        data: {
+          chatId: null,
+          status: 'skipped_partial',
+          conversationId: _captureConversationId(capture),
+          bestTurnCount: claim.bestCount,
+          skippedTurnCount: claim.turnCount,
+        },
+      };
+    }
   }
 
   const consent = await SAFStorage.get(SK.CONSENT_ENABLED, false);
@@ -247,6 +757,7 @@ async function _handleCaptureReady(capture) {
 
   const convId = payload.conversation_id;
   const hash = _hashCapture(capture);
+  const turnCount = _captureTurnCount(capture);
 
   // Nothing new since we last forwarded this conversation: don't re-ingest
   // (no redundant judge call), but still resolve the existing chat_id so the
@@ -259,6 +770,36 @@ async function _handleCaptureReady(capture) {
                data: { chatId: existing.chat_id, status: existing.status, conversationId: convId } };
     }
     // hash map stale (worker slept / data cleared) → fall through and ingest
+  }
+
+  // Race-condition guard (D-015): a DOM partial (e.g. 3 visible turns) can arrive
+  // concurrently with a full interception capture (30 turns). Both have different
+  // hashes so both pass the dedupe check above, but whichever hits the DB last wins
+  // — if the partial lands after the full, the worker scores the partial transcript.
+  // Skip any automatic capture that has fewer turns than the best we already sent,
+  // unless the caller is an explicit Analyse Now (force=true).
+  if (!force) {
+    const bestCount = _lastForwardedTurnCount.get(convId) || 0;
+    if (turnCount < bestCount) {
+      const existing = await _findChat(userRef, convId);
+      if (existing) {
+        _badgeForChat(existing, capture);
+        return { ok: true, noop: true,
+                 data: { chatId: existing.chat_id, status: existing.status, conversationId: convId } };
+      }
+      return {
+        ok: true,
+        noop: true,
+        skipped: 'stale_partial',
+        data: {
+          chatId: null,
+          status: 'skipped_partial',
+          conversationId: convId,
+          bestTurnCount: bestCount,
+          skippedTurnCount: turnCount,
+        },
+      };
+    }
   }
 
   const result = await SAFApiClient.ingestChat(payload);
@@ -277,8 +818,8 @@ async function _handleCaptureReady(capture) {
   }
 
   _lastForwardedHash.set(convId, hash);
+  _lastForwardedTurnCount.set(convId, Math.max(turnCount, _lastForwardedTurnCount.get(convId) || 0));
   await SAFStorage.set(SK.HEALTH_STATUS, 'ok');
-  const turnCount = (capture.turns || []).length;
   _setBadge('…', '#1a6fa0', `SAF — ${turnCount} turns saved · analysing…`);
   return { ok: true,
            data: { chatId: result.data.chat_id, status: result.data.status, conversationId: convId } };
@@ -291,7 +832,12 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // ── content.js push messages ──────────────────────────────────────────────
   if (message.type === 'SAF_CAPTURE_UPDATED') {
-    if (sender.tab?.id != null) _latestCapture.set(sender.tab.id, message.capture);
+    if (sender.tab?.id != null) {
+      const current = _latestCapture.get(sender.tab.id);
+      if (_isBetterCapture(message.capture, current)) {
+        _latestCapture.set(sender.tab.id, message.capture);
+      }
+    }
     return undefined; // no response
   }
 
@@ -299,10 +845,16 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const tabId = sender.tab?.id;
     if (tabId != null) {
       const progress = message.progress || {};
-      if (progress.capture) _latestCapture.set(tabId, progress.capture);
+      if (progress.capture) {
+        const current = _latestCapture.get(tabId);
+        if (_isBetterCapture(progress.capture, current)) {
+          _latestCapture.set(tabId, progress.capture);
+        }
+      }
       _setAnalyseProgress(tabId, {
+        active: progress.stage === 'error' ? false : undefined,
         stage: progress.stage || 'capturing',
-        percent: progress.percent ?? 0,
+        percent: progress.stage === 'error' ? 100 : (progress.percent ?? 0),
         message: progress.message || 'Capturing chat...',
         capturedTurns: progress.captured_turns || progress.capture?.turns?.length || 0,
         conversationId: progress.capture?.conversation_id || null,
@@ -312,11 +864,14 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'SAF_CAPTURE_READY') {
-    if (sender.tab?.id != null) _latestCapture.set(sender.tab.id, message.capture);
-    if (sender.tab?.id != null && !_captureValidationError(message.capture)) {
-      _latestReadyCapture.set(sender.tab.id, message.capture);
+    if (sender.tab?.id != null) {
+      const current = _latestCapture.get(sender.tab.id);
+      if (_isBetterCapture(message.capture, current)) {
+        _latestCapture.set(sender.tab.id, message.capture);
+      }
+      _rememberBestReadyCapture(sender.tab.id, message.capture);
     }
-    _handleCaptureReady(message.capture).catch(console.warn);
+    _scheduleAutomaticCapture(message.capture);
     return undefined; // no response
   }
 
@@ -391,27 +946,41 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         let reply = null;
         let sendError = null;
         try {
-          reply = await new Promise((resolve, reject) => {
-            self.chrome.tabs.sendMessage(tabId, { type: 'SAF_ANALYSE_NOW' }, (res) => {
-              const err = self.chrome.runtime.lastError;
-              if (err) reject(new Error(err.message || 'send_failed'));
-              else resolve(res);
-            });
-          });
+          reply = await _sendAnalyseNowToTab(tabId);
         } catch (err) {
           sendError = err;
         }
 
         const fallbackCapture = _latestReadyCapture.get(tabId);
+        // When the content script returned an EXPLICIT failure, that diagnosis is
+        // authoritative: the manual capture ran the full path (interception poll +
+        // backend backfill + DOM scroll), a superset of the passive auto-capture, and
+        // its message carries the real reason (backend_fetch status, turn counts).
+        // Masking it with a stale, likely-worse auto-capture hides why it failed. Only
+        // fall back to the auto-capture when the manual reply was LOST (sendError / no
+        // reply), not when it explicitly said ok:false.
+        const replyFailedExplicitly = reply != null && reply.ok === false;
+        // The content script never answered (channel closed / no response). This is
+        // the orphaned-content-script state after an extension update: the page is
+        // running a disconnected old script. A stale in-memory auto-capture must NOT
+        // be used here — validating it surfaces a misleading "imbalanced" verdict for
+        // a capture that isn't even from this attempt. The real fix is reloading the
+        // tab, so say exactly that.
+        const contentUnreachable = reply == null;
         const capture =
-          _captureHasTurns(reply?.capture) ? reply.capture
-            : _captureHasTurns(fallbackCapture) ? fallbackCapture
+          reply?.ok === true && _captureHasTurns(reply?.capture) ? reply.capture
+            : (!replyFailedExplicitly && !contentUnreachable && _captureHasTurns(fallbackCapture))
+              ? fallbackCapture
               : null;
 
         // D-010: honour the content script's own ok/capture — do not assume success.
-        if (!capture || (reply && reply.ok !== true && !_captureHasTurns(reply.capture))) {
+        if (!capture) {
           const e = new Error(sendError?.message || 'nothing_captured');
-          e.userMessage = 'No conversation captured yet — start chatting first.';
+          e.userMessage = sendError?.message === 'capture_timeout'
+            ? 'Capture timed out — reload the ChatGPT tab (F5) and try again.'
+            : contentUnreachable
+              ? 'SAF lost its connection to this tab — this happens right after the extension is updated. Reload the ChatGPT tab (F5), then click Analyse again.'
+              : (reply?.message || reply?.error || 'No full conversation captured yet — reload ChatGPT and try again.');
           _setAnalyseProgress(tabId, {
             active: false,
             stage: 'error',
@@ -445,7 +1014,7 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           capturedTurns: capture.turns?.length || 0,
           conversationId: capture.conversation_id || null,
         });
-        const outcome = await _handleCaptureReady(capture);
+        const outcome = await _handleCaptureReady(capture, { force: true });
         if (!outcome.ok) {
           const e = new Error(outcome.skipped || outcome.error || 'ingest_failed');
           e.userMessage = outcome.message;

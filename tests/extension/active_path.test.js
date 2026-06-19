@@ -155,10 +155,19 @@ test("non-text content (e.g. multimodal) is skipped", () => {
   );
 });
 
-test("fail-closed: missing current_node yields complete=false, no turns", () => {
+test("missing current_node is rescued by inferCurrentNode on the branched fixture", () => {
+  // inferCurrentNode picks the deepest leaf; on branchedConvo that is one of the
+  // two equal-depth branch tips — either way, the walk succeeds and returns all
+  // four turns on the chosen active path.
   const convo = branchedConvo();
   delete convo.current_node;
   const result = activePathFromMapping(convo);
+  assert.equal(result.complete, true, "inference should rescue a missing current_node");
+  assert.equal(result.turns.length, 4);
+});
+
+test("fail-closed: missing current_node AND empty mapping yields complete=false", () => {
+  const result = activePathFromMapping({ mapping: {} });
   assert.equal(result.complete, false);
   assert.equal(result.reason, "no_current_node");
   assert.deepEqual(result.turns, []);

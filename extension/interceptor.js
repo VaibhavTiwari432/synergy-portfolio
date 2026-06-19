@@ -31,7 +31,7 @@
   // and the D-015 §3 field list — nowhere else. Confirm against a live network
   // tab before trusting capture; do not edit elsewhere.
   const CONVERSATION_URL_RE =
-    /\/backend-api\/conversation\/[0-9a-f-]{16,}(?:[/?#]|$)/i; // VERIFY path
+    /\/backend-api\/(?:conversation|share)\/[^/?#]+(?:[/?#]|$)/i; // VERIFY path
   const REQUIRED_FIELDS = Object.freeze([
     'mapping',       // VERIFY: object keyed by node id
     'current_node',  // VERIFY: id of the displayed leaf
@@ -51,13 +51,78 @@
   // we replay the cache then.
   let cachedConversationPayload = null;
 
+  function inferCurrentNode(mapping) {
+    if (!mapping || typeof mapping !== 'object') return null;
+    const ids = Object.keys(mapping);
+    const parentIds = new Set();
+    for (const node of Object.values(mapping)) {
+      if (node && typeof node === 'object' && node.parent) {
+        parentIds.add(String(node.parent));
+      }
+    }
+    const leaves = ids.filter((id) => !parentIds.has(id));
+    const candidates = leaves.length ? leaves : ids;
+    let best = null;
+    let bestDepth = -1;
+    for (const id of candidates) {
+      let cursor = id;
+      let depth = 0;
+      const seen = new Set();
+      while (cursor && mapping[cursor] && !seen.has(cursor)) {
+        seen.add(cursor);
+        depth += 1;
+        cursor = mapping[cursor].parent;
+      }
+      if (depth > bestDepth) {
+        best = id;
+        bestDepth = depth;
+      }
+    }
+    return best;
+  }
+
+  function conversationPayloadFromValue(value, depth = 0, seen = new Set()) {
+    if (!value || typeof value !== 'object' || depth > 10 || seen.has(value)) return null;
+    seen.add(value);
+    if (value.mapping && typeof value.mapping === 'object') {
+      const currentNode = value.current_node || value.currentNode || inferCurrentNode(value.mapping);
+      if (currentNode) return { ...value, current_node: currentNode };
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = conversationPayloadFromValue(item, depth + 1, seen);
+        if (found) return found;
+      }
+      return null;
+    }
+    for (const key of [
+      'conversation',
+      'data',
+      'shared_conversation',
+      'share',
+      'item',
+      'props',
+      'pageProps',
+      'dehydratedState',
+      'queries',
+      'state',
+      'result',
+      'response',
+    ]) {
+      if (key in value) {
+        const found = conversationPayloadFromValue(value[key], depth + 1, seen);
+        if (found) return found;
+      }
+    }
+    for (const child of Object.values(value)) {
+      const found = conversationPayloadFromValue(child, depth + 1, seen);
+      if (found) return found;
+    }
+    return null;
+  }
+
   function looksLikeConversation(value) {
-    return Boolean(
-      value &&
-      typeof value === 'object' &&
-      value.mapping &&
-      typeof value.mapping === 'object',
-    );
+    return Boolean(conversationPayloadFromValue(value));
   }
 
   // Runtime field-presence assertion (D-015 CE scope / ADR-0007 §4): the first
@@ -111,7 +176,8 @@
   }
 
   function publish(convo, url) {
-    if (!looksLikeConversation(convo)) return;
+    convo = conversationPayloadFromValue(convo);
+    if (!convo) return;
     assertShapeOnce(convo, url);
     // Cache the latest valid payload, then post immediately — the normal SPA-nav
     // path where content.js is already listening and does not race.

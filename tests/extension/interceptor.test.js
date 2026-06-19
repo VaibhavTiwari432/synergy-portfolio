@@ -99,7 +99,9 @@ test('does not publish a body that is not a conversation tree', async () => {
 
 test('emits a structured shape warning when a VERIFY field is missing', async () => {
   const convo = goodConvo();
-  delete convo.current_node;                       // top-level field gone
+  // current_node is intentionally absent — inferCurrentNode rescues it, so it no
+  // longer appears in missing_top_level. The per-message field is still missing.
+  delete convo.current_node;
   delete convo.mapping.n1.message.create_time;     // per-message field gone
   const win = makeWin({ fetch: fetchReturning(convo) });
   loadInterceptor(win);
@@ -109,8 +111,9 @@ test('emits a structured shape warning when a VERIFY field is missing', async ()
 
   assert.equal(win.__warnings.length, 1);
   assert.match(win.__warnings[0], /shape changed/);
-  assert.match(win.__warnings[0], /current_node/);
   assert.match(win.__warnings[0], /message\.create_time/);
+  // current_node is now absent from the warning because inferCurrentNode adds it back
+  assert.doesNotMatch(win.__warnings[0], /current_node/);
 });
 
 test('install is idempotent — a second run does not re-wrap fetch', () => {

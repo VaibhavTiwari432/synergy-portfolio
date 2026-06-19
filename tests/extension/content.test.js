@@ -5,10 +5,13 @@ const assert = require("node:assert/strict");
 
 const {
   SELECTORS,
+  activePathFromMapping,
+  conversationPayloadFromValue,
   conversationIdFromUrl,
   createCaptureController,
   detectPartnerModel,
   modelIdFromText,
+  platformFromUrl,
   queryUsingFallbacks,
 } = require("../../extension/content.js");
 
@@ -18,9 +21,16 @@ test("SELECTORS preserves the ordered contract fallbacks", () => {
   ]);
   assert.deepEqual(SELECTORS.roleTurn, [
     '[data-message-author-role]',
+    '[data-testid="user-message"], [data-testid="human-message"], [data-testid="assistant-message"]',
   ]);
   assert.deepEqual(SELECTORS.userTurn, [
     '[data-message-author-role="user"]',
+    '[data-testid="user-message"]',
+    '[data-testid="human-message"]',
+  ]);
+  assert.deepEqual(SELECTORS.aiTurn, [
+    '[data-message-author-role="assistant"]',
+    '[data-testid="assistant-message"]',
   ]);
   assert.equal(SELECTORS.stopButton.length, 2);
 });
@@ -51,13 +61,79 @@ test("partner detection hardcodes OpenAI family and capture era", () => {
   );
 });
 
+test("partner detection recognises Claude pages", () => {
+  const node = { innerText: "Claude Sonnet 4" };
+  const documentRef = {
+    querySelector(selector) {
+      return selector === SELECTORS.modelSelector[0] ? node : null;
+    },
+  };
+  assert.deepEqual(
+    detectPartnerModel(
+      documentRef,
+      new Date("2026-06-14T00:00:00Z"),
+      { href: "https://claude.ai/chat/claude-chat-1" },
+    ),
+    { family: "anthropic", model_id: "claude-sonnet-4", era_key: "2026-06" },
+  );
+});
+
 test("model and conversation identifiers degrade safely", () => {
   assert.equal(modelIdFromText("Auto"), "unknown");
   assert.equal(modelIdFromText("Use o3-mini"), "o3-mini");
   assert.equal(modelIdFromText("ChatGPT 4o mini"), "gpt-4o-mini");
   assert.equal(modelIdFromText("GPT-5.2 Thinking"), "gpt-5.2");
+  assert.equal(modelIdFromText("Claude Sonnet 4", "claude"), "claude-sonnet-4");
+  assert.equal(platformFromUrl("https://claude.ai/chat/abc-123"), "claude");
   assert.equal(conversationIdFromUrl("https://chat.openai.com/c/abc-123"), "abc-123");
+  assert.equal(conversationIdFromUrl("https://claude.ai/chat/abc-123"), "abc-123");
   assert.equal(conversationIdFromUrl("not a URL"), null);
+});
+
+test("active path unwraps nested shared payloads and object text parts", () => {
+  const payload = {
+    data: {
+      shared_conversation: {
+        mapping: {
+          root: { id: "root", parent: null, message: null },
+          user1: {
+            id: "user1",
+            parent: "root",
+            message: {
+              id: "m-user-1",
+              author: { role: "user" },
+              content: { content_type: "multimodal_text", parts: [{ text: "hello" }] },
+              create_time: 100,
+            },
+          },
+          assistant1: {
+            id: "assistant1",
+            parent: "user1",
+            message: {
+              id: "m-assistant-1",
+              author: { role: "assistant" },
+              content: { content_type: "text", parts: [{ text: "world" }] },
+              create_time: 101,
+              metadata: { model_slug: "gpt-4o" },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const convo = conversationPayloadFromValue(payload);
+  assert.equal(convo.current_node, "assistant1");
+  const active = activePathFromMapping(payload);
+  assert.equal(active.complete, true);
+  assert.equal(active.expected_turn_count, 2);
+  assert.deepEqual(
+    active.turns.map(({ role, text, turn_index }) => ({ role, text, turn_index })),
+    [
+      { role: "user", text: "hello", turn_index: 0 },
+      { role: "assistant", text: "world", turn_index: 1 },
+    ],
+  );
 });
 
 test("controller orders six captured turns and emits the three-pair ready signal", () => {
@@ -589,6 +665,168 @@ test("direct manual capture works on an already-open draft chat", () => {
   assert.match(ready.capture.conversation_id, /^draft-/);
 });
 
+test("manual capture prefers embedded shared conversation JSON over partial DOM", async () => {
+  const sharedPayload = {
+    props: {
+      pageProps: {
+        conversation: {
+          current_node: "assistant2",
+          mapping: {
+            root: { parent: null, message: null },
+            user1: {
+              parent: "root",
+              message: {
+                id: "u1",
+                author: { role: "user" },
+                content: { parts: ["q1"] },
+                create_time: 100,
+              },
+            },
+            assistant1: {
+              parent: "user1",
+              message: {
+                id: "a1",
+                author: { role: "assistant" },
+                content: { parts: ["a1"] },
+                create_time: 101,
+              },
+            },
+            user2: {
+              parent: "assistant1",
+              message: {
+                id: "u2",
+                author: { role: "user" },
+                content: { parts: ["q2"] },
+                create_time: 102,
+              },
+            },
+            assistant2: {
+              parent: "user2",
+              message: {
+                id: "a2",
+                author: { role: "assistant" },
+                content: { parts: ["a2"] },
+                create_time: 103,
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+  const script = { textContent: JSON.stringify(sharedPayload) };
+  const partialUser = {
+    innerText: "visible partial only",
+    closest: () => ({ getAttribute: () => "visible-u" }),
+    compareDocumentPosition: () => 0,
+    contains: () => false,
+  };
+  const messages = [];
+  const documentRef = {
+    title: "Shared chat | ChatGPT",
+    body: {},
+    documentElement: {},
+    querySelectorAll(selector) {
+      if (selector === "script") return [script];
+      if (selector === SELECTORS.userTurn[0]) return [partialUser];
+      return [];
+    },
+    querySelector() {
+      return null;
+    },
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  class FakeMutationObserver {
+    observe() {}
+    disconnect() {}
+  }
+
+  const controller = createCaptureController({
+    document: documentRef,
+    location: { href: "https://chatgpt.com/share/share-id" },
+    MutationObserver: FakeMutationObserver,
+    setTimeout: (fn) => {
+      fn();
+      return 1;
+    },
+    clearTimeout: () => {},
+    sendMessage: (message) => messages.push(message),
+    warn: () => {},
+  });
+
+  assert.equal(await controller.captureFullConversationForManual(), true);
+  const ready = messages.filter((message) => message.type === "SAF_CAPTURE_READY").at(-1);
+  assert.equal(ready.reason, "interception");
+  assert.equal(ready.capture.capture_complete, true);
+  assert.deepEqual(
+    ready.capture.turns.map(({ role, text }) => ({ role, text })),
+    [
+      { role: "user", text: "q1" },
+      { role: "assistant", text: "a1" },
+      { role: "user", text: "q2" },
+      { role: "assistant", text: "a2" },
+    ],
+  );
+});
+
+test("manual shared-page capture refuses partial DOM when full JSON is unavailable", async () => {
+  const visibleUser = {
+    innerText: "visible partial question",
+    closest: () => ({ getAttribute: () => "visible-u" }),
+    compareDocumentPosition: () => 0,
+    contains: () => false,
+  };
+  const visibleAssistant = {
+    innerText: "visible partial answer",
+    closest: () => ({ getAttribute: () => "visible-a" }),
+    compareDocumentPosition: () => 0,
+    contains: () => false,
+  };
+  const messages = [];
+  const warnings = [];
+  const documentRef = {
+    title: "Shared chat | ChatGPT",
+    scrollingElement: { scrollTop: 0, scrollHeight: 500, clientHeight: 500 },
+    body: {},
+    documentElement: {},
+    querySelectorAll(selector) {
+      if (selector === "script") return [];
+      if (selector === SELECTORS.userTurn[0]) return [visibleUser];
+      if (selector === SELECTORS.aiTurn[0]) return [visibleAssistant];
+      return [];
+    },
+    querySelector() {
+      return null;
+    },
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  class FakeMutationObserver {
+    observe() {}
+    disconnect() {}
+  }
+
+  const controller = createCaptureController({
+    document: documentRef,
+    location: { href: "https://chatgpt.com/share/share-id" },
+    MutationObserver: FakeMutationObserver,
+    setTimeout: (fn) => {
+      fn();
+      return 1;
+    },
+    clearTimeout: () => {},
+    sendMessage: (message) => messages.push(message),
+    warn: (message) => warnings.push(message),
+    // Backend share tree unavailable → must refuse the partial DOM, not score it.
+    fetch: async () => ({ ok: false, status: 404 }),
+  });
+
+  assert.equal(await controller.captureFullConversationForManual(), false);
+  assert.equal(messages.some((message) => message.type === "SAF_CAPTURE_READY"), false);
+  assert.ok(warnings.some((message) => /refusing partial DOM capture/.test(message)));
+});
+
 test("manual scroll harvest captures virtualized long chats", async () => {
   function turn(role, order, text) {
     return {
@@ -657,6 +895,8 @@ test("manual scroll harvest captures virtualized long chats", async () => {
     clearTimeout: () => {},
     sendMessage: (message) => messages.push(message),
     warn: () => {},
+    // No backend tree available → exercise the DOM scroll harvest fallback.
+    fetch: async () => ({ ok: false, status: 404 }),
   });
 
   assert.equal(await controller.captureFullConversationForManual(), true);
@@ -752,6 +992,8 @@ test("manual scroll harvest uses nested ChatGPT scroll containers", async () => 
     clearTimeout: () => {},
     sendMessage: (message) => messages.push(message),
     warn: () => {},
+    // No backend tree available → exercise the DOM scroll harvest fallback.
+    fetch: async () => ({ ok: false, status: 404 }),
   });
 
   assert.equal(await controller.captureFullConversationForManual(), true);
@@ -766,6 +1008,171 @@ test("manual scroll harvest uses nested ChatGPT scroll containers", async () => 
     ],
   );
   assert.equal(nestedRoot.scrollTop, 0);
+});
+
+test("manual capture backfills the full tree from the backend when interception is silent", async () => {
+  // ChatGPT server-rendered the page: no embedded JSON, no intercepted fetch, and
+  // the DOM is virtualized so the scroll alone would miss most assistant turns.
+  // The active backend fetch (D-015 §9) must recover the complete, balanced tree.
+  const convo = {
+    current_node: "a2",
+    mapping: {
+      u1: { id: "u1", parent: null, children: ["a1"],
+        message: { id: "u1", author: { role: "user" }, create_time: 1,
+          content: { content_type: "text", parts: ["backend q1"] } } },
+      a1: { id: "a1", parent: "u1", children: ["u2"],
+        message: { id: "a1", author: { role: "assistant" }, create_time: 2,
+          metadata: { model_slug: "gpt-4o" },
+          content: { content_type: "text", parts: ["backend a1"] } } },
+      u2: { id: "u2", parent: "a1", children: ["a2"],
+        message: { id: "u2", author: { role: "user" }, create_time: 3,
+          content: { content_type: "text", parts: ["backend q2"] } } },
+      a2: { id: "a2", parent: "u2", children: [],
+        message: { id: "a2", author: { role: "assistant" }, create_time: 4,
+          metadata: { model_slug: "gpt-4o" },
+          content: { content_type: "text", parts: ["backend a2"] } } },
+    },
+  };
+  const messages = [];
+  const requested = [];
+  const documentRef = {
+    title: "Backfilled chat | ChatGPT",
+    scrollingElement: { scrollTop: 0, scrollHeight: 400, clientHeight: 400 },
+    body: {},
+    documentElement: {},
+    querySelectorAll: () => [],   // no embedded script, no DOM turns (virtualized)
+    querySelector: () => null,
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  class FakeMutationObserver { observe() {} disconnect() {} }
+
+  const controller = createCaptureController({
+    document: documentRef,
+    location: { href: "https://chatgpt.com/c/backfill-chat", origin: "https://chatgpt.com" },
+    MutationObserver: FakeMutationObserver,
+    setTimeout: (fn) => { fn(); return 1; },
+    clearTimeout: () => {},
+    sendMessage: (message) => messages.push(message),
+    warn: () => {},
+    fetch: async (url) => {
+      requested.push(url);
+      return { ok: true, json: async () => convo };
+    },
+  });
+
+  assert.equal(await controller.captureFullConversationForManual(), true);
+  assert.equal(
+    requested.at(-1),
+    "https://chatgpt.com/backend-api/conversation/backfill-chat",
+  );
+  const ready = messages.filter((message) => message.type === "SAF_CAPTURE_READY").at(-1);
+  assert.equal(ready.capture.capture_method, "interception");
+  assert.equal(ready.capture.capture_complete, true);
+  assert.deepEqual(
+    ready.capture.turns.map(({ role, text }) => ({ role, text })),
+    [
+      { role: "user", text: "backend q1" },
+      { role: "assistant", text: "backend a1" },
+      { role: "user", text: "backend q2" },
+      { role: "assistant", text: "backend a2" },
+    ],
+  );
+});
+
+test("manual capture backfills a share page from /backend-api/share/<id>", async () => {
+  const convo = {
+    current_node: "a1",
+    mapping: {
+      u1: { id: "u1", parent: null, children: ["a1"],
+        message: { id: "u1", author: { role: "user" }, create_time: 1,
+          content: { content_type: "text", parts: ["shared q"] } } },
+      a1: { id: "a1", parent: "u1", children: [],
+        message: { id: "a1", author: { role: "assistant" }, create_time: 2,
+          content: { content_type: "text", parts: ["shared a"] } } },
+    },
+  };
+  const messages = [];
+  const requested = [];
+  const documentRef = {
+    title: "Shared chat | ChatGPT",
+    scrollingElement: { scrollTop: 0, scrollHeight: 400, clientHeight: 400 },
+    body: {}, documentElement: {},
+    querySelectorAll: () => [],
+    querySelector: () => null,
+    addEventListener() {}, removeEventListener() {},
+  };
+  class FakeMutationObserver { observe() {} disconnect() {} }
+  const controller = createCaptureController({
+    document: documentRef,
+    location: { href: "https://chatgpt.com/share/abc123", origin: "https://chatgpt.com" },
+    MutationObserver: FakeMutationObserver,
+    setTimeout: (fn) => { fn(); return 1; },
+    clearTimeout: () => {},
+    sendMessage: (message) => messages.push(message),
+    warn: () => {},
+    fetch: async (url) => { requested.push(url); return { ok: true, json: async () => convo }; },
+  });
+
+  assert.equal(await controller.captureFullConversationForManual(), true);
+  assert.equal(requested.at(-1), "https://chatgpt.com/backend-api/share/abc123");
+  const ready = messages.filter((message) => message.type === "SAF_CAPTURE_READY").at(-1);
+  assert.deepEqual(
+    ready.capture.turns.map(({ role, text }) => ({ role, text })),
+    [{ role: "user", text: "shared q" }, { role: "assistant", text: "shared a" }],
+  );
+});
+
+test("backend backfill retries with the page bearer token after a 401", async () => {
+  const convo = {
+    current_node: "a1",
+    mapping: {
+      u1: { id: "u1", parent: null, children: ["a1"],
+        message: { id: "u1", author: { role: "user" }, create_time: 1,
+          content: { content_type: "text", parts: ["q"] } } },
+      a1: { id: "a1", parent: "u1", children: [],
+        message: { id: "a1", author: { role: "assistant" }, create_time: 2,
+          content: { content_type: "text", parts: ["a"] } } },
+    },
+  };
+  const messages = [];
+  const calls = [];
+  const documentRef = {
+    title: "Auth chat | ChatGPT",
+    scrollingElement: { scrollTop: 0, scrollHeight: 400, clientHeight: 400 },
+    body: {}, documentElement: {},
+    querySelectorAll: () => [],
+    querySelector: () => null,
+    addEventListener() {}, removeEventListener() {},
+  };
+  class FakeMutationObserver { observe() {} disconnect() {} }
+  const controller = createCaptureController({
+    document: documentRef,
+    location: { href: "https://chatgpt.com/c/auth-chat", origin: "https://chatgpt.com" },
+    MutationObserver: FakeMutationObserver,
+    setTimeout: (fn) => { fn(); return 1; },
+    clearTimeout: () => {},
+    sendMessage: (message) => messages.push(message),
+    warn: () => {},
+    fetch: async (url, opts) => {
+      calls.push({ url, auth: opts?.headers?.authorization || null });
+      if (url.endsWith("/api/auth/session")) {
+        return { ok: true, json: async () => ({ accessToken: "tok-123" }) };
+      }
+      // conversation endpoint: 401 without a bearer token, 200 with one.
+      if (!opts?.headers?.authorization) return { ok: false, status: 401 };
+      return { ok: true, json: async () => convo };
+    },
+  });
+
+  assert.equal(await controller.captureFullConversationForManual(), true);
+  // The retried conversation request carried the bearer token from the session.
+  assert.ok(calls.some((c) => c.url.endsWith("/backend-api/conversation/auth-chat") && c.auth === "Bearer tok-123"));
+  const ready = messages.filter((m) => m.type === "SAF_CAPTURE_READY").at(-1);
+  assert.deepEqual(
+    ready.capture.turns.map(({ role, text }) => ({ role, text })),
+    [{ role: "user", text: "q" }, { role: "assistant", text: "a" }],
+  );
 });
 
 test("forced capture never emits an empty or user-only session", () => {
@@ -878,6 +1285,79 @@ test("forced capture can emit a real one-pair session", () => {
   const ready = messages.filter((message) => message.type === "SAF_CAPTURE_READY");
   assert.equal(ready.length, 1);
   assert.equal(ready[0].capture.turns.length, 2);
+});
+
+test("manual capture reads Claude data-testid roles without imbalance", () => {
+  function claudeTurn(testId, order, text) {
+    return {
+      innerText: text,
+      order,
+      getAttribute(name) {
+        return name === "data-testid" ? testId : null;
+      },
+      closest() {
+        return null;
+      },
+      compareDocumentPosition(other) {
+        return this.order < other.order ? 4 : 2;
+      },
+      contains() {
+        return false;
+      },
+    };
+  }
+
+  const turns = [
+    claudeTurn("user-message", 0, "one question"),
+    claudeTurn("assistant-message", 1, "one answer"),
+    claudeTurn("user-message", 2, "second question"),
+    claudeTurn("assistant-message", 3, "second answer"),
+  ];
+  const modelNode = { innerText: "Claude Sonnet 4" };
+  const messages = [];
+  const documentRef = {
+    title: "Claude test | Claude",
+    body: {},
+    documentElement: {},
+    querySelectorAll(selector) {
+      if (selector === SELECTORS.roleTurn[1]) return turns;
+      if (selector === SELECTORS.userTurn[1]) return turns.filter((item) => item.getAttribute("data-testid") === "user-message");
+      if (selector === SELECTORS.aiTurn[1]) return turns.filter((item) => item.getAttribute("data-testid") === "assistant-message");
+      return [];
+    },
+    querySelector(selector) {
+      return selector === SELECTORS.modelSelector[0] ? modelNode : null;
+    },
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  class FakeMutationObserver {
+    observe() {}
+    disconnect() {}
+  }
+
+  const controller = createCaptureController({
+    document: documentRef,
+    location: { href: "https://claude.ai/chat/claude-chat-123" },
+    MutationObserver: FakeMutationObserver,
+    setTimeout: () => 1,
+    clearTimeout: () => {},
+    sendMessage: (message) => messages.push(message),
+  });
+
+  controller.captureUsers(true);
+  controller.captureCompletedAssistants(true);
+  assert.equal(controller.maybeQueueCapture(true), true);
+
+  const ready = messages.filter((message) => message.type === "SAF_CAPTURE_READY").at(-1);
+  assert.equal(ready.capture.conversation_id, "claude-chat-123");
+  assert.equal(ready.capture.partner_model.family, "anthropic");
+  assert.equal(ready.capture.partner_model.model_id, "claude-sonnet-4");
+  assert.equal(ready.capture.metadata.title, "Claude test");
+  assert.deepEqual(
+    ready.capture.turns.map((turn) => turn.role),
+    ["user", "assistant", "user", "assistant"],
+  );
 });
 
 test("forced capture refuses heavily imbalanced transcripts", () => {
