@@ -112,6 +112,46 @@
   const getChatList = listChats;
   const getChatScore = getScore;
 
+  // submitFeedback — the UI feedback model ({type,value,text}) mapped to the
+  // backend feedback body. 👍 → match_rating:'yes', 👎 → match_rating:'no',
+  // note → comment. The backend REQUIRES a match_rating, so a standalone note
+  // (no thumb) is sent as the neutral 'partial' rating; the note text is the
+  // comment. Delegates to the existing postFeedback (path untouched).
+  async function submitFeedback(userRef, chatId, feedback = {}) {
+    const { type, value, text } = feedback;
+    const body = {};
+    if (type === 'thumb') {
+      body.match_rating = Number(value) > 0 ? 'yes' : 'no';
+    } else if (type === 'note') {
+      body.match_rating = 'partial';   // backend requires a rating; a lone note is neutral
+      body.comment = text;
+    }
+    return postFeedback(userRef, chatId, body);
+  }
+
+  // triggerAnalysis — the "Analyse" CTA does NOT hit the API directly. Analysis
+  // is driven by the background worker (capture → ingest → score), so this sends
+  // SAF_PANEL_ANALYSE_NOW and resolves when background acknowledges. Returns the
+  // same {ok, data|error} envelope as the HTTP helpers. (CODEX_AGENT_UI.md §4.4)
+  function triggerAnalysis(chatId) {
+    return new Promise((resolve) => {
+      const runtime = globalScope.chrome?.runtime;
+      if (!runtime?.sendMessage) {
+        resolve({ ok: false, error: 'runtime_unavailable' });
+        return;
+      }
+      try {
+        runtime.sendMessage({ type: 'SAF_PANEL_ANALYSE_NOW', chatId }, (res) => {
+          const err = runtime.lastError;
+          if (err) { resolve({ ok: false, error: err.message || 'send_failed' }); return; }
+          resolve(res || { ok: false, error: 'no_response' });
+        });
+      } catch (e) {
+        resolve({ ok: false, error: String(e?.message || e) });
+      }
+    });
+  }
+
   async function deleteUser(userRef) {
     return _request('DELETE', `/v1/users/${encodeURIComponent(userRef)}`);
   }
@@ -140,6 +180,8 @@
     acknowledgePortfolio,
     getChatList,
     getChatScore,
+    submitFeedback,
+    triggerAnalysis,
     deleteUser,
     checkHealth,
     DEFAULT_ENDPOINT,

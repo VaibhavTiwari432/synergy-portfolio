@@ -257,6 +257,13 @@ The current chat is the one whose URL matches `window.location.href` when the mo
 - `Analyse` → call `api_client.js` `triggerAnalysis(chatId)`, immediately switch badge to `scoring`, start polling for completion
 - `Retry` → same as `Analyse`
 
+> **Analyse CTA sends a background message, not a direct API call.** `triggerAnalysis(chatId)`
+> dispatches `SAF_PANEL_ANALYSE_NOW` to the background worker (which drives the
+> capture → ingest → score flow) and resolves with `{ ok, data | error }` when the
+> worker acknowledges. It does **not** hit an HTTP endpoint. Analysis targets the
+> active ChatGPT tab's conversation; after it resolves, poll `getChatScore` for the
+> result. Still call it through `api_client.js` — never post the message yourself.
+
 **Title truncation:** `max-width: 180px`, `white-space: nowrap`, `overflow: hidden`, `text-overflow: ellipsis`.
 
 ### 4.5 Data loading
@@ -450,18 +457,26 @@ Codex calls `extension/utils/api_client.js`. These are the functions Codex is au
 
 ```js
 // Chat operations
-getChatList(userId)                           // GET /v1/users/{uid}/chats
-getChatScore(userId, chatId)                  // GET /v1/users/{uid}/chats/{cid}/score
-triggerAnalysis(chatId)                       // POST /v1/ingest/analyse-now
-submitFeedback(chatId, { type, value, text }) // POST /v1/users/{uid}/chats/{cid}/feedback
+getChatList(userId)                                   // GET /v1/users/{uid}/chats
+getChatScore(userId, chatId)                          // GET /v1/users/{uid}/chats/{cid}/score
+submitFeedback(userId, chatId, { type, value, text }) // POST /v1/users/{uid}/chats/{cid}/feedback
+//   You pass the UI feedback model; api_client maps it to the backend body:
+//     { type:'thumb', value:1 }  → { match_rating:'yes' }
+//     { type:'thumb', value:-1 } → { match_rating:'no' }
+//     { type:'note',  text:'…' } → { match_rating:'partial', comment:'…' }
+//   (the backend requires a rating, so a standalone note is the neutral 'partial')
+
+triggerAnalysis(chatId)                               // ⚠ NOT a direct API call —
+//   sends the SAF_PANEL_ANALYSE_NOW background message and resolves when the
+//   worker acknowledges (capture → ingest → score). Returns {ok, data|error}.
 
 // Portfolio
 getPortfolio(userId)                          // GET /v1/users/{uid}/portfolio
 acknowledgePortfolio(userId, snapshotHash)    // POST /v1/users/{uid}/portfolio/ack
 
-// Settings
-getSettings(userId)                           // GET /v1/users/{uid}/settings
-updateSettings(userId, patch)                 // PATCH /v1/users/{uid}/settings
+// Settings  — NOT yet implemented; CE will add before S10. Do not call yet.
+getSettings(userId)                           // (planned) GET /v1/users/{uid}/settings
+updateSettings(userId, patch)                 // (planned) PATCH /v1/users/{uid}/settings
 ```
 
 If a function is missing from `api_client.js`, do NOT add it yourself — flag it to CE and wait. CE owns `api_client.js` additions that touch backend routes.
