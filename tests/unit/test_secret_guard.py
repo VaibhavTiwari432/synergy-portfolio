@@ -19,12 +19,16 @@ def test_known_key_names_still_stripped():
 @pytest.mark.parametrize(
     "secret",
     [
-        "sk-proj-AbCdEf0123456789ghijklmnop",   # OpenAI project key
-        "sk-or-v1-0123456789abcdef0123456789",  # OpenRouter
-        "AKIAIOSFODNN7EXAMPLE",                  # AWS access key id
-        "AIzaSyD-ExampleExampleExampleExample0",  # Google API key
-        "ghp_0123456789abcdefghijklmnopqrstuvwx",  # GitHub PAT
-        "xoxb-" + "1234567890-" + "abcdefghijklmnop",      # Slack bot token
+        # Each fixture is split into concatenated literals so the contiguous
+        # token never appears in source (won't trip GitHub push protection /
+        # secret scanners); the runtime value is identical, so scrub_secrets is
+        # still exercised against the real token shape. (Audit Track 1)
+        "sk-proj-" + "AbCdEf0123456789ghijklmnop",      # OpenAI project key
+        "sk-or-v1-" + "0123456789abcdef0123456789",     # OpenRouter
+        "AKIA" + "IOSFODNN7EXAMPLE",                     # AWS access key id
+        "AIzaSy" + "D-ExampleExampleExampleExample0",    # Google API key
+        "ghp_" + "0123456789abcdefghijklmnopqrstuvwx",  # GitHub PAT
+        "xoxb-" + "1234567890-" + "abcdefghijklmnop",   # Slack bot token
     ],
 )
 def test_secret_shaped_value_stripped_under_any_key_name(secret):
