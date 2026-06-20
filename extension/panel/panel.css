@@ -796,6 +796,106 @@
   font: 400 12px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+.saf-feedback-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.saf-feedback-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.saf-feedback-thumb {
+  width: 32px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--saf-text-muted);
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-sm);
+  font: 500 15px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+
+.saf-feedback-thumb:hover,
+.saf-feedback-thumb:focus-visible {
+  color: var(--saf-text-primary);
+  border-color: var(--saf-border-hover);
+  outline: none;
+}
+
+.saf-feedback-thumb[aria-pressed="true"] {
+  color: var(--saf-text-primary);
+  background: var(--saf-accent-light);
+  border-color: var(--saf-accent);
+}
+
+.saf-feedback-thumb:disabled,
+.saf-feedback-note:disabled,
+.saf-feedback-submit:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.saf-feedback-note-label {
+  color: var(--saf-text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.saf-feedback-note {
+  width: 100%;
+  min-height: 58px;
+  resize: none;
+  padding: 8px;
+  color: var(--saf-text-primary);
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-sm);
+  font: 400 12px/1.4 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  outline: none;
+}
+
+.saf-feedback-note::placeholder {
+  color: var(--saf-text-faint);
+}
+
+.saf-feedback-note:focus {
+  border-color: var(--saf-border-hover);
+  box-shadow: 0 0 0 2px var(--saf-accent-light);
+}
+
+.saf-feedback-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.saf-feedback-count {
+  color: var(--saf-text-faint);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.saf-feedback-status {
+  min-height: 15px;
+  margin: 0;
+  color: var(--saf-text-faint);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.saf-feedback-status.is-error {
+  color: var(--saf-red);
+}
+
 @media (max-width: 760px) {
   #saf-modal {
     grid-template-columns: 150px minmax(0, 1fr);
