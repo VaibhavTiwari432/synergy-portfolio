@@ -29,7 +29,6 @@
   --saf-fab-shadow: rgba(0,0,0,0.35);
   --saf-fab-shadow-hover: rgba(0,0,0,0.45);
   --saf-modal-shadow: rgba(0,0,0,0.6);
-  --saf-transparent: transparent;
 }
 
 #saf-fab,
@@ -81,10 +80,12 @@
   opacity: 0;
 }
 
-.saf-fab-glyph {
-  font: 700 13px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: currentColor;
-  letter-spacing: 0;
+.saf-fab-logo {
+  width: 24px;
+  height: 24px;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .saf-fab-dot {
@@ -99,7 +100,7 @@
   opacity: 0;
 }
 
-#saf-fab[data-has-work="true"] .saf-fab-dot {
+#saf-fab[data-has-work="true"]:not([aria-expanded="true"]) .saf-fab-dot {
   opacity: 1;
 }
 
@@ -167,20 +168,13 @@
   border-bottom: 1px solid var(--saf-border);
 }
 
-.saf-logo-mark,
-.saf-empty-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  color: var(--saf-fab-logo);
-  background: var(--saf-fab-logo);
-  mask-image: radial-gradient(circle, currentColor 58%, var(--saf-transparent) 61%);
-}
-
-.saf-logo-mark {
+.saf-logo-img {
   width: 20px;
   height: 20px;
+  flex: 0 0 auto;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .saf-product-name {
@@ -388,10 +382,13 @@
   text-align: center;
 }
 
-.saf-empty-mark {
+.saf-empty-logo {
   width: 32px;
   height: 32px;
+  display: block;
+  object-fit: contain;
   opacity: 0.24;
+  pointer-events: none;
 }
 
 .saf-drawer-empty p {
