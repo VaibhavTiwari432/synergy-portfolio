@@ -1,5 +1,6 @@
 const DIMENSIONS = ['AL', 'PR', 'EC', 'ES', 'CS', 'CD', 'AUI', 'CA'];
 const DEBT_FLAG_TOOLTIP = 'Pattern detected — not proven without retention probe.';
+const MAX_FEEDBACK_CHARS = 280;
 
 const FLAG_RENDERERS = {
   debt_flag: {
@@ -13,6 +14,8 @@ export function initDetailView(shadowRoot) {
   const state = {
     requestId: 0,
     chatId: null,
+    feedbackRecorded: false,
+    feedbackSubmitting: false,
   };
 
   const els = {
@@ -25,6 +28,12 @@ export function initDetailView(shadowRoot) {
     flagSection: shadowRoot.getElementById('saf-flags-section'),
     flagList: shadowRoot.getElementById('saf-flag-list'),
     remarks: shadowRoot.getElementById('saf-remarks-text'),
+    feedbackUp: shadowRoot.getElementById('saf-feedback-up'),
+    feedbackDown: shadowRoot.getElementById('saf-feedback-down'),
+    feedbackNote: shadowRoot.getElementById('saf-feedback-note'),
+    feedbackCount: shadowRoot.getElementById('saf-feedback-count'),
+    feedbackSubmit: shadowRoot.getElementById('saf-feedback-submit'),
+    feedbackStatus: shadowRoot.getElementById('saf-feedback-status'),
   };
 
   function api() {
@@ -80,6 +89,56 @@ export function initDetailView(shadowRoot) {
 
   function clear(node) {
     node?.replaceChildren();
+  }
+
+  function feedbackButtons() {
+    return [els.feedbackUp, els.feedbackDown].filter(Boolean);
+  }
+
+  function updateFeedbackCount() {
+    if (!els.feedbackCount) return;
+    const count = String(els.feedbackNote?.value || '').length;
+    els.feedbackCount.textContent = `${count}/${MAX_FEEDBACK_CHARS}`;
+  }
+
+  function setFeedbackStatus(message = '', isError = false) {
+    if (!els.feedbackStatus) return;
+    els.feedbackStatus.textContent = message;
+    els.feedbackStatus.classList.toggle('is-error', isError);
+  }
+
+  function setFeedbackDisabled(disabled) {
+    feedbackButtons().forEach((button) => {
+      button.disabled = disabled;
+    });
+    if (els.feedbackNote) els.feedbackNote.disabled = disabled;
+    if (els.feedbackSubmit) els.feedbackSubmit.disabled = disabled;
+  }
+
+  function setThumbSelection(value) {
+    feedbackButtons().forEach((button) => {
+      button.setAttribute('aria-pressed', button.dataset.feedbackValue === String(value) ? 'true' : 'false');
+    });
+  }
+
+  function resetFeedback(feedbackRecorded = false) {
+    state.feedbackRecorded = Boolean(feedbackRecorded);
+    state.feedbackSubmitting = false;
+    setThumbSelection(null);
+    if (els.feedbackNote) els.feedbackNote.value = '';
+    updateFeedbackCount();
+    setFeedbackDisabled(state.feedbackRecorded);
+    setFeedbackStatus(state.feedbackRecorded ? 'Feedback recorded.' : '');
+  }
+
+  function setFeedbackLoading() {
+    state.feedbackRecorded = false;
+    state.feedbackSubmitting = false;
+    setThumbSelection(null);
+    if (els.feedbackNote) els.feedbackNote.value = '';
+    updateFeedbackCount();
+    setFeedbackDisabled(true);
+    setFeedbackStatus('');
   }
 
   function makeDimensionRow(dim, stateName) {
@@ -225,6 +284,7 @@ export function initDetailView(shadowRoot) {
     if (els.flagSection) els.flagSection.hidden = true;
     if (els.trendSection) els.trendSection.hidden = true;
     if (els.remarks) els.remarks.value = '';
+    setFeedbackLoading();
   }
 
   function setShellError(chatId, message) {
@@ -236,6 +296,7 @@ export function initDetailView(shadowRoot) {
     if (els.remarks) els.remarks.value = '';
     if (els.flagSection) els.flagSection.hidden = true;
     if (els.trendSection) els.trendSection.hidden = true;
+    setFeedbackLoading();
   }
 
   function renderScore(chatId, score) {
@@ -247,6 +308,75 @@ export function initDetailView(shadowRoot) {
     renderProfile(score?.profile || {});
     renderFlags(score?.flags || {});
     renderRemarks(score?.report || {});
+    resetFeedback(Boolean(score?.feedback_given));
+  }
+
+  async function submitFeedback(feedback) {
+    if (!state.chatId || state.feedbackRecorded || state.feedbackSubmitting) return;
+    const chatId = state.chatId;
+
+    const storageApi = storage();
+    const apiClient = api();
+    if (!storageApi || !apiClient?.submitFeedback) {
+      setFeedbackStatus('Feedback is unavailable in this tab.', true);
+      return;
+    }
+
+    state.feedbackSubmitting = true;
+    setFeedbackDisabled(true);
+    setFeedbackStatus('Sending feedback...');
+
+    try {
+      const userRef = await storageApi.get(storageApi.STORAGE_KEYS.USER_REF, '');
+      if (state.chatId !== chatId) return;
+      if (!userRef) throw new Error('Set your user ID in Settings first.');
+
+      const result = await apiClient.submitFeedback(userRef, chatId, feedback);
+      if (state.chatId !== chatId) return;
+      if (!result?.ok) {
+        throw new Error(result?.detail || result?.error || 'Could not send feedback.');
+      }
+
+      state.feedbackRecorded = true;
+      setFeedbackDisabled(true);
+      setFeedbackStatus('Feedback recorded.');
+    } catch (error) {
+      if (state.chatId !== chatId) return;
+      state.feedbackSubmitting = false;
+      setFeedbackDisabled(false);
+      setFeedbackStatus(error.message || 'Could not send feedback.', true);
+    }
+  }
+
+  function handleThumbClick(event) {
+    const button = event.currentTarget;
+    if (!(button instanceof HTMLButtonElement)) return;
+    const value = Number(button.dataset.feedbackValue);
+    if (value !== 1 && value !== -1) return;
+    setThumbSelection(value);
+    void submitFeedback({ type: 'thumb', value });
+  }
+
+  function handleFeedbackInput() {
+    const text = String(els.feedbackNote?.value || '');
+    if (text.length > MAX_FEEDBACK_CHARS && els.feedbackNote) {
+      els.feedbackNote.value = text.slice(0, MAX_FEEDBACK_CHARS);
+    }
+    updateFeedbackCount();
+    if (!state.feedbackRecorded) setFeedbackStatus('');
+  }
+
+  function handleNoteSubmit() {
+    const text = String(els.feedbackNote?.value || '').trim();
+    if (!text) {
+      setFeedbackStatus('Add a note before sending.', true);
+      return;
+    }
+    if (text.length > MAX_FEEDBACK_CHARS) {
+      setFeedbackStatus('Keep notes to 280 characters.', true);
+      return;
+    }
+    void submitFeedback({ type: 'note', text });
   }
 
   async function loadScore(chatId) {
@@ -290,9 +420,18 @@ export function initDetailView(shadowRoot) {
   }
 
   shadowRoot.addEventListener('saf-chat-selected', handleChatSelected);
+  els.feedbackUp?.addEventListener('click', handleThumbClick);
+  els.feedbackDown?.addEventListener('click', handleThumbClick);
+  els.feedbackNote?.addEventListener('input', handleFeedbackInput);
+  els.feedbackSubmit?.addEventListener('click', handleNoteSubmit);
+  setFeedbackLoading();
 
   return () => {
     state.requestId += 1;
     shadowRoot.removeEventListener('saf-chat-selected', handleChatSelected);
+    els.feedbackUp?.removeEventListener('click', handleThumbClick);
+    els.feedbackDown?.removeEventListener('click', handleThumbClick);
+    els.feedbackNote?.removeEventListener('input', handleFeedbackInput);
+    els.feedbackSubmit?.removeEventListener('click', handleNoteSubmit);
   };
 }
