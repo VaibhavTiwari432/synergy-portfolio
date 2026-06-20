@@ -13,8 +13,14 @@
           <span id="saf-modal-title" class="saf-product-name">SAF</span>
         </header>
 
-        <nav class="saf-sidebar-nav" aria-label="Primary">
-          <button class="saf-nav-item is-active" type="button" data-view="chats">
+        <nav class="saf-sidebar-nav" aria-label="Primary" data-saf-sidebar-nav>
+          <button
+            class="saf-nav-item is-active"
+            type="button"
+            data-view="chats"
+            aria-current="page"
+            aria-controls="saf-view-chats"
+          >
             <span class="saf-nav-icon" aria-hidden="true">≡</span>
             <span>Chats</span>
           </button>
@@ -23,24 +29,40 @@
             type="button"
             data-view="projects"
             aria-disabled="true"
+            aria-controls="saf-view-projects"
             title="Projects require a backend update - coming soon."
           >
             <span class="saf-nav-icon" aria-hidden="true">⊞</span>
             <span>Projects</span>
             <span class="saf-soon-badge">SOON</span>
           </button>
-          <button class="saf-nav-item" type="button" data-view="portfolio">
+          <button
+            class="saf-nav-item"
+            type="button"
+            data-view="portfolio"
+            aria-controls="saf-view-portfolio"
+          >
             <span class="saf-nav-icon" aria-hidden="true">◎</span>
             <span>Portfolio</span>
           </button>
         </nav>
 
-        <nav class="saf-sidebar-nav saf-sidebar-nav-bottom" aria-label="Account">
-          <button class="saf-nav-item" type="button" data-view="settings">
+        <nav class="saf-sidebar-nav saf-sidebar-nav-bottom" aria-label="Account" data-saf-sidebar-nav>
+          <button
+            class="saf-nav-item"
+            type="button"
+            data-view="settings"
+            aria-controls="saf-view-settings"
+          >
             <span class="saf-nav-icon" aria-hidden="true">⚙</span>
             <span>Settings</span>
           </button>
-          <button class="saf-nav-item" type="button" data-view="profile">
+          <button
+            class="saf-nav-item"
+            type="button"
+            data-view="profile"
+            aria-controls="saf-view-profile"
+          >
             <span class="saf-nav-icon" aria-hidden="true">○</span>
             <span>Profile</span>
           </button>
@@ -48,33 +70,112 @@
       </aside>
 
       <main class="saf-main-panel" aria-label="SAF main panel">
-        <header class="saf-main-header">
-          <div>
-            <h2 class="saf-view-title">Your chats</h2>
-            <p class="saf-view-subtitle">0 scored / 0 pending</p>
-          </div>
-        </header>
+        <section
+          id="saf-view-chats"
+          class="saf-view-panel is-active"
+          data-view-panel="chats"
+          aria-label="Chats"
+        >
+          <header class="saf-main-header">
+            <div>
+              <h2 class="saf-view-title">Your chats</h2>
+              <p class="saf-view-subtitle">0 scored / 0 pending</p>
+            </div>
+          </header>
 
-        <section class="saf-search-shell" aria-label="Search chats">
-          <input
-            class="saf-search-input"
-            type="search"
-            placeholder="Search chats..."
-            aria-label="Search chats"
-          >
+          <section class="saf-search-shell" aria-label="Search chats">
+            <input
+              class="saf-search-input"
+              type="search"
+              placeholder="Search chats..."
+              aria-label="Search chats"
+            >
+          </section>
+
+          <section class="saf-current-chat-shell" aria-label="Current chat">
+            <p class="saf-section-label">Current chat</p>
+            <div class="saf-chat-placeholder" aria-live="polite">
+              Current chat appears here after S4 data wiring.
+            </div>
+          </section>
+
+          <section class="saf-chat-list-shell" aria-label="Recent chats">
+            <p class="saf-section-label">Recent chats</p>
+            <div class="saf-chat-placeholder">
+              Chat rows load here in the chats view.
+            </div>
+          </section>
         </section>
 
-        <section class="saf-current-chat-shell" aria-label="Current chat">
-          <p class="saf-section-label">Current chat</p>
-          <div class="saf-chat-placeholder" aria-live="polite">
-            Current chat appears here after S4 data wiring.
+        <section
+          id="saf-view-projects"
+          class="saf-view-panel"
+          data-view-panel="projects"
+          aria-label="Projects"
+          hidden
+        >
+          <header class="saf-main-header">
+            <div>
+              <h2 class="saf-view-title">Projects</h2>
+              <p class="saf-view-subtitle">Coming soon</p>
+            </div>
+          </header>
+          <div class="saf-placeholder-panel">
+            Projects require the backend update before they can be opened.
           </div>
         </section>
 
-        <section class="saf-chat-list-shell" aria-label="Recent chats">
-          <p class="saf-section-label">Recent chats</p>
-          <div class="saf-chat-placeholder">
-            Chat rows load here in the chats view.
+        <section
+          id="saf-view-portfolio"
+          class="saf-view-panel"
+          data-view-panel="portfolio"
+          aria-label="Portfolio"
+          hidden
+        >
+          <header class="saf-main-header">
+            <div>
+              <h2 class="saf-view-title">Your collaboration profile</h2>
+              <p class="saf-view-subtitle">Personal baseline - your trend, not a ranking</p>
+            </div>
+          </header>
+          <div class="saf-placeholder-panel">
+            Portfolio content wires in during the portfolio step.
+          </div>
+        </section>
+
+        <section
+          id="saf-view-settings"
+          class="saf-view-panel"
+          data-view-panel="settings"
+          aria-label="Settings"
+          hidden
+        >
+          <header class="saf-main-header">
+            <div>
+              <h2 class="saf-view-title">Settings</h2>
+              <p class="saf-view-subtitle">Extension controls</p>
+            </div>
+          </header>
+          <div class="saf-placeholder-panel">
+            Settings controls arrive in the settings step.
+          </div>
+        </section>
+
+        <section
+          id="saf-view-profile"
+          class="saf-view-panel"
+          data-view-panel="profile"
+          aria-label="Profile"
+          hidden
+        >
+          <header class="saf-main-header">
+            <div>
+              <h2 class="saf-view-title">Profile</h2>
+              <p class="saf-view-subtitle">Account context</p>
+            </div>
+          </header>
+          <div class="saf-placeholder-panel">
+            Profile details arrive in the profile step.
           </div>
         </section>
       </main>
