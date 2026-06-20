@@ -37,6 +37,7 @@
         "icons/icon.png",
         "panel/panel.html",
         "panel/panel.css",
+        "panel/sidebar.js",
         "assets/sangillence_mark.svg"
       ],
       "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*"]
