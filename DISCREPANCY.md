@@ -1095,6 +1095,25 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-026  [OPEN]  — Profile "manage account" link is a # placeholder, needs the real web-app URL
+- Raised by: Chief Engineer
+- Date: 2026-06-20
+- File(s): extension/panel/views/profile.js (S10)
+- Problem: The web-app account-management URL is not available yet. S10 builds the
+  Profile "manage account" affordance against `href="#"` — visibly DISABLED (muted,
+  not active-link styling), label/tooltip "Account management coming soon", with a
+  `// TODO: replace # with web-app account URL when live` comment. Same seam-now/
+  swap-later pattern as the Projects nav (disabled until backend) and the
+  Sangillence logo placeholder.
+- Decision: DEFER. Ship the disabled placeholder in S10. When the web-app URL
+  exists it is a one-line swap (set href + remove the disabled state) — no
+  structural rework. Not a release blocker; a clearly-marked "coming soon"
+  affordance, not a silent dead link.
+- Status: OPEN
+- One-liner: Profile account link → real web-app URL (currently # placeholder).
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |
