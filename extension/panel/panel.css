@@ -333,6 +333,15 @@
   outline: none;
 }
 
+.saf-text-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.saf-text-button--danger {
+  color: var(--saf-red);
+}
+
 .saf-inline-status {
   min-height: 16px;
   margin: -4px 0 0;
@@ -567,6 +576,214 @@
   font-size: 13px;
   line-height: 1.4;
   text-align: center;
+}
+
+.saf-project-create {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-md);
+}
+
+.saf-project-create-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.saf-project-input,
+.saf-project-textarea {
+  width: 100%;
+  min-width: 0;
+  color: var(--saf-text-primary);
+  background: var(--saf-bg-base);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-sm);
+  font: 400 12px/1.35 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  outline: none;
+}
+
+.saf-project-input {
+  height: 30px;
+  padding: 0 9px;
+}
+
+.saf-project-textarea {
+  min-height: 52px;
+  resize: none;
+  padding: 8px 9px;
+}
+
+.saf-project-input::placeholder,
+.saf-project-textarea::placeholder {
+  color: var(--saf-text-faint);
+}
+
+.saf-project-input:focus,
+.saf-project-textarea:focus {
+  border-color: var(--saf-border-hover);
+  box-shadow: 0 0 0 2px var(--saf-accent-light);
+}
+
+.saf-projects-layout {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(140px, 0.85fr) minmax(0, 1.15fr);
+  gap: 12px;
+  flex: 1 1 auto;
+}
+
+.saf-project-list-shell,
+.saf-project-detail,
+.saf-project-detail-empty {
+  min-width: 0;
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-md);
+}
+
+.saf-project-list-shell {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+
+.saf-project-list {
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.saf-project-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 7px 8px;
+  color: var(--saf-text-muted);
+  background: var(--saf-bg-base);
+  border: 1px solid var(--saf-border);
+  border-left: 2px solid var(--saf-transparent);
+  border-radius: var(--saf-radius-sm);
+  cursor: pointer;
+}
+
+.saf-project-row:hover,
+.saf-project-row:focus-visible {
+  border-color: var(--saf-border-hover);
+  outline: none;
+}
+
+.saf-project-row.is-selected {
+  border-left-color: var(--saf-accent);
+}
+
+.saf-project-row-text {
+  min-width: 0;
+}
+
+.saf-project-row-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--saf-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saf-project-row-meta {
+  margin-top: 3px;
+  color: var(--saf-text-faint);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.saf-project-detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  color: var(--saf-text-faint);
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.saf-project-detail-empty[hidden],
+.saf-project-detail[hidden] {
+  display: none;
+}
+
+.saf-project-detail {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding: 10px;
+  scrollbar-width: thin;
+}
+
+.saf-project-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.saf-project-detail-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--saf-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saf-project-field-label {
+  color: var(--saf-text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.saf-project-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.saf-project-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.saf-project-empty-row {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 10px;
+  color: var(--saf-text-faint);
+  background: var(--saf-bg-base);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-sm);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .saf-portfolio-empty {
