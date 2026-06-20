@@ -1,5 +1,9 @@
 const PAGE_SIZE = 20;
 const DIMENSIONS = ['AL', 'PR', 'EC', 'ES', 'CS', 'CD', 'AUI', 'CA'];
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const RADAR_CENTER = 120;
+const RADAR_RADIUS = 78;
+const LABEL_RADIUS = 100;
 
 export function initProjectsView(shadowRoot) {
   const state = {
@@ -40,6 +44,10 @@ export function initProjectsView(shadowRoot) {
     chatSelect: shadowRoot.getElementById('saf-project-chat-select'),
     addChats: shadowRoot.getElementById('saf-project-add-chats'),
     assignStatus: shadowRoot.getElementById('saf-project-assign-status'),
+    radarSection: shadowRoot.getElementById('saf-project-radar-section'),
+    radarEmpty: shadowRoot.getElementById('saf-project-radar-empty'),
+    radarFigure: shadowRoot.getElementById('saf-project-radar-figure'),
+    radar: shadowRoot.getElementById('saf-project-radar'),
     profileList: shadowRoot.getElementById('saf-project-profile-list'),
   };
 
@@ -75,6 +83,10 @@ export function initProjectsView(shadowRoot) {
     return Math.min(1, Math.max(0, value));
   }
 
+  function clearProjectRadar() {
+    els.radar?.replaceChildren();
+  }
+
   function formatValue(value) {
     const number = numeric(value);
     if (number == null) return '-';
@@ -85,6 +97,12 @@ export function initProjectsView(shadowRoot) {
     if (value >= 0.66) return 'var(--saf-green)';
     if (value >= 0.38) return 'var(--saf-amber)';
     return 'var(--saf-red)';
+  }
+
+  function formatCi(ci) {
+    const low = numeric(ci?.[0]);
+    const high = numeric(ci?.[1]);
+    return low != null && high != null ? `+/-${((high - low) / 2).toFixed(2).replace(/^0/, '')}` : '+/-?';
   }
 
   function detailText(result, fallback) {
@@ -287,6 +305,115 @@ export function initProjectsView(shadowRoot) {
     els.profileList?.appendChild(fragment);
   }
 
+  function presentRadarValues(profileRadar) {
+    return DIMENSIONS
+      .map((dim) => {
+        const entry = profileRadar?.[dim];
+        return {
+          dim,
+          value: entry?.state === 'scored' ? clampUnit(numeric(entry?.value)) : null,
+          ci: Array.isArray(entry?.ci) ? entry.ci : null,
+        };
+      })
+      .filter((item) => item.value != null);
+  }
+
+  function pointFor(index, total, radius) {
+    const angle = -Math.PI / 2 + (index / total) * Math.PI * 2;
+    return {
+      x: RADAR_CENTER + Math.cos(angle) * radius,
+      y: RADAR_CENTER + Math.sin(angle) * radius,
+    };
+  }
+
+  function createSvgElement(name, attributes = {}) {
+    const node = document.createElementNS(SVG_NS, name);
+    Object.entries(attributes).forEach(([key, value]) => {
+      node.setAttribute(key, String(value));
+    });
+    return node;
+  }
+
+  function pointsAttribute(points) {
+    return points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
+  }
+
+  function appendTitle(node, text) {
+    const title = createSvgElement('title');
+    title.textContent = text;
+    node.appendChild(title);
+  }
+
+  function renderRadarShape(values) {
+    clearProjectRadar();
+    if (!els.radar || !values.length) return;
+
+    const total = values.length;
+    [0.33, 0.66, 1].forEach((scale) => {
+      const ringPoints = values.map((_, index) => pointFor(index, total, RADAR_RADIUS * scale));
+      els.radar.appendChild(createSvgElement('polygon', {
+        class: 'saf-radar-grid',
+        points: pointsAttribute(ringPoints),
+      }));
+    });
+
+    values.forEach((item, index) => {
+      const axisEnd = pointFor(index, total, RADAR_RADIUS);
+      const labelPoint = pointFor(index, total, LABEL_RADIUS);
+      els.radar.appendChild(createSvgElement('line', {
+        class: 'saf-radar-axis',
+        x1: RADAR_CENTER,
+        y1: RADAR_CENTER,
+        x2: axisEnd.x.toFixed(1),
+        y2: axisEnd.y.toFixed(1),
+      }));
+
+      const label = createSvgElement('text', {
+        class: 'saf-radar-label',
+        x: labelPoint.x.toFixed(1),
+        y: labelPoint.y.toFixed(1),
+      });
+      label.textContent = item.dim;
+      els.radar.appendChild(label);
+    });
+
+    const shapePoints = values.map((item, index) => pointFor(index, total, RADAR_RADIUS * item.value));
+    const shape = createSvgElement('polygon', {
+      class: 'saf-radar-shape',
+      points: pointsAttribute(shapePoints),
+    });
+    appendTitle(shape, 'Project profile radar');
+    els.radar.appendChild(shape);
+
+    shapePoints.forEach((point, index) => {
+      const item = values[index];
+      const dot = createSvgElement('circle', {
+        class: 'saf-radar-point',
+        cx: point.x.toFixed(1),
+        cy: point.y.toFixed(1),
+        r: 3,
+      });
+      appendTitle(dot, `${item.dim} ${formatValue(item.value)} ${formatCi(item.ci)}`);
+      els.radar.appendChild(dot);
+    });
+  }
+
+  function renderProjectRadar(project) {
+    clearProjectRadar();
+    setVisible(els.radarSection, Boolean(project));
+    if (!project) return;
+
+    const sessions = Number(project.session_count || 0);
+    const values = presentRadarValues(project.profile_radar || {});
+    const shouldRender = sessions >= 3 && values.length > 0;
+    if (els.radarEmpty) {
+      els.radarEmpty.textContent = 'Not enough sessions to render profile';
+    }
+    setVisible(els.radarEmpty, !shouldRender);
+    setVisible(els.radarFigure, shouldRender);
+    if (shouldRender) renderRadarShape(values);
+  }
+
   function renderDetail() {
     const project = state.selectedProject;
     setVisible(els.detailEmpty, !project);
@@ -301,6 +428,7 @@ export function initProjectsView(shadowRoot) {
     if (els.editDescription) els.editDescription.value = project.description || '';
     if (els.conflictRetry) els.conflictRetry.hidden = !state.conflict;
     renderChatOptions();
+    renderProjectRadar(project);
     renderProjectProfile(project.profile_radar || {});
   }
 
