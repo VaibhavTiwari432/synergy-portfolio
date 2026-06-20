@@ -985,6 +985,114 @@
   text-align: center;
 }
 
+.saf-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.saf-toggle-row {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  color: var(--saf-text-muted);
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-md);
+  cursor: pointer;
+}
+
+.saf-toggle-row:hover {
+  border-color: var(--saf-border-hover);
+}
+
+.saf-toggle-title,
+.saf-toggle-copy {
+  display: block;
+}
+
+.saf-toggle-title {
+  color: var(--saf-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.saf-toggle-copy {
+  margin-top: 4px;
+  color: var(--saf-text-faint);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.saf-toggle-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.saf-toggle-control {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  background: var(--saf-bg-base);
+  border: 1px solid var(--saf-border-hover);
+  border-radius: 999px;
+}
+
+.saf-toggle-control::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  background: var(--saf-text-dim);
+  border-radius: 50%;
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.saf-toggle-input:checked + .saf-toggle-control {
+  background: var(--saf-accent-light);
+  border-color: var(--saf-accent);
+}
+
+.saf-toggle-input:checked + .saf-toggle-control::after {
+  background: var(--saf-accent);
+  transform: translateX(14px);
+}
+
+.saf-toggle-input:focus-visible + .saf-toggle-control {
+  box-shadow: 0 0 0 2px var(--saf-accent-light);
+}
+
+.saf-toggle-input:disabled + .saf-toggle-control,
+.saf-toggle-row:has(.saf-toggle-input:disabled) {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.saf-danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  background: var(--saf-red-soft);
+  border: 1px solid var(--saf-red-border);
+  border-radius: var(--saf-radius-md);
+}
+
+.saf-danger-copy {
+  margin: 4px 0 0;
+  color: var(--saf-text-faint);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .saf-detail-drawer {
   position: relative;
   min-width: 0;
