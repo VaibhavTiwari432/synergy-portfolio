@@ -29,7 +29,7 @@
     };
   }
 
-  async function _request(method, path, body) {
+  async function _request(method, path, body, extraHeaders = null) {
     let cfg;
     try {
       cfg = await _getConfig();
@@ -39,6 +39,9 @@
 
     const headers = { 'Content-Type': 'application/json' };
     if (cfg.key) headers['X-API-Key'] = cfg.key;
+    // optional per-call headers (If-Match for optimistic concurrency,
+    // Idempotency-Key for create dedupe — Scope-C §3.3/§3.4)
+    if (extraHeaders) Object.assign(headers, extraHeaders);
 
     try {
       const res = await fetch(`${cfg.endpoint}${path}`, {
@@ -152,6 +155,81 @@
     });
   }
 
+  // ── Scope-C projects (migration 012 routes, contract §4.1–4.2) ──────────────
+
+  function _newIdempotencyKey() {
+    const c = globalScope.crypto;
+    return c?.randomUUID
+      ? c.randomUUID()
+      : `idem-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  // POST /projects — Idempotency-Key dedupes a double-tap (§3.4); auto-generated
+  // when the caller does not supply one.
+  async function createProject(userRef, { name, description = null } = {}, idempotencyKey) {
+    return _request(
+      'POST',
+      `/v1/users/${encodeURIComponent(userRef)}/projects`,
+      { name, description },
+      { 'Idempotency-Key': idempotencyKey || _newIdempotencyKey() },
+    );
+  }
+
+  // GET /projects?limit=&cursor= — keyset page (§3.2)
+  async function listProjects(userRef, { limit, cursor } = {}) {
+    const params = new URLSearchParams();
+    if (limit != null) params.set('limit', String(limit));
+    if (cursor) params.set('cursor', cursor);
+    const qs = params.toString();
+    return _request(
+      'GET',
+      `/v1/users/${encodeURIComponent(userRef)}/projects${qs ? `?${qs}` : ''}`,
+    );
+  }
+
+  async function getProject(userRef, projectId) {
+    return _request(
+      'GET',
+      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}`,
+    );
+  }
+
+  // PATCH /projects/{id} — If-Match carries the version (optimistic concurrency,
+  // §3.3); a stale version returns HTTP 409 → result.status === 409.
+  async function updateProject(userRef, projectId, patch, version) {
+    return _request(
+      'PATCH',
+      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}`,
+      patch,
+      { 'If-Match': String(version) },
+    );
+  }
+
+  async function deleteProject(userRef, projectId, version) {
+    return _request(
+      'DELETE',
+      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}`,
+      null,
+      { 'If-Match': String(version) },
+    );
+  }
+
+  // POST /projects/{id}/sessions — chat_ids ARE saf_session_ids (§1)
+  async function addProjectSessions(userRef, projectId, chatIds) {
+    return _request(
+      'POST',
+      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}/sessions`,
+      { chat_ids: chatIds },
+    );
+  }
+
+  async function removeProjectSession(userRef, projectId, sessionId) {
+    return _request(
+      'DELETE',
+      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}`,
+    );
+  }
+
   async function deleteUser(userRef) {
     return _request('DELETE', `/v1/users/${encodeURIComponent(userRef)}`);
   }
@@ -182,6 +260,13 @@
     getChatScore,
     submitFeedback,
     triggerAnalysis,
+    createProject,
+    listProjects,
+    getProject,
+    updateProject,
+    deleteProject,
+    addProjectSessions,
+    removeProjectSession,
     deleteUser,
     checkHealth,
     DEFAULT_ENDPOINT,

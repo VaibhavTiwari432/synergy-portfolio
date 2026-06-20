@@ -1072,6 +1072,29 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-025  [RESOLVED]  — CE-directed edit to Codex-owned sidebar.js (gate Projects nav unlock on view load)
+- Raised by: Chief Engineer
+- Date: 2026-06-20
+- File(s): extension/panel/sidebar.js (Codex-owned per CODEX_AGENT_UI.md §11)
+- Problem: SAF_PROJECTS_API_READY fires on API-liveness (background.js, 64e810b),
+  and sidebar.js unlocked the Projects nav directly on that signal — but the S8/S9
+  projects view does not exist yet, so the nav would unlock onto a missing view
+  (broken target) if the extension runs against the live backend before S8 ships.
+  The fix lives in sidebar.js, which is Codex-owned; non-negotiable #21 forbids a
+  silent cross-ownership edit, so it is recorded here.
+- Decision (CE, 2026-06-20): CE made the directed edit. handleRuntimeMessage now,
+  on SAF_PROJECTS_API_READY, attempts dynamic import of panel/views/projects.js;
+  unlockProjectsNav() is called ONLY on import success (and initProjectsView() is
+  invoked if exported, mirroring the chats/detail/portfolio pattern); on import
+  failure the nav stays disabled and the error is logged. Until S8 ships
+  projects.js the import fails → nav correctly stays disabled. Edit kept minimal.
+- Contract bumped: extension/panel/sidebar.js — re-read required by: Codex (S8 must
+  add panel/views/projects.js exporting initProjectsView(shadowRoot) + the projects
+  view panel markup; the unlock + view will then activate together).
+- Status: RESOLVED
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |

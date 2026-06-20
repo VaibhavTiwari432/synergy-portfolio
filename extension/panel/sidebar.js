@@ -8,6 +8,7 @@ export function initSidebar(shadowRoot) {
   let chatsCleanup = null;
   let detailCleanup = null;
   let portfolioCleanup = null;
+  let projectsCleanup = null;
 
   function panelFor(view) {
     return panels.find((panel) => panel.dataset.viewPanel === view);
@@ -51,9 +52,23 @@ export function initSidebar(shadowRoot) {
   }
 
   function handleRuntimeMessage(message) {
-    if (message?.type === PROJECTS_READY_MESSAGE) {
-      unlockProjectsNav();
-    }
+    if (message?.type !== PROJECTS_READY_MESSAGE) return;
+    // SAF_PROJECTS_API_READY means the API is live — NOT that the S8/S9 projects
+    // view exists. Unlocking on the signal alone would expose a nav item whose
+    // view file may be absent (broken target). Gate the unlock on projects.js
+    // importing successfully; on failure keep the nav disabled and log. (CE-
+    // directed fix — see DISCREPANCY D-025.)
+    import(chrome.runtime.getURL('panel/views/projects.js'))
+      .then((mod) => {
+        if (disposed) return;
+        if (typeof mod.initProjectsView === 'function') {
+          projectsCleanup = mod.initProjectsView(shadowRoot);
+        }
+        unlockProjectsNav();
+      })
+      .catch((error) => {
+        console.error('[SAF] projects view unavailable — keeping nav disabled', error);
+      });
   }
 
   shadowRoot.addEventListener('click', handleSidebarClick);
@@ -91,6 +106,7 @@ export function initSidebar(shadowRoot) {
     chatsCleanup?.();
     detailCleanup?.();
     portfolioCleanup?.();
+    projectsCleanup?.();
     shadowRoot.removeEventListener('click', handleSidebarClick);
     chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
   };
