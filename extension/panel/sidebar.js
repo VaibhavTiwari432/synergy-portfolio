@@ -53,6 +53,10 @@ export function initSidebar(shadowRoot) {
 
   function handleRuntimeMessage(message) {
     if (message?.type !== PROJECTS_READY_MESSAGE) return;
+    if (projectsCleanup) {
+      unlockProjectsNav();
+      return;
+    }
     // SAF_PROJECTS_API_READY means the API is live — NOT that the S8/S9 projects
     // view exists. Unlocking on the signal alone would expose a nav item whose
     // view file may be absent (broken target). Gate the unlock on projects.js
