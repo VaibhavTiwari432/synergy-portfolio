@@ -9,6 +9,7 @@ export function initSidebar(shadowRoot) {
   let detailCleanup = null;
   let portfolioCleanup = null;
   let projectsCleanup = null;
+  let settingsCleanup = null;
 
   function panelFor(view) {
     return panels.find((panel) => panel.dataset.viewPanel === view);
@@ -105,12 +106,22 @@ export function initSidebar(shadowRoot) {
       console.error('[SAF] failed to initialise portfolio view', error);
     });
 
+  import(chrome.runtime.getURL('panel/views/settings.js'))
+    .then(({ initSettingsView }) => {
+      if (disposed) return;
+      settingsCleanup = initSettingsView(shadowRoot);
+    })
+    .catch((error) => {
+      console.error('[SAF] failed to initialise settings view', error);
+    });
+
   return () => {
     disposed = true;
     chatsCleanup?.();
     detailCleanup?.();
     portfolioCleanup?.();
     projectsCleanup?.();
+    settingsCleanup?.();
     shadowRoot.removeEventListener('click', handleSidebarClick);
     chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
   };
