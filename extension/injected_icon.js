@@ -6,7 +6,7 @@
  */
 
 (function initSafModalShell() {
-  const SAF_BUILD = '0.4.0-s1-shell';
+  const SAF_BUILD = '0.5.0-s2-logo';
   const FAB_ID = 'saf-fab';
   const HOST_ID = 'saf-modal-host';
   const ROOT_STYLESHEET_ID = 'saf-panel-stylesheet';
@@ -27,6 +27,16 @@
     return chrome.runtime.getURL(path);
   }
 
+  function logoUrl() {
+    return chrome.runtime.getURL('assets/sangillence_mark.svg');
+  }
+
+  function setLogoSources(root) {
+    root.querySelectorAll('img[data-saf-logo]').forEach((logo) => {
+      logo.src = logoUrl();
+    });
+  }
+
   function installRootStylesheet() {
     if (document.getElementById(ROOT_STYLESHEET_ID)) return;
     const link = document.createElement('link');
@@ -40,6 +50,12 @@
     const fab = document.getElementById(FAB_ID);
     if (!fab) return;
     fab.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  }
+
+  function setFabNotification(visible) {
+    const fab = document.getElementById(FAB_ID);
+    if (!fab) return;
+    fab.dataset.hasWork = visible ? 'true' : 'false';
   }
 
   function installFab() {
@@ -71,6 +87,7 @@
     });
 
     document.body.appendChild(fab);
+    setLogoSources(fab);
   }
 
   async function loadModalFragment() {
@@ -119,6 +136,7 @@
       stylesheet.href = extensionUrl(PANEL_CSS_PATH);
       modalShadow.appendChild(stylesheet);
       modalShadow.appendChild(await loadModalFragment());
+      setLogoSources(modalShadow);
 
       bindModalEvents();
       document.addEventListener('keydown', handleKeydown);
@@ -161,6 +179,12 @@
     if (event.key === 'Escape') closeModal();
   }
 
+  function handleRuntimeMessage(message) {
+    if (message?.type === 'SAF_FAB_NOTIFICATION_DOT') {
+      setFabNotification(Boolean(message.visible));
+    }
+  }
+
   function teardownModal() {
     if (closeTimer) {
       window.clearTimeout(closeTimer);
@@ -176,4 +200,5 @@
 
   installRootStylesheet();
   installFab();
+  chrome.runtime.onMessage.addListener(handleRuntimeMessage);
 })();
