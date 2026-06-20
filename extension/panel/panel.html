@@ -387,10 +387,45 @@
               <h2 class="saf-view-title">Profile</h2>
               <p class="saf-view-subtitle">Account context</p>
             </div>
+            <button id="saf-profile-retry" class="saf-text-button" type="button" hidden>
+              Retry
+            </button>
           </header>
-          <div class="saf-placeholder-panel">
-            Profile details arrive in the profile step.
-          </div>
+
+          <p id="saf-profile-status" class="saf-inline-status" role="status" aria-live="polite">
+            Loading profile...
+          </p>
+
+          <section id="saf-profile-content" class="saf-profile-content" aria-label="Profile summary" hidden>
+            <div class="saf-profile-summary">
+              <div>
+                <p class="saf-section-label">Username</p>
+                <p id="saf-profile-username" class="saf-profile-metric">-</p>
+              </div>
+              <div>
+                <p class="saf-section-label">Join date</p>
+                <p id="saf-profile-join-date" class="saf-profile-metric">-</p>
+              </div>
+              <div>
+                <p class="saf-section-label">Total scored chats</p>
+                <p id="saf-profile-scored-count" class="saf-profile-metric">0</p>
+              </div>
+              <div>
+                <p class="saf-section-label">Current streak</p>
+                <p id="saf-profile-streak" class="saf-profile-metric">0 days</p>
+              </div>
+            </div>
+
+            <a
+              id="saf-profile-manage"
+              class="saf-profile-manage is-disabled"
+              href="#"
+              aria-disabled="true"
+              title="Account management coming soon"
+            >
+              Account management coming soon
+            </a>
+          </section>
         </section>
       </main>
 
