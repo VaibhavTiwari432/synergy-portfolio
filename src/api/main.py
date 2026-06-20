@@ -90,6 +90,10 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
     app = FastAPI(title="saf-brain", version=SCHEMA_VERSION, lifespan=lifespan)
     app.state.store = store or SessionStore("saf_brain.db")
 
+    # Track 2: request IDs + generic-500 / DB-down-503 handlers (no traceback leak)
+    from src.api.observability import install_observability
+    install_observability(app)
+
     # Scope B routers (Postgres)
     app.include_router(ingest_router)
     app.include_router(users_router)
