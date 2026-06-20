@@ -983,6 +983,41 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-022  [OPEN]  — is_minor defaults False on the live ingest path; scoring-path minor protection unenforced
+- Raised by: Chief Engineer
+- Date: 2026-06-20
+- File(s): src/worker/scorer.py (_build_canonical_session), src/db/queries.py
+  (upsert_chat — no is_minor column), src/api/routers/ingest.py,
+  alembic/versions/* (raw_chats has no is_minor), contracts/schemas.py
+  (CanonicalSession.is_minor default False), src/api/pipeline.py:505 (enforce)
+- Problem: Minor protection (#15) is applied at score time via
+  `enforce(response, is_minor=session.is_minor)` (pipeline.py:505), but the LIVE
+  ingest path never carries is_minor: `raw_chats` has no is_minor column,
+  `upsert_chat` does not accept one, and the worker's `_build_canonical_session`
+  builds a CanonicalSession without setting is_minor — so it defaults to False.
+  Result: every live-scored chat is treated as a non-minor at the scoring path.
+  The Scope-A `POST /v1/sessions` path DOES thread is_minor (main.py:124), and the
+  contract test asserts protection there, but the Scope-B/worker path (the real
+  extension flow) does not. The Scope-C portfolio/project responses are minor-safe
+  by construction now (no bare composite was emitted regardless — D-012 commit
+  7a5d2d0), so this is NOT a live exposure on those routes; it is an UNENFORCED
+  guarantee on the per-chat scoring path that would bite the moment a minor-only
+  claim form is introduced.
+- Proposed fix (NOT to be done now — logged per CE instruction): persist is_minor
+  on raw_chats (migration), accept it through `upsert_chat` + the ingest payload
+  (extension sets it during onboarding), thread it into `_build_canonical_session`
+  so `enforce(...)` receives the true value. Add a worker/integration test that a
+  minor-flagged chat never receives a bare composite/peer-rank/debt form. Until
+  then, do not ship any per-chat output that relies on is_minor being accurate.
+- Decision: OPEN — filed as the separate ticket for the latent gap surfaced during
+  the D-012 composite-removal review. Deliberately not fixed in the migration-012
+  work; the composite removal already makes the Scope-C responses minor-safe by
+  construction, so this is not a release blocker, but the scoring-path guarantee
+  stays UNENFORCED until the above lands.
+- Status: OPEN
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |

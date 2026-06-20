@@ -97,6 +97,21 @@
     return _request('GET', `/v1/users/${encodeURIComponent(userRef)}/portfolio`);
   }
 
+  async function acknowledgePortfolio(userRef, snapshotHash) {
+    return _request(
+      'POST',
+      `/v1/users/${encodeURIComponent(userRef)}/portfolio/ack`,
+      { snapshot_hash: snapshotHash },
+    );
+  }
+
+  // Directive §9 (CODEX_AGENT_UI.md) names the chat-list / chat-score calls
+  // getChatList / getChatScore. These are additive aliases over the shipped
+  // listChats / getScore so Codex can call the contract vocabulary without us
+  // renaming (or touching) the existing functions.
+  const getChatList = listChats;
+  const getChatScore = getScore;
+
   async function deleteUser(userRef) {
     return _request('DELETE', `/v1/users/${encodeURIComponent(userRef)}`);
   }
@@ -122,6 +137,9 @@
     getScore,
     postFeedback,
     getPortfolio,
+    acknowledgePortfolio,
+    getChatList,
+    getChatScore,
     deleteUser,
     checkHealth,
     DEFAULT_ENDPOINT,

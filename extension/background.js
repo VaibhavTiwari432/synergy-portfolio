@@ -379,6 +379,10 @@ console.info('[SAF] background service worker build 0.2.0 starting');
     postFeedback: (userRef, chatId, body) =>
       _request('POST', `/v1/users/${encodeURIComponent(userRef)}/chats/${encodeURIComponent(chatId)}/feedback`, body),
     getPortfolio: (userRef) => _request('GET', `/v1/users/${encodeURIComponent(userRef)}/portfolio`),
+    // Scope-C (D-012): used only to PROBE whether the projects API is live so the
+    // worker can emit SAF_PROJECTS_API_READY. The panel/content api_client.js is
+    // the surface Codex calls for the full projects suite.
+    listProjects: (userRef) => _request('GET', `/v1/users/${encodeURIComponent(userRef)}/projects`),
     deleteUser: (userRef) => _request('DELETE', `/v1/users/${encodeURIComponent(userRef)}`),
     checkHealth: async () => {
       let cfg;
@@ -517,12 +521,60 @@ function _setAnalyseProgress(tabId, patch) {
   return next;
 }
 
+// ── Scope-C projects API readiness (D-012) ─────────────────────────────────────
+// The panel's Projects nav stays disabled until CE confirms the projects API is
+// actually reachable (migration 012 applied + routers deployed). Readiness is
+// NEVER announced blindly at startup — only after a probe of the live route
+// succeeds. sidebar.js (CODEX_AGENT_UI.md §7) listens for SAF_PROJECTS_API_READY
+// to unlock the nav. Emitted once per worker session (the unlock is idempotent).
+
+let _projectsApiAnnounced = false;
+
+async function _probeProjectsApi() {
+  const userRef = await SAFStorage.get(SK.USER_REF);
+  if (!userRef) return false;                 // no owner yet → cannot probe
+  const res = await SAFApiClient.listProjects(userRef);
+  // 200 = route live (migration 012 + router). 404 = not deployed, 5xx = table
+  // missing, 0 = unreachable — none of those count as ready.
+  return res.ok && res.status === 200;
+}
+
+function _broadcastProjectsApiReady() {
+  const msg = { type: 'SAF_PROJECTS_API_READY' };
+  try {
+    self.chrome.runtime.sendMessage(msg, () => void self.chrome.runtime.lastError);
+  } catch (_) { /* no panel/popup open — fine */ }
+  self.chrome.tabs.query({}, (tabs) => {
+    for (const tab of tabs || []) {
+      if (tab.id == null) continue;
+      try {
+        self.chrome.tabs.sendMessage(tab.id, msg, () => void self.chrome.runtime.lastError);
+      } catch (_) { /* tab has no content script — fine */ }
+    }
+  });
+}
+
+async function _maybeAnnounceProjectsApi() {
+  if (_projectsApiAnnounced) return;          // once per worker session — no spam
+  if (await _probeProjectsApi()) {
+    _projectsApiAnnounced = true;
+    _broadcastProjectsApiReady();
+    console.info('[SAF] projects API confirmed live → SAF_PROJECTS_API_READY emitted');
+  }
+}
+
 // ── health polling ────────────────────────────────────────────────────────────
 
 async function _updateHealth() {
   const healthy = await SAFApiClient.checkHealth();
   await SAFStorage.set(SK.HEALTH_STATUS, healthy ? 'ok' : 'error');
-  if (healthy) await _flushBag();
+  if (healthy) {
+    await _flushBag();
+    // Emit point: only after the server is healthy AND the projects route probes
+    // live. Gated by _projectsApiAnnounced so a healthy server with the route
+    // already announced does not re-fire on every 1-min poll / startup.
+    await _maybeAnnounceProjectsApi();
+  }
 }
 
 self.chrome.alarms.create(HEALTH_POLL_ALARM, { periodInMinutes: 1 });
