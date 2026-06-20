@@ -33,10 +33,12 @@ from src.db.queries import (
     get_all_scores_for_user,
     get_portfolio_ack,
     get_scored_score_row,
+    get_settings,
     get_turn_feedback,
     insert_feedback,
     insert_turn_feedback,
     upsert_portfolio_ack,
+    upsert_settings,
 )
 
 router = APIRouter(dependencies=[Depends(require_api_key)])
@@ -461,6 +463,39 @@ async def post_portfolio_ack(
         pool, user_ref=user_ref, scope="portfolio", snapshot_hash=current_hash
     )
     return {"acked": True, "acked_at": rec["acked_at"].isoformat()}
+
+
+@router.get("/v1/users/{user_ref}/settings")
+async def get_user_settings(
+    user_ref: str,
+    pool=Depends(_require_pool),
+) -> dict[str, Any]:
+    out = await get_settings(pool, user_ref=user_ref)
+    out["contract_version"] = _CONTRACT_VERSION
+    return out
+
+
+class SettingsRequest(BaseModel):
+    auto_analyse: bool | None = None
+    calibration_opt_in: bool | None = None
+
+
+@router.patch("/v1/users/{user_ref}/settings")
+async def patch_user_settings(
+    user_ref: str,
+    body: SettingsRequest,
+    pool=Depends(_require_pool),
+) -> dict[str, Any]:
+    if body.auto_analyse is None and body.calibration_opt_in is None:
+        raise HTTPException(422, detail="no settings fields to update")
+    out = await upsert_settings(
+        pool,
+        user_ref=user_ref,
+        auto_analyse=body.auto_analyse,
+        calibration_opt_in=body.calibration_opt_in,
+    )
+    out["contract_version"] = _CONTRACT_VERSION
+    return out
 
 
 @router.delete("/v1/users/{user_ref}")

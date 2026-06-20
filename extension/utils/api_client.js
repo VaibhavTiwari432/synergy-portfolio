@@ -230,6 +230,17 @@
     );
   }
 
+  // ── Settings (S10: migration-013 routes) ────────────────────────────────────
+
+  async function getSettings(userRef) {
+    return _request('GET', `/v1/users/${encodeURIComponent(userRef)}/settings`);
+  }
+
+  // patch = { auto_analyse?: bool, calibration_opt_in?: bool } — partial update
+  async function updateSettings(userRef, patch) {
+    return _request('PATCH', `/v1/users/${encodeURIComponent(userRef)}/settings`, patch);
+  }
+
   async function deleteUser(userRef) {
     return _request('DELETE', `/v1/users/${encodeURIComponent(userRef)}`);
   }
@@ -267,6 +278,8 @@
     deleteProject,
     addProjectSessions,
     removeProjectSession,
+    getSettings,
+    updateSettings,
     deleteUser,
     checkHealth,
     DEFAULT_ENDPOINT,

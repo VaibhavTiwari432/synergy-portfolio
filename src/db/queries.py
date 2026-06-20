@@ -1251,6 +1251,67 @@ async def get_project_score_rows(
     )
 
 
+# ── user settings (S10: auto_analyse / calibration opt-in) ──────────────────────
+
+#: server-side defaults when a subject has no settings row yet (opt-in = OFF, #16)
+SETTINGS_DEFAULTS = {"auto_analyse": False, "calibration_opt_in": False}
+
+
+async def get_settings(pool: asyncpg.Pool, *, user_ref: str) -> dict[str, Any]:
+    """Return the user's settings, or the safe defaults when none are stored."""
+    row = await pool.fetchrow(
+        """
+        SELECT us.auto_analyse, us.calibration_opt_in, us.updated_at
+        FROM user_settings us JOIN subjects s ON s.subject_id = us.subject_id
+        WHERE s.user_ref = $1
+        """,
+        user_ref,
+    )
+    if row is None:
+        return {**SETTINGS_DEFAULTS, "updated_at": None}
+    return {
+        "auto_analyse": row["auto_analyse"],
+        "calibration_opt_in": row["calibration_opt_in"],
+        "updated_at": row["updated_at"].isoformat(),
+    }
+
+
+async def upsert_settings(
+    pool: asyncpg.Pool,
+    *,
+    user_ref: str,
+    auto_analyse: bool | None = None,
+    calibration_opt_in: bool | None = None,
+) -> dict[str, Any]:
+    """Partial-update the user's settings (mints the subject if needed). NULL
+    fields are left unchanged; absent row starts from SETTINGS_DEFAULTS."""
+    row = await pool.fetchrow(
+        """
+        WITH subj AS (
+            INSERT INTO subjects (user_ref) VALUES ($1)
+            ON CONFLICT (user_ref) DO UPDATE SET user_ref = EXCLUDED.user_ref
+            RETURNING subject_id
+        )
+        INSERT INTO user_settings (subject_id, auto_analyse, calibration_opt_in)
+        SELECT subject_id,
+               COALESCE($2, FALSE),
+               COALESCE($3, FALSE)
+        FROM subj
+        ON CONFLICT (subject_id) DO UPDATE SET
+            auto_analyse       = COALESCE($2, user_settings.auto_analyse),
+            calibration_opt_in = COALESCE($3, user_settings.calibration_opt_in),
+            updated_at         = now()
+        RETURNING auto_analyse, calibration_opt_in, updated_at
+        """,
+        user_ref, auto_analyse, calibration_opt_in,
+    )
+    return {
+        "auto_analyse": row["auto_analyse"],
+        "calibration_opt_in": row["calibration_opt_in"],
+        "updated_at": row["updated_at"].isoformat(),
+    }
+
+
 async def get_portfolio_ack(
     pool: asyncpg.Pool, *, user_ref: str, scope: str
 ) -> asyncpg.Record | None:

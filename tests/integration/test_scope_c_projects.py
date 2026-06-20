@@ -289,6 +289,40 @@ async def test_portfolio_ack_roundtrip_and_no_composite(pool, clean_user):
 
 
 @pytest.mark.asyncio(loop_scope="module")
+async def test_user_settings_defaults_partial_update_and_cascade(pool):
+    from src.db.queries import delete_user, get_settings, upsert_settings
+
+    ref = f"scopec_set_{uuid.uuid4().hex[:8]}"
+
+    # no row yet → safe defaults (opt-in OFF, #16), updated_at None
+    defaults = await get_settings(pool, user_ref=ref)
+    assert defaults["auto_analyse"] is False
+    assert defaults["calibration_opt_in"] is False
+    assert defaults["updated_at"] is None
+
+    # partial update only sets the named field; the other keeps its default
+    one = await upsert_settings(pool, user_ref=ref, auto_analyse=True)
+    assert one["auto_analyse"] is True and one["calibration_opt_in"] is False
+
+    # second partial update preserves the first (COALESCE, not overwrite-to-default)
+    two = await upsert_settings(pool, user_ref=ref, calibration_opt_in=True)
+    assert two["auto_analyse"] is True and two["calibration_opt_in"] is True
+
+    back = await get_settings(pool, user_ref=ref)
+    assert back["auto_analyse"] is True and back["calibration_opt_in"] is True
+    assert back["updated_at"] is not None
+
+    # data dignity: deleting the user removes the settings row
+    await delete_user(pool, ref)
+    after = await pool.fetchval(
+        """SELECT COUNT(*) FROM user_settings us
+           WHERE us.subject_id NOT IN (SELECT subject_id FROM subjects)"""
+    )
+    assert after == 0
+    assert (await get_settings(pool, user_ref=ref))["updated_at"] is None  # back to defaults
+
+
+@pytest.mark.asyncio(loop_scope="module")
 async def test_portfolio_and_chat_score_drop_the_bare_composite(pool, clean_user):
     """The two reconciliation changes: neither the portfolio nor the per-chat
     longitudinal block emits a bare composite (#6); portfolio gains snapshot_hash
