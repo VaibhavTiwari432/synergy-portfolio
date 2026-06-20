@@ -8,10 +8,13 @@ export function initProjectsView(shadowRoot) {
     nextCursor: null,
     selectedProjectId: null,
     selectedProject: null,
+    chatOptions: [],
     loading: false,
+    loadingChats: false,
     creating: false,
     updating: false,
     deleting: false,
+    assigningChats: false,
     conflict: null,
     disposed: false,
   };
@@ -33,6 +36,10 @@ export function initProjectsView(shadowRoot) {
     save: shadowRoot.getElementById('saf-project-save'),
     delete: shadowRoot.getElementById('saf-project-delete'),
     conflictRetry: shadowRoot.getElementById('saf-project-conflict-retry'),
+    refreshChats: shadowRoot.getElementById('saf-project-refresh-chats'),
+    chatSelect: shadowRoot.getElementById('saf-project-chat-select'),
+    addChats: shadowRoot.getElementById('saf-project-add-chats'),
+    assignStatus: shadowRoot.getElementById('saf-project-assign-status'),
     profileList: shadowRoot.getElementById('saf-project-profile-list'),
   };
 
@@ -84,6 +91,22 @@ export function initProjectsView(shadowRoot) {
     return result?.detail || result?.error || fallback;
   }
 
+  function shortId(value) {
+    const text = String(value || 'unknown');
+    if (text.length <= 12) return text;
+    return `${text.slice(0, 6)}...${text.slice(-4)}`;
+  }
+
+  function chatLabel(chat) {
+    return `Conversation ${shortId(chat?.conversation_id || chat?.chat_id)}`;
+  }
+
+  function setAssignStatus(message = '', isError = false) {
+    if (!els.assignStatus) return;
+    els.assignStatus.textContent = message;
+    els.assignStatus.classList.toggle('is-error', isError);
+  }
+
   function versionConflict(result) {
     if (result?.status !== 409) return null;
     if (result?.detailData?.error !== 'version_conflict') return null;
@@ -118,6 +141,13 @@ export function initProjectsView(shadowRoot) {
     if (els.save) els.save.disabled = isBusy;
     if (els.delete) els.delete.disabled = isBusy;
     if (els.conflictRetry) els.conflictRetry.disabled = isBusy;
+  }
+
+  function setAssignBusy(isBusy) {
+    state.assigningChats = isBusy;
+    if (els.addChats) els.addChats.disabled = isBusy;
+    if (els.refreshChats) els.refreshChats.disabled = isBusy;
+    if (els.chatSelect) els.chatSelect.disabled = isBusy;
   }
 
   function renderEmptyList(message) {
@@ -169,6 +199,28 @@ export function initProjectsView(shadowRoot) {
       els.list?.appendChild(fragment);
     }
     if (els.loadMore) els.loadMore.hidden = !state.nextCursor;
+  }
+
+  function renderChatOptions() {
+    clear(els.chatSelect);
+    if (!els.chatSelect) return;
+
+    if (!state.chatOptions.length) {
+      const option = document.createElement('option');
+      option.disabled = true;
+      option.textContent = 'No chats available';
+      els.chatSelect.appendChild(option);
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    state.chatOptions.forEach((chat) => {
+      const option = document.createElement('option');
+      option.value = chat.chat_id || '';
+      option.textContent = chatLabel(chat);
+      fragment.appendChild(option);
+    });
+    els.chatSelect.appendChild(fragment);
   }
 
   function makeDimensionRow(dim, stateName) {
@@ -248,6 +300,7 @@ export function initProjectsView(shadowRoot) {
     if (els.editName) els.editName.value = project.name || '';
     if (els.editDescription) els.editDescription.value = project.description || '';
     if (els.conflictRetry) els.conflictRetry.hidden = !state.conflict;
+    renderChatOptions();
     renderProjectProfile(project.profile_radar || {});
   }
 
@@ -272,6 +325,38 @@ export function initProjectsView(shadowRoot) {
     renderList();
     renderDetail();
     return state.selectedProject;
+  }
+
+  async function loadChatOptions() {
+    if (state.loadingChats) return;
+    const apiClient = api();
+    if (!apiClient?.getChatList) {
+      setAssignStatus('Chat list is unavailable.', true);
+      return;
+    }
+
+    state.loadingChats = true;
+    setAssignBusy(true);
+    setAssignStatus('Loading chats...');
+
+    try {
+      const userRef = await ensureUserRef();
+      if (!userRef) throw new Error('Set your user ID in Settings first.');
+      const result = await apiClient.getChatList(userRef);
+      if (!result?.ok) {
+        throw new Error(detailText(result, 'Could not load chats.'));
+      }
+
+      const chats = Array.isArray(result.data?.chats) ? result.data.chats : [];
+      state.chatOptions = chats.filter((chat) => chat?.chat_id);
+      renderChatOptions();
+      setAssignStatus(state.chatOptions.length ? '' : 'No chats available to add.');
+    } catch (error) {
+      setAssignStatus(error.message || 'Could not load chats.', true);
+    } finally {
+      state.loadingChats = false;
+      setAssignBusy(false);
+    }
   }
 
   async function handleConflict(action, projectId, patch, result) {
@@ -333,9 +418,66 @@ export function initProjectsView(shadowRoot) {
     setStatus('Loading project...');
     try {
       await refreshProject(projectId);
+      void loadChatOptions();
       setStatus('');
     } catch (error) {
       setStatus(error.message || 'Could not load project.', true);
+    }
+  }
+
+  function selectedChatIds() {
+    if (!els.chatSelect) return [];
+    return Array.from(els.chatSelect.selectedOptions)
+      .map((option) => option.value)
+      .filter(Boolean);
+  }
+
+  function assignmentMessage(data) {
+    const added = Number(data?.added || 0);
+    const skipped = Number(data?.skipped_already_present || 0);
+    const unknown = Array.isArray(data?.unknown) ? data.unknown : [];
+    const parts = [`${added} added`, `${skipped} already present`];
+    if (unknown.length) parts.push(`${unknown.length} unknown: ${unknown.map(shortId).join(', ')}`);
+    return parts.join(' / ');
+  }
+
+  async function addSelectedChats() {
+    if (state.assigningChats || !state.selectedProject) return;
+    const apiClient = api();
+    if (!apiClient?.addProjectSessions) {
+      setAssignStatus('Adding chats is unavailable.', true);
+      return;
+    }
+
+    const chatIds = selectedChatIds();
+    if (!chatIds.length) {
+      setAssignStatus('Select at least one chat to add.', true);
+      return;
+    }
+
+    setAssignBusy(true);
+    setAssignStatus('Adding chats...');
+    const projectId = state.selectedProject.project_id;
+
+    try {
+      const userRef = await ensureUserRef();
+      if (!userRef) throw new Error('Set your user ID in Settings first.');
+      const result = await apiClient.addProjectSessions(userRef, projectId, chatIds);
+      if (!result?.ok) {
+        if (result?.status === 404) {
+          setAssignStatus('Project not found. Refreshing projects...', true);
+          await loadProjects();
+          return;
+        }
+        throw new Error(detailText(result, 'Could not add chats.'));
+      }
+
+      setAssignStatus(assignmentMessage(result.data || {}));
+      await refreshProject(projectId);
+    } catch (error) {
+      setAssignStatus(error.message || 'Could not add chats.', true);
+    } finally {
+      setAssignBusy(false);
     }
   }
 
@@ -485,6 +627,14 @@ export function initProjectsView(shadowRoot) {
     void deleteSelectedProject();
   }
 
+  function handleRefreshChatsClick() {
+    void loadChatOptions();
+  }
+
+  function handleAddChatsClick() {
+    void addSelectedChats();
+  }
+
   function handleListClick(event) {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -499,6 +649,8 @@ export function initProjectsView(shadowRoot) {
   els.list?.addEventListener('click', handleListClick);
   els.save?.addEventListener('click', handleSaveClick);
   els.delete?.addEventListener('click', handleDeleteClick);
+  els.refreshChats?.addEventListener('click', handleRefreshChatsClick);
+  els.addChats?.addEventListener('click', handleAddChatsClick);
   els.conflictRetry?.addEventListener('click', retryConflict);
 
   void loadProjects();
@@ -511,6 +663,8 @@ export function initProjectsView(shadowRoot) {
     els.list?.removeEventListener('click', handleListClick);
     els.save?.removeEventListener('click', handleSaveClick);
     els.delete?.removeEventListener('click', handleDeleteClick);
+    els.refreshChats?.removeEventListener('click', handleRefreshChatsClick);
+    els.addChats?.removeEventListener('click', handleAddChatsClick);
     els.conflictRetry?.removeEventListener('click', retryConflict);
   };
 }
