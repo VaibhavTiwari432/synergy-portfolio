@@ -1,0 +1,220 @@
+const DIMENSIONS = ['AL', 'PR', 'EC', 'ES', 'CS', 'CD', 'AUI', 'CA'];
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const RADAR_CENTER = 120;
+const RADAR_RADIUS = 78;
+const LABEL_RADIUS = 100;
+
+export function initPortfolioView(shadowRoot) {
+  const state = {
+    loading: false,
+    disposed: false,
+  };
+
+  const els = {
+    status: shadowRoot.getElementById('saf-portfolio-status'),
+    retry: shadowRoot.getElementById('saf-portfolio-retry'),
+    history: shadowRoot.getElementById('saf-portfolio-history'),
+    content: shadowRoot.getElementById('saf-portfolio-content'),
+    sessions: shadowRoot.getElementById('saf-portfolio-sessions'),
+    archetype: shadowRoot.getElementById('saf-portfolio-archetype'),
+    radar: shadowRoot.getElementById('saf-portfolio-radar'),
+  };
+
+  function api() {
+    return globalThis.SAFApiClient;
+  }
+
+  function storage() {
+    return globalThis.SAFStorage;
+  }
+
+  function setStatus(message, isError = false) {
+    if (!els.status) return;
+    els.status.textContent = message;
+    els.status.classList.toggle('is-error', isError);
+  }
+
+  function setVisible(node, visible) {
+    if (node) node.hidden = !visible;
+  }
+
+  function clearRadar() {
+    els.radar?.replaceChildren();
+  }
+
+  function numeric(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function clampUnit(value) {
+    if (value == null) return null;
+    return Math.min(1, Math.max(0, value));
+  }
+
+  function presentRadarValues(profileRadar) {
+    return DIMENSIONS
+      .map((dim) => ({ dim, value: clampUnit(numeric(profileRadar?.[dim])) }))
+      .filter((item) => item.value != null);
+  }
+
+  function pointFor(index, total, radius) {
+    const angle = -Math.PI / 2 + (index / total) * Math.PI * 2;
+    return {
+      x: RADAR_CENTER + Math.cos(angle) * radius,
+      y: RADAR_CENTER + Math.sin(angle) * radius,
+    };
+  }
+
+  function createSvgElement(name, attributes = {}) {
+    const node = document.createElementNS(SVG_NS, name);
+    Object.entries(attributes).forEach(([key, value]) => {
+      node.setAttribute(key, String(value));
+    });
+    return node;
+  }
+
+  function pointsAttribute(points) {
+    return points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
+  }
+
+  function renderRadar(values) {
+    clearRadar();
+    if (!els.radar || !values.length) return;
+
+    const total = values.length;
+    [0.33, 0.66, 1].forEach((scale) => {
+      const ringPoints = values.map((_, index) => pointFor(index, total, RADAR_RADIUS * scale));
+      els.radar.appendChild(createSvgElement('polygon', {
+        class: 'saf-radar-grid',
+        points: pointsAttribute(ringPoints),
+      }));
+    });
+
+    values.forEach((item, index) => {
+      const axisEnd = pointFor(index, total, RADAR_RADIUS);
+      const labelPoint = pointFor(index, total, LABEL_RADIUS);
+      els.radar.appendChild(createSvgElement('line', {
+        class: 'saf-radar-axis',
+        x1: RADAR_CENTER,
+        y1: RADAR_CENTER,
+        x2: axisEnd.x.toFixed(1),
+        y2: axisEnd.y.toFixed(1),
+      }));
+
+      const label = createSvgElement('text', {
+        class: 'saf-radar-label',
+        x: labelPoint.x.toFixed(1),
+        y: labelPoint.y.toFixed(1),
+      });
+      label.textContent = item.dim;
+      els.radar.appendChild(label);
+    });
+
+    const shapePoints = values.map((item, index) => pointFor(index, total, RADAR_RADIUS * item.value));
+    els.radar.appendChild(createSvgElement('polygon', {
+      class: 'saf-radar-shape',
+      points: pointsAttribute(shapePoints),
+    }));
+
+    shapePoints.forEach((point) => {
+      els.radar.appendChild(createSvgElement('circle', {
+        class: 'saf-radar-point',
+        cx: point.x.toFixed(1),
+        cy: point.y.toFixed(1),
+        r: 3,
+      }));
+    });
+  }
+
+  function renderInsufficient() {
+    setVisible(els.content, false);
+    setVisible(els.history, true);
+    clearRadar();
+  }
+
+  function renderPortfolio(data) {
+    const sessions = Number(data?.sessions_analysed || 0);
+    const insufficient = data?.status === 'INSUFFICIENT_HISTORY' || sessions < 3;
+    if (els.sessions) els.sessions.textContent = String(sessions);
+    if (els.archetype) els.archetype.textContent = data?.archetype || 'Baseline';
+
+    if (insufficient) {
+      renderInsufficient();
+      setStatus('');
+      return;
+    }
+
+    const values = presentRadarValues(data?.profile_radar || {});
+    setVisible(els.history, false);
+    setVisible(els.content, true);
+    renderRadar(values);
+    setStatus(values.length ? '' : 'No profile dimensions available yet.');
+  }
+
+  async function acknowledgeIfNeeded(userRef, data) {
+    if (data?.ack?.acked || !data?.snapshot_hash) return;
+    const apiClient = api();
+    if (!apiClient?.acknowledgePortfolio) return;
+    const result = await apiClient.acknowledgePortfolio(userRef, data.snapshot_hash);
+    if (result?.ok && data.ack) {
+      data.ack.acked = true;
+    }
+  }
+
+  async function loadPortfolio() {
+    if (state.loading) return;
+    const storageApi = storage();
+    const apiClient = api();
+
+    if (!storageApi || !apiClient?.getPortfolio) {
+      setStatus('SAF API client is unavailable.', true);
+      return;
+    }
+
+    state.loading = true;
+    if (els.retry) els.retry.hidden = true;
+    setVisible(els.content, false);
+    setVisible(els.history, false);
+    setStatus('Loading portfolio...');
+
+    try {
+      const userRef = await storageApi.get(storageApi.STORAGE_KEYS.USER_REF, '');
+      if (state.disposed) return;
+      if (!userRef) {
+        setStatus('Set your user ID in Settings first.', true);
+        return;
+      }
+
+      const result = await apiClient.getPortfolio(userRef);
+      if (state.disposed) return;
+      if (!result?.ok) {
+        throw new Error(result?.detail || result?.error || 'Could not load portfolio.');
+      }
+
+      const data = result.data || {};
+      await acknowledgeIfNeeded(userRef, data);
+      if (state.disposed) return;
+      renderPortfolio(data);
+    } catch (error) {
+      if (els.retry) els.retry.hidden = false;
+      setVisible(els.content, false);
+      setVisible(els.history, false);
+      setStatus(error.message || 'Could not load portfolio.', true);
+    } finally {
+      state.loading = false;
+    }
+  }
+
+  function handleRetry() {
+    void loadPortfolio();
+  }
+
+  els.retry?.addEventListener('click', handleRetry);
+  void loadPortfolio();
+
+  return () => {
+    state.disposed = true;
+    els.retry?.removeEventListener('click', handleRetry);
+  };
+}

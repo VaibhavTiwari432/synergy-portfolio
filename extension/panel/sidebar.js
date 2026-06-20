@@ -7,6 +7,7 @@ export function initSidebar(shadowRoot) {
   let disposed = false;
   let chatsCleanup = null;
   let detailCleanup = null;
+  let portfolioCleanup = null;
 
   function panelFor(view) {
     return panels.find((panel) => panel.dataset.viewPanel === view);
@@ -76,10 +77,20 @@ export function initSidebar(shadowRoot) {
       console.error('[SAF] failed to initialise detail view', error);
     });
 
+  import(chrome.runtime.getURL('panel/views/portfolio.js'))
+    .then(({ initPortfolioView }) => {
+      if (disposed) return;
+      portfolioCleanup = initPortfolioView(shadowRoot);
+    })
+    .catch((error) => {
+      console.error('[SAF] failed to initialise portfolio view', error);
+    });
+
   return () => {
     disposed = true;
     chatsCleanup?.();
     detailCleanup?.();
+    portfolioCleanup?.();
     shadowRoot.removeEventListener('click', handleSidebarClick);
     chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
   };
