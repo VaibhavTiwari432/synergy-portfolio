@@ -68,6 +68,12 @@ The modal loads its panel/views/assets via `chrome.runtime.getURL`, which requir
 
 Run with a valid `X-API-Key`. Replace `{u}` with a test user_ref.
 
+Automated API smoke:
+
+```powershell
+.\scripts\smoke_scope_c.ps1 -BaseUrl http://localhost:8000 -ApiKey $env:SAF_API_KEY -UserRef saf-smoke
+```
+
 - [ ] **Health** — `GET /v1/health` → 200; `GET /v1/contracts` → versions.
 - [ ] **Setup/login** — extension onboarding stores `USER_REF` + endpoint + key;
       health badge goes green.
@@ -94,6 +100,7 @@ Run with a valid `X-API-Key`. Replace `{u}` with a test user_ref.
 
 ## 7. Not-yet-live (carry into release notes)
 
-- S10 settings/profile **views** pending Codex (backend ready).
+- S10 settings/profile views are implemented; deployment remains gated by
+  `DEPLOYMENT_READINESS_CHECKLIST.md`.
 - Deferred: D-022 (is_minor scoring-path), D-023 (feedback prefill), D-024
   (past/present radar), D-026 (Profile account URL).

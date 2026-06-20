@@ -17,6 +17,8 @@
 
 (function initApiClient(globalScope) {
   const DEFAULT_ENDPOINT = 'http://localhost:8000';
+  const API_REQUEST_TIMEOUT_MS = 15000;
+  const TRIGGER_ANALYSIS_TIMEOUT_MS = 30000;
 
   async function _getConfig() {
     const storage = globalScope.SAFStorage;
@@ -27,6 +29,28 @@
       endpoint: values[keys.API_ENDPOINT] || DEFAULT_ENDPOINT,
       key: values[keys.API_KEY] || '',
     };
+  }
+
+  async function _fetchWithTimeout(url, options = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) {
+    if (!globalScope.AbortController || timeoutMs <= 0) {
+      return fetch(url, options);
+    }
+
+    const controller = new globalScope.AbortController();
+    const timer = globalScope.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      globalScope.clearTimeout(timer);
+    }
+  }
+
+  function _requireUserRef(userRef) {
+    return typeof userRef === 'string' && userRef.trim() ? userRef : null;
+  }
+
+  function _missingUserRef() {
+    return { ok: false, error: 'user_ref_required', status: 0 };
   }
 
   async function _request(method, path, body, extraHeaders = null) {
@@ -44,7 +68,7 @@
     if (extraHeaders) Object.assign(headers, extraHeaders);
 
     try {
-      const res = await fetch(`${cfg.endpoint}${path}`, {
+      const res = await _fetchWithTimeout(`${cfg.endpoint}${path}`, {
         method,
         headers,
         body: body != null ? JSON.stringify(body) : undefined,
@@ -85,25 +109,35 @@
   }
 
   async function listChats(userRef) {
-    return _request('GET', `/v1/users/${encodeURIComponent(userRef)}/chats`);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('GET', `/v1/users/${encodeURIComponent(ref)}/chats`);
   }
 
   async function getScore(userRef, chatId) {
-    return _request('GET', `/v1/users/${encodeURIComponent(userRef)}/chats/${encodeURIComponent(chatId)}/score`);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('GET', `/v1/users/${encodeURIComponent(ref)}/chats/${encodeURIComponent(chatId)}/score`);
   }
 
   async function postFeedback(userRef, chatId, body) {
-    return _request('POST', `/v1/users/${encodeURIComponent(userRef)}/chats/${encodeURIComponent(chatId)}/feedback`, body);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('POST', `/v1/users/${encodeURIComponent(ref)}/chats/${encodeURIComponent(chatId)}/feedback`, body);
   }
 
   async function getPortfolio(userRef) {
-    return _request('GET', `/v1/users/${encodeURIComponent(userRef)}/portfolio`);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('GET', `/v1/users/${encodeURIComponent(ref)}/portfolio`);
   }
 
   async function acknowledgePortfolio(userRef, snapshotHash) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'POST',
-      `/v1/users/${encodeURIComponent(userRef)}/portfolio/ack`,
+      `/v1/users/${encodeURIComponent(ref)}/portfolio/ack`,
       { snapshot_hash: snapshotHash },
     );
   }
@@ -143,14 +177,25 @@
         resolve({ ok: false, error: 'runtime_unavailable' });
         return;
       }
+      let settled = false;
+      let timer = null;
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        globalScope.clearTimeout(timer);
+        resolve(result);
+      };
+      timer = globalScope.setTimeout(() => {
+        finish({ ok: false, error: 'analysis_timeout' });
+      }, TRIGGER_ANALYSIS_TIMEOUT_MS);
       try {
         runtime.sendMessage({ type: 'SAF_PANEL_ANALYSE_NOW', chatId }, (res) => {
           const err = runtime.lastError;
-          if (err) { resolve({ ok: false, error: err.message || 'send_failed' }); return; }
-          resolve(res || { ok: false, error: 'no_response' });
+          if (err) { finish({ ok: false, error: err.message || 'send_failed' }); return; }
+          finish(res || { ok: false, error: 'no_response' });
         });
       } catch (e) {
-        resolve({ ok: false, error: String(e?.message || e) });
+        finish({ ok: false, error: String(e?.message || e) });
       }
     });
   }
@@ -167,9 +212,11 @@
   // POST /projects — Idempotency-Key dedupes a double-tap (§3.4); auto-generated
   // when the caller does not supply one.
   async function createProject(userRef, { name, description = null } = {}, idempotencyKey) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'POST',
-      `/v1/users/${encodeURIComponent(userRef)}/projects`,
+      `/v1/users/${encodeURIComponent(ref)}/projects`,
       { name, description },
       { 'Idempotency-Key': idempotencyKey || _newIdempotencyKey() },
     );
@@ -177,38 +224,46 @@
 
   // GET /projects?limit=&cursor= — keyset page (§3.2)
   async function listProjects(userRef, { limit, cursor } = {}) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     const params = new URLSearchParams();
     if (limit != null) params.set('limit', String(limit));
     if (cursor) params.set('cursor', cursor);
     const qs = params.toString();
     return _request(
       'GET',
-      `/v1/users/${encodeURIComponent(userRef)}/projects${qs ? `?${qs}` : ''}`,
+      `/v1/users/${encodeURIComponent(ref)}/projects${qs ? `?${qs}` : ''}`,
     );
   }
 
   async function getProject(userRef, projectId) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'GET',
-      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}`,
+      `/v1/users/${encodeURIComponent(ref)}/projects/${encodeURIComponent(projectId)}`,
     );
   }
 
   // PATCH /projects/{id} — If-Match carries the version (optimistic concurrency,
   // §3.3); a stale version returns HTTP 409 → result.status === 409.
   async function updateProject(userRef, projectId, patch, version) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'PATCH',
-      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}`,
+      `/v1/users/${encodeURIComponent(ref)}/projects/${encodeURIComponent(projectId)}`,
       patch,
       { 'If-Match': String(version) },
     );
   }
 
   async function deleteProject(userRef, projectId, version) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'DELETE',
-      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}`,
+      `/v1/users/${encodeURIComponent(ref)}/projects/${encodeURIComponent(projectId)}`,
       null,
       { 'If-Match': String(version) },
     );
@@ -216,33 +271,43 @@
 
   // POST /projects/{id}/sessions — chat_ids ARE saf_session_ids (§1)
   async function addProjectSessions(userRef, projectId, chatIds) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'POST',
-      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}/sessions`,
+      `/v1/users/${encodeURIComponent(ref)}/projects/${encodeURIComponent(projectId)}/sessions`,
       { chat_ids: chatIds },
     );
   }
 
   async function removeProjectSession(userRef, projectId, sessionId) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'DELETE',
-      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}`,
+      `/v1/users/${encodeURIComponent(ref)}/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}`,
     );
   }
 
   // ── Settings (S10: migration-013 routes) ────────────────────────────────────
 
   async function getSettings(userRef) {
-    return _request('GET', `/v1/users/${encodeURIComponent(userRef)}/settings`);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('GET', `/v1/users/${encodeURIComponent(ref)}/settings`);
   }
 
   // patch = { auto_analyse?: bool, calibration_opt_in?: bool } — partial update
   async function updateSettings(userRef, patch) {
-    return _request('PATCH', `/v1/users/${encodeURIComponent(userRef)}/settings`, patch);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('PATCH', `/v1/users/${encodeURIComponent(ref)}/settings`, patch);
   }
 
   async function deleteUser(userRef) {
-    return _request('DELETE', `/v1/users/${encodeURIComponent(userRef)}`);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('DELETE', `/v1/users/${encodeURIComponent(ref)}`);
   }
 
   async function checkHealth() {
@@ -253,7 +318,7 @@
       return false;
     }
     try {
-      const res = await fetch(`${cfg.endpoint}/v1/health`);
+      const res = await _fetchWithTimeout(`${cfg.endpoint}/v1/health`);
       return res.ok;
     } catch {
       return false;

@@ -1,4 +1,5 @@
 const POLL_MS = 4000;
+const MAX_POLL_ATTEMPTS = 30;
 
 export function initChatsView(shadowRoot) {
   const state = {
@@ -7,6 +8,8 @@ export function initChatsView(shadowRoot) {
     selectedChatId: null,
     searchTerm: '',
     pollTimer: null,
+    pollAttempts: 0,
+    analysingChatIds: new Set(),
     loading: false,
   };
 
@@ -141,6 +144,7 @@ export function initChatsView(shadowRoot) {
   function renderRow(chat) {
     const status = normaliseStatus(chat.status);
     const cta = ctaFor(status);
+    const isAnalysing = state.analysingChatIds.has(chat.chat_id);
     const row = document.createElement('div');
     row.className = 'saf-chat-row';
     row.dataset.chatId = chat.chat_id || '';
@@ -171,8 +175,8 @@ export function initChatsView(shadowRoot) {
     const button = document.createElement('button');
     button.className = `saf-chat-cta ${cta.className}`.trim();
     button.type = 'button';
-    button.textContent = cta.label;
-    button.disabled = Boolean(cta.disabled);
+    button.textContent = isAnalysing ? 'Scoring...' : cta.label;
+    button.disabled = Boolean(cta.disabled || isAnalysing);
     button.dataset.action = cta.action;
     row.appendChild(button);
 
@@ -228,10 +232,32 @@ export function initChatsView(shadowRoot) {
     });
   }
 
+  function markPendingTimedOut() {
+    state.chats = state.chats.map((chat) => {
+      const status = normaliseStatus(chat.status);
+      return status === 'pending' || status === 'scoring'
+        ? { ...chat, status: 'failed' }
+        : chat;
+    });
+    state.summary = {
+      ...state.summary,
+      pending: 0,
+      failed: state.chats.filter((chat) => normaliseStatus(chat.status) === 'failed').length,
+    };
+    setStatus('Analysis is taking longer than expected. Retry from the chat row.', true);
+    render();
+  }
+
   function startPolling() {
     stopPolling();
     if (!hasPendingWork()) return;
     state.pollTimer = globalThis.setInterval(() => {
+      state.pollAttempts += 1;
+      if (state.pollAttempts > MAX_POLL_ATTEMPTS) {
+        stopPolling();
+        markPendingTimedOut();
+        return;
+      }
       void loadChats({ silent: true });
     }, POLL_MS);
   }
@@ -239,21 +265,25 @@ export function initChatsView(shadowRoot) {
   function stopPolling() {
     if (state.pollTimer) globalThis.clearInterval(state.pollTimer);
     state.pollTimer = null;
+    if (!hasPendingWork()) state.pollAttempts = 0;
   }
 
   async function analyseChat(chat) {
+    if (state.analysingChatIds.has(chat.chat_id)) return;
     const apiClient = api();
     if (!apiClient?.triggerAnalysis) {
       setStatus('Analysis is unavailable in this tab.', true);
       return;
     }
+    state.analysingChatIds.add(chat.chat_id);
     setLocalStatus(chat.chat_id, 'scoring');
     setStatus('Starting analysis...');
     startPolling();
 
     const result = await apiClient.triggerAnalysis(chat.chat_id);
     if (!result?.ok) {
-      setLocalStatus(chat.chat_id, chat.status || 'failed');
+      state.analysingChatIds.delete(chat.chat_id);
+      setLocalStatus(chat.chat_id, 'failed');
       setStatus(result?.message || result?.error || 'Analysis could not start.', true);
       if (!hasPendingWork()) stopPolling();
       return;
@@ -261,6 +291,8 @@ export function initChatsView(shadowRoot) {
 
     setStatus('Analysis started.');
     await loadChats({ silent: true });
+    state.analysingChatIds.delete(chat.chat_id);
+    render();
   }
 
   async function loadChats({ silent = false } = {}) {
@@ -299,6 +331,7 @@ export function initChatsView(shadowRoot) {
       state.summary = data.summary || { total: state.chats.length, scored: 0, pending: 0, failed: 0 };
       setStatus(state.chats.length ? '' : 'No chats captured yet.');
       render();
+      if (!hasPendingWork()) state.pollAttempts = 0;
       startPolling();
     } catch (error) {
       if (els.retry) els.retry.hidden = false;
