@@ -33,7 +33,12 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["icons/icon.png"],
+      "resources": [
+        "icons/icon.png",
+        "panel/panel.html",
+        "panel/panel.css",
+        "assets/sangillence_mark.svg"
+      ],
       "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*"]
     }
   ],
