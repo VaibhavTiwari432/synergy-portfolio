@@ -1,0 +1,2681 @@
+# Neuron Contract Table — Chat Classifier v2
+# Schema: NeuronContract (chat_classifier/schemas.py §5.2)
+# All 107 neurons (v6.0 FINAL). All 8 dimensions fully populated.
+# Sources: ARI_Synergy_Framework_v2.md §4.4, ChatClassifier_v2_Implementation_Brief.md §5.2
+#
+# Field reference:
+#   id               — stable identifier, e.g. "EC-01"
+#   dimension        — parent dimension (AL/PR/EC/ES/CS/CD/AUI/CA)
+#   type             — behavioral | metacognitive | structural
+#   context_scope    — chunk | chat
+#   extractor_type   — deterministic | embedding | llm_judge
+#   micro_rubric     — for llm_judge neurons: {"0": anchor, "1": ..., "4": anchor}
+#   detector         — for deterministic/embedding: expression or function ref
+#   valence          — 1 (healthy synergy) or -1 (cognitive debt)
+#   applicability_rule — condition under which the neuron fires
+#   sector_universal — true (97-98 neurons) or false (rare exceptions)
+
+neurons:
+
+  # ── EC — Error Correction & Epistemic Vigilance (chunk-scope) ──────────────
+  # High-signal dimension for Skilled-Outsourcer detection (v2.0 §4.4).
+  # EC neurons fire per 3-turn window; they capture whether the human
+  # interrogates, challenges, or verifies AI outputs rather than accepting them.
+
+  - id: EC-01
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts the AI output without any form of challenge, verification,
+             or independent check — no follow-up question, no counter-evidence cited."
+      "1": "Human asks a minor clarifying question but does not test the AI's claim
+             against external knowledge or constraints."
+      "2": "Human poses a partial verification step (e.g., restates the claim and
+             asks if it is correct) but does not introduce independent evidence."
+      "3": "Human explicitly tests the AI output against an external constraint,
+             prior knowledge, or an independent source; verifies correctness."
+      "4": "Human provides a multi-step verification — cites counter-evidence or
+             identifies a specific flaw — AND integrates the correction back into
+             the conversation to improve the output."
+    detector: null
+    valence: 1
+    applicability_rule: "AI produced a checkable, substantive claim or recommendation
+                          in the preceding turn"
+    sector_universal: true
+
+  - id: EC-02
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human shows no awareness that AI-generated content may contain errors;
+             accepts output at face value with no scrutiny."
+      "1": "Human expresses vague doubt ('I'm not sure this is right') but does not
+             act on it or follow up."
+      "2": "Human explicitly flags uncertainty about the AI output and asks for
+             clarification or an alternative."
+      "3": "Human disagrees with or challenges a specific AI claim, citing why the
+             claim seems incorrect or incomplete."
+      "4": "Human identifies a specific hallucination, factual error, or logical
+             inconsistency and explicitly corrects the record with supporting
+             evidence or reasoning."
+    detector: null
+    valence: 1
+    applicability_rule: "AI produced a factual claim or analytical statement in the
+                          current or preceding chunk"
+    sector_universal: true
+
+  - id: EC-03
+    dimension: EC
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human's subsequent contribution is a near-lexical copy of the AI output;
+             no independent reasoning visible."
+      "1": "Human rephrases the AI output with minor additions but no new reasoning."
+      "2": "Human adds a small amount of new context or judgment but the AI output
+             dominates the combined response."
+      "3": "Human integrates AI output with a significant independent contribution
+             (their own domain knowledge, criteria, or judgment)."
+      "4": "Human's contribution clearly exceeds or materially transforms the AI
+             output — the final text is substantially the human's, with AI as input."
+    detector: null
+    valence: 1
+    applicability_rule: "AI produced substantive content (>50 tokens) and the human
+                          has a subsequent turn in this chunk"
+    sector_universal: true
+
+  - id: EC-04
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human proceeds with or endorses the AI output on a high-stakes decision
+             without any form of review or cross-check."
+      "1": "Human notes that the decision is important but does not take an active
+             verification step."
+      "2": "Human asks the AI to double-check or reconsider one aspect of the
+             high-stakes output."
+      "3": "Human introduces an independent constraint (policy, domain rule, ethical
+             criterion) to stress-test the AI's recommendation."
+      "4": "Human applies a multi-axis review — verifies factual accuracy, checks
+             against real-world constraints, and retains explicit decision authority
+             rather than delegating the final call."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk involves a high-stakes decision, recommendation,
+                          or action (medical, legal, financial, safety-critical, or
+                          explicitly flagged as consequential by the human)"
+    sector_universal: true
+
+  - id: EC-05
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human does not use available explanation affordances; accepts a confident
+             AI claim without requesting justification."
+      "1": "Human requests a brief explanation but does not follow up when the
+             explanation is incomplete or circular."
+      "2": "Human requests an explanation and partially evaluates it, but does not
+             test whether the reasoning is sound."
+      "3": "Human requests an explanation AND evaluates whether the reasoning is
+             valid — pushes back if the justification is weak."
+      "4": "Human drives a multi-turn explanation chain: asks for justification,
+             challenges weak links, and only accepts the claim once the chain
+             is logically sound."
+    detector: null
+    valence: 1
+    applicability_rule: "AI delivered a confident assertion on a non-trivial topic
+                          where explanation affordances were available (AI could have
+                          been asked to justify the claim)"
+    sector_universal: true
+
+  - id: EC-06
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "count_verification_markers"
+    # Counts explicit verification markers: words/phrases such as
+    # "is that correct", "let me verify", "actually", "that's wrong",
+    # "I checked", "source:", "citation", "double-check", "confirm",
+    # "wait — ", "that doesn't seem right" in the human turn(s) of the chunk.
+    valence: 1
+    applicability_rule: "The chunk contains at least one human turn"
+    sector_universal: true
+
+  - id: EC-07
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "interrogative_to_affirmative_ratio"
+    # Ratio of question-mark-ending sentences to affirmative sentences in
+    # human turns of the chunk. High ratio → active interrogation of AI output.
+    valence: 1
+    applicability_rule: "The chunk contains at least one human turn with ≥2 sentences"
+    sector_universal: true
+
+  - id: EC-08
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human delegates subjective value judgment entirely to AI without
+             retaining any human evaluative stance."
+      "1": "Human accepts AI's framing of the value dimension but adds a minor
+             personal note."
+      "2": "Human partially contests the AI's value framing with their own
+             perspective."
+      "3": "Human clearly maintains an independent evaluative position that differs
+             from or extends the AI's framing."
+      "4": "Human explicitly uses the AI's analysis as raw material, then applies
+             their own ethical/value framework and retains decision authority."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk involves a subjective, value-laden, or ethical
+                          judgment (aesthetics, ethics, policy preference, priorities)"
+    sector_universal: true
+
+  - id: EC-09
+    dimension: EC
+    type: structural
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "unverified_confident_claim_flag"
+    # Fires (ordinal=0, valence=-1) when: AI produced a confident statement
+    # (hedging score below threshold: no "I think", "might", "uncertain",
+    # "approximately" — relies on count_hedging_markers returning 0) AND
+    # the human's subsequent turn shows zero verification markers
+    # (count_verification_markers == 0).
+    # This is the "blind acceptance" signal from the v2.0 §4.4 sample row.
+    valence: -1
+    applicability_rule: "AI turn in chunk has hedging_score = 0 (highly confident)
+                          AND human turn has verification_markers = 0"
+    sector_universal: true
+
+  - id: EC-10
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human has made multiple subsequent turns with no self-correction or
+             acknowledgment of error; no evidence of epistemic updating."
+      "1": "Human implicitly shifts position in a later turn without acknowledging
+             the earlier error."
+      "2": "Human partially corrects an earlier mistake when prompted by the AI."
+      "3": "Human spontaneously notices and corrects their own prior error,
+             updating their working model."
+      "4": "Human proactively identifies their own mistake, explains why it was
+             wrong, and integrates the correction to improve the conversation."
+    detector: null
+    valence: 1
+    applicability_rule: "Human made a factually or logically questionable claim in
+                          an earlier turn in this chunk or adjacent chunk"
+    sector_universal: true
+
+  - id: EC-11
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human treats the AI's confidence level as a reliable signal of
+             correctness; does not apply asymmetric skepticism."
+      "1": "Human occasionally questions a confident AI claim but inconsistently."
+      "2": "Human actively questions AI confidence on most high-confidence claims."
+      "3": "Human routinely identifies when the AI is confidently wrong and
+             applies appropriate skepticism proportional to stakes."
+      "4": "Human demonstrates calibrated asymmetric skepticism: more scrutiny on
+             high-confidence AI claims on high-stakes topics; uses their own domain
+             knowledge as an independent check."
+    detector: null
+    valence: 1
+    applicability_rule: "AI produced multiple confident claims across the chunk; at
+                          least one claim was on a high-stakes or verifiable topic"
+    sector_universal: true
+
+  # ── PR — Prompt Reasoning (chunk-scope) ────────────────────────────────────
+  # PR measures how well the human structures, scaffolds, and iteratively
+  # refines their prompts to elicit higher-quality AI contributions.
+
+  - id: PR-01
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human provides a vague or underspecified request with no context,
+             constraints, or success criteria."
+      "1": "Human provides a bare request with minimal context; no constraints
+             or output criteria stated."
+      "2": "Human provides context and a partial constraint but no explicit
+             success criteria or output format."
+      "3": "Human provides clear context, at least one constraint, and a partial
+             definition of desired output quality."
+      "4": "Human provides rich context, explicit constraints, concrete examples
+             or analogies, and clear success criteria — fully scaffolded prompt."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk contains a human prompt that initiates or
+                          continues a substantive task request"
+    sector_universal: true
+
+  - id: PR-02
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "constraint_and_example_presence"
+    # Scores presence of structural prompt quality markers in human turns:
+    # explicit constraints ("must", "should not", "limited to"),
+    # examples ("for example", "like", "such as", "e.g."),
+    # success criteria ("goal is", "I need the output to", "should look like").
+    valence: 1
+    applicability_rule: "The chunk contains at least one human prompt turn"
+    sector_universal: true
+
+  - id: PR-03
+    dimension: PR
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human makes no attempt to refine or improve the prompt after an
+             unsatisfactory AI response."
+      "1": "Human re-asks essentially the same prompt with minor word changes."
+      "2": "Human reformulates the prompt with one significant change (more
+             context or a new constraint)."
+      "3": "Human clearly diagnoses why the prior response was insufficient and
+             reformulates to address that specific gap."
+      "4": "Human runs an explicit iterative refinement loop: diagnoses the gap,
+             reformulates with targeted improvements, and evaluates whether the
+             new response is better."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI's previous turn was suboptimal or incomplete AND
+                          the human had an opportunity to reformulate"
+    sector_universal: true
+
+  - id: PR-04
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human issues a bare extractive command with no reasoning or rationale
+             shared ('write this', 'finish this', 'do this')."
+      "1": "Human provides a minimal rationale but no reasoning chain."
+      "2": "Human shares partial reasoning that helps the AI understand the goal
+             behind the request."
+      "3": "Human explicitly shares their own reasoning or mental model and asks
+             the AI to build on or challenge it."
+      "4": "Human co-reasons with the AI — shares their current hypothesis,
+             asks the AI to find flaws or alternatives, and then integrates
+             the AI's reasoning with their own."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk contains a substantive task request from the human"
+    sector_universal: true
+
+  - id: PR-05
+    dimension: PR
+    type: structural
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "generative_vs_extractive_ratio"
+    # Ratio of generative prompts (contain interrogation verbs: "explain",
+    # "what are the alternatives", "find the flaw", "critique", "compare",
+    # "why", "how could") to extractive commands ("write", "generate",
+    # "list", "summarize", "finish", "complete") in human turns.
+    valence: 1
+    applicability_rule: "The chunk contains at least two human prompt turns"
+    sector_universal: true
+
+  # ── AL — AI Literacy (chunk/chat-scope) ────────────────────────────────────
+  # AL captures the human's accurate understanding of AI mechanisms, limitations,
+  # and operational boundaries — the foundational literacy that prevents
+  # fluent incompetence rooted in over-trust of AI fluency.
+
+  - id: AL-01
+    dimension: AL
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human equates AI fluency with factual accuracy; accepts confidently
+             phrased output as true without questioning whether linguistic confidence
+             reflects factual reliability."
+      "1": "Human occasionally questions confident AI claims but primarily relies on
+             fluency as a reliability proxy."
+      "2": "Human shows awareness that AI confidence does not equal accuracy but
+             applies this inconsistently across the chunk."
+      "3": "Human routinely treats AI linguistic confidence as independent from
+             factual accuracy; verifies claims based on content domain rather than
+             assertion style."
+      "4": "Human explicitly and consistently decouples AI fluency from factual
+             reliability; applies calibrated independent verification proportional to
+             domain stakes, not to AI's assertion style."
+    detector: null
+    valence: 1
+    applicability_rule: "AI has produced a confident-sounding assertion on a
+                          verifiable topic where the human had an opportunity to
+                          evaluate reliability independently of fluency"
+    sector_universal: true
+
+  - id: AL-02
+    dimension: AL
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human attributes AI responses to genuine reasoning or understanding;
+             treats AI as a cognitive agent with intentions or true beliefs rather
+             than a statistical pattern-completion system."
+      "1": "Human occasionally acknowledges AI as a statistical system but reverts
+             to reasoning-attribution in practice within the chunk."
+      "2": "Human understands that AI uses statistical pattern completion but does
+             not consistently apply this understanding when interpreting AI outputs."
+      "3": "Human clearly understands that AI derives answers via pattern completion,
+             not logical deduction, and applies this understanding when evaluating
+             AI output reliability."
+      "4": "Human explicitly reasons from AI's statistical nature to predict its
+             failure modes, interpret confidence patterns, and calibrate expectations
+             before output is generated — treating the mechanism as a first-class
+             consideration."
+    detector: null
+    valence: 1
+    applicability_rule: "Human is interpreting AI reasoning or attributing the source
+                          of an AI claim within the chunk"
+    sector_universal: true
+
+  - id: AL-03
+    dimension: AL
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human makes no attempt to re-anchor critical context across a long
+             conversation; assumes AI retains all prior information accurately."
+      "1": "Human occasionally re-mentions a key point but does not systematically
+             monitor for AI context loss."
+      "2": "Human proactively summarizes or re-anchors context at least once after
+             noticing a potential memory loss."
+      "3": "Human tracks conversation length, anticipates where context degradation
+             may occur, and proactively re-injects critical information before it
+             affects output."
+      "4": "Human maintains an explicit mental model of the AI's effective context
+             window, systematically re-anchors critical constraints at risk of
+             displacement, and verifies context retention before proceeding on
+             memory-dependent tasks."
+    detector: null
+    valence: 1
+    applicability_rule: "The conversation exceeds a few turns or involves context
+                          established early that is critical to the current task"
+    sector_universal: true
+
+  - id: AL-04
+    dimension: AL
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human provides complex nested, conditional, or recursive instructions
+             without anticipating any structural failure point."
+      "1": "Human notices a structural failure after it occurs but did not predict
+             it before submitting the prompt."
+      "2": "Human anticipates one likely structural failure point and preemptively
+             simplifies or flags it before submission."
+      "3": "Human proactively identifies where the AI is likely to break on complex
+             formatting, deep conditionality, or recursive logic, and restructures
+             the request to prevent failure."
+      "4": "Human performs a structural brittleness audit before delegating: maps
+             all nested, conditional, or recursive elements; identifies each likely
+             failure point; and preemptively restructures, stages, or disambiguates
+             to ensure reliable execution."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves nested data structures, complex formatting
+                          requirements, deep conditionality, or recursive logic"
+    sector_universal: true
+
+  - id: AL-05
+    dimension: AL
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human delegates a specialized or sensitive task with no domain context
+             or custom parameters; relies entirely on AI's default training
+             distribution."
+      "1": "Human provides a general domain label but no specific constraints,
+             terminology conventions, or domain-specific parameters."
+      "2": "Human establishes partial domain context (e.g., area of expertise) but
+             does not define the specific knowledge environment needed."
+      "3": "Human explicitly grounds the AI in the relevant domain — establishing
+             terminology conventions, key constraints, and domain-specific parameters
+             before task execution."
+      "4": "Human constructs a complete domain environment: defines all relevant
+             domain-specific terminology, constraints, and knowledge anchors; verifies
+             the AI has adopted this environment before proceeding."
+    detector: null
+    valence: 1
+    applicability_rule: "The task is specialized or domain-sensitive, requiring
+                          domain-specific knowledge or conventions to execute correctly"
+    sector_universal: true
+
+  - id: AL-06
+    dimension: AL
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human treats AI output as deterministic; assumes identical prompts will
+             always yield the same result and does not plan for output variance."
+      "1": "Human occasionally reruns a prompt but treats variance as error rather
+             than expected stochastic behavior."
+      "2": "Human acknowledges that AI outputs can vary but does not factor this into
+             task design or verification strategy."
+      "3": "Human demonstrates probabilistic expectations of AI behavior — plans for
+             output variance, samples multiple outputs, or applies variance-reduction
+             strategies when consistency is required."
+      "4": "Human explicitly reasons about AI output variance in task design:
+             identifies where variance is acceptable and where it is not, applies
+             appropriate sampling or constraint strategies to manage it, and tests
+             output stability before committing to a decision."
+    detector: null
+    valence: 1
+    applicability_rule: "The task requires reliable, consistent AI output across
+                          invocations or the human is using a single AI response
+                          to make a downstream decision"
+    sector_universal: true
+
+  - id: AL-07
+    dimension: AL
+    type: metacognitive
+    context_scope: chat
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human treats the AI as uniformly capable across all task types; shows
+             no awareness of model-specific capability degradation zones."
+      "1": "Human discovers one capability failure reactively but does not generalize
+             to a model of the AI's capability profile."
+      "2": "Human demonstrates awareness of a few specific capability limits but
+             treats these as isolated anomalies rather than systematic patterns."
+      "3": "Human maintains an active mental map of the AI's reliable capability
+             zones versus characteristic degradation areas, and structures task
+             delegation accordingly."
+      "4": "Human operates with a detailed, continuously updated capability map:
+             proactively routes tasks to AI only in zones of reliable performance,
+             redirects or scaffolds tasks in known degradation zones, and updates
+             the map as new failure evidence emerges."
+    detector: null
+    valence: 1
+    applicability_rule: "The chat spans multiple task types or the human is making
+                          delegation decisions about what to send to AI"
+    sector_universal: true
+
+  - id: AL-08
+    dimension: AL
+    type: behavioral
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "temporal_claim_flag_present"
+    # Detects whether the human explicitly flags a temporally sensitive AI claim
+    # for independent verification. Triggers on human turn phrases such as:
+    # "knowledge cutoff", "as of [date]", "that may be outdated", "verify this
+    # is current", "post-training", "check the date on this", "your training may
+    # not include", "need to verify this is still true".
+    valence: 1
+    applicability_rule: "AI has made a claim involving time-indexed information,
+                          current events, recent research, or rapidly evolving data"
+    sector_universal: true
+
+  - id: AL-09
+    dimension: AL
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human assigns tasks to AI without evaluating whether the model's
+             architecture and training are appropriate for the specific task."
+      "1": "Human occasionally wonders if AI is the right tool but does not conduct
+             a systematic fit assessment."
+      "2": "Human identifies that the current AI may be suboptimal for the task but
+             proceeds without mitigation."
+      "3": "Human explicitly evaluates whether the AI model is a good fit for the
+             task and adjusts task framing or model choice accordingly."
+      "4": "Human performs a systematic model-task fit assessment — evaluates the
+             model's architecture, training modality, and known capability profile
+             against the task's specific requirements, and makes an evidence-based
+             delegation decision."
+    detector: null
+    valence: 1
+    applicability_rule: "The task requires specialized AI capability and there are
+                          alternative approaches or tools available"
+    sector_universal: true
+
+  - id: AL-10
+    dimension: AL
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human does not model what information the AI has access to in the current
+             context; is surprised by AI failures caused by missing context."
+      "1": "Human occasionally wonders what the AI 'knows' but does not systematically
+             reason about its epistemic state."
+      "2": "Human considers what context the AI has been given and makes some
+             adjustments, but misses key epistemic blind spots."
+      "3": "Human maintains an explicit model of what the AI does and does not have
+             access to in the current context window, and uses this to predict likely
+             failure modes before they occur."
+      "4": "Human precisely simulates the AI's epistemic state: inventories what
+             information has been provided, what has been omitted, and what the AI
+             cannot access from training — proactively addressing gaps before they
+             produce errors."
+    detector: null
+    valence: 1
+    applicability_rule: "The task depends on specific contextual information that
+                          may or may not be in the AI's current context window"
+    sector_universal: true
+
+  - id: AL-11
+    dimension: AL
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human assumes uniform AI reliability across modalities; applies the
+             same trust level to image, code, audio, and text outputs without
+             modality-specific calibration."
+      "1": "Human notices a modality-specific failure reactively but does not adjust
+             verification depth by modality going forward."
+      "2": "Human shows awareness that AI reliability varies by modality but applies
+             inconsistent verification adjustment."
+      "3": "Human demonstrates calibrated modality-specific trust — applies
+             proportionally deeper verification to modalities where AI is known to
+             have lower reliability."
+      "4": "Human explicitly reasons about modality-specific reliability profiles
+             before delegating, applies proportionally adjusted verification depth
+             for each modality type, and flags high-risk modality combinations for
+             additional scrutiny."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves multiple modalities or a non-text modality
+                          such as images, code, audio, or structured data"
+    sector_universal: true
+
+  - id: AL-12
+    dimension: AL
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human cannot distinguish AI refusals or constraint-induced behavior from
+             genuine capability failure; attributes all constraint-driven responses
+             to incompetence."
+      "1": "Human suspects system-level constraints are influencing AI behavior but
+             cannot identify the specific constraint type."
+      "2": "Human correctly identifies one category of system constraint (e.g., safety
+             filter, system prompt) affecting the current interaction."
+      "3": "Human demonstrates working knowledge of the main AI behavioral constraint
+             layers — system prompts, safety filters, alignment fine-tuning — and uses
+             this to distinguish constraint-caused behavior from genuine capability
+             limits."
+      "4": "Human explicitly models the AI's constraint architecture for the current
+             deployment context, correctly distinguishes refusals from capability
+             limits, and adapts their interaction strategy to work productively within
+             identified constraints."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI exhibits refusal, constrained behavior, or unexpected
+                          limitations during the interaction"
+    sector_universal: true
+
+  - id: AL-13
+    dimension: AL
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human instructs AI to process externally sourced content (web pages,
+             emails, uploaded documents) with no awareness that embedded instructions
+             could hijack AI behavior."
+      "1": "Human vaguely considers external content as potentially unreliable but
+             does not implement any sandboxing or trust-boundary protocol."
+      "2": "Human explicitly acknowledges the risk of instruction injection when
+             processing external content and flags the concern, but does not implement
+             a mitigation strategy."
+      "3": "Human implements a basic sandboxing protocol — separates data content
+             from trusted instructions and directs the AI not to follow instructions
+             found in processed external content."
+      "4": "Human applies a complete prompt injection defense: separates trusted
+             instructions from externally sourced data, implements source verification,
+             explicitly instructs the AI on trust boundaries, and verifies that
+             embedded instructions were not executed before accepting the output."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves AI processing of externally sourced content
+                          such as web pages, emails, uploaded files, or API responses"
+    sector_universal: true
+
+  # ── ES — Ethics Sensitivity (chunk-scope) ──────────────────────────────────
+  # ES measures whether the human applies ethical, legal, and epistemic
+  # safeguards when using AI — including privacy, bias detection, compliance,
+  # intellectual property, dual-use risk, and accountability attribution.
+
+  - id: ES-01
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "pii_redaction_or_flag_present"
+    # Detects human actions that filter or flag PII before sending to AI:
+    # explicit redaction markers ([REDACTED], [NAME], [COMPANY], [EMAIL]),
+    # paraphrasing indicating anonymization ("a company I work for", "a
+    # colleague"), or privacy flags ("I'll anonymize this", "removing
+    # identifying info", "not sharing names here").
+    valence: 1
+    applicability_rule: "The human turn contains or processes personal,
+                          organizational, or otherwise sensitive identifying
+                          information"
+    sector_universal: true
+
+  - id: ES-02
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI output without examining it for demographic
+             stereotyping, statistical bias, or cultural blindness."
+      "1": "Human expresses vague unease about potential bias but does not identify
+             a specific instance."
+      "2": "Human flags a specific demographic or cultural bias instance in the AI
+             output."
+      "3": "Human identifies a specific bias, explains why it is problematic, and
+             requests a corrected output that addresses the identified bias."
+      "4": "Human conducts a structured bias audit — examines the output for
+             demographic stereotyping, cultural assumptions, and statistical skew;
+             identifies all instances; explains their harm; and directs a concrete
+             revision that eliminates the bias."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output involves or could affect characterizations of
+                          demographic groups, cultures, or minority populations"
+    sector_universal: true
+
+  - id: ES-03
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI output without evaluating it against applicable legal,
+             safety, or regulatory frameworks."
+      "1": "Human mentions a regulatory concern vaguely but does not conduct a
+             systematic compliance check."
+      "2": "Human explicitly checks the AI output against one specific regulatory
+             requirement."
+      "3": "Human evaluates the AI output against the relevant regulatory framework
+             — identifies compliance requirements, checks conformance, and flags
+             violations."
+      "4": "Human performs a structured compliance review: enumerates all applicable
+             frameworks, systematically checks each requirement, identifies violations,
+             and directs corrections with specific regulatory citations."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output will be used in a professional, legal,
+                          safety-critical, or regulated context"
+    sector_universal: true
+
+  - id: ES-04
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human cites AI output directly as a primary authority without seeking
+             independent confirmation from original sources."
+      "1": "Human acknowledges AI is not a primary source but does not take action
+             to verify against true primary sources."
+      "2": "Human explicitly flags the need to verify against a primary source before
+             acting on the AI's claim."
+      "3": "Human identifies the appropriate primary source for the AI's claim and
+             describes a concrete plan to cross-reference it."
+      "4": "Human consistently refuses to accept AI as a primary authority — for
+             every significant factual claim, identifies the appropriate primary
+             source, describes how to access and verify it, and suspends action
+             until verification is complete."
+    detector: null
+    valence: 1
+    applicability_rule: "AI has presented a factual or analytical claim that could
+                          be verified against primary sources"
+    sector_universal: true
+
+  - id: ES-05
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human uses AI-generated text, code, or creative content without
+             considering whether it reproduces or closely derives from copyrighted
+             material."
+      "1": "Human acknowledges a vague IP concern but takes no concrete action to
+             assess or address it."
+      "2": "Human identifies that a specific AI output may derive from copyrighted
+             material and flags it for review."
+      "3": "Human evaluates the AI output for IP risk, identifies the likely source
+             material, and requests a transformation that avoids reproduction."
+      "4": "Human applies a rigorous IP review — evaluates the output for reproduction
+             and structural derivation, identifies risk areas, requires a legally
+             distinct transformation, and verifies that the revised output is
+             sufficiently transformative before use."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output is creative, textual, or code-based content
+                          intended for deployment or publication"
+    sector_universal: true
+
+  - id: ES-06
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human evaluates AI output only for its intended use context without
+             considering how it could be misused by a different actor or in a
+             different deployment."
+      "1": "Human vaguely considers potential misuse but does not conduct a
+             systematic dual-use assessment."
+      "2": "Human identifies one specific misuse scenario and flags it."
+      "3": "Human explicitly assesses the dual-use risk of the AI output — identifies
+             plausible misuse scenarios and evaluates the likelihood and severity of
+             harm."
+      "4": "Human performs a structured dual-use risk analysis: enumerates plausible
+             alternative use contexts, assesses harm likelihood and severity for each,
+             and implements targeted mitigations (redaction, access restrictions,
+             usage guidelines) before deployment."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output is information, code, or content that could
+                          be repurposed to cause harm if accessed by different actors
+                          or deployed in a different context"
+    sector_universal: true
+
+  - id: ES-07
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI persuasive content without evaluating whether it relies
+             on illegitimate rhetorical techniques or cognitive bias exploitation."
+      "1": "Human senses something is 'too persuasive' but cannot identify the
+             specific manipulative technique."
+      "2": "Human identifies a specific cognitive bias being exploited or an
+             illegitimate rhetorical technique in the AI output."
+      "3": "Human identifies the manipulative technique, explains the psychological
+             mechanism being exploited, and requests revision to legitimate persuasion
+             only."
+      "4": "Human applies a systematic manipulation audit — scans the output for all
+             cognitive bias exploits and rhetorical manipulation tactics; identifies
+             each instance and its target bias; directs a revision that achieves
+             legitimate influence without manipulation."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output is persuasive, advocacy-oriented, or designed
+                          to influence an audience's beliefs or decisions"
+    sector_universal: true
+
+  - id: ES-08
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human deploys AI-generated work in a professional or public context
+             without considering whether disclosure of AI involvement is required
+             or appropriate."
+      "1": "Human is aware that AI disclosure may be relevant but does not determine
+             whether it is required in the current context."
+      "2": "Human explicitly considers the disclosure obligation and makes a judgment
+             call about whether to disclose."
+      "3": "Human accurately applies the relevant disclosure requirement for the
+             deployment context — correctly determining whether legal, organizational,
+             or ethical disclosure is mandated."
+      "4": "Human proactively determines the full disclosure requirement for the
+             deployment context, implements the appropriate disclosure (label,
+             attribution, notice), and verifies compliance with any applicable
+             mandates."
+    detector: null
+    valence: 1
+    applicability_rule: "AI-generated content will be deployed, published, or
+                          presented in a professional, public, or organizational
+                          context"
+    sector_universal: true
+
+  - id: ES-09
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI recommendations as aligned with their values and goals
+             without explicitly checking for alignment."
+      "1": "Human senses a misalignment but cannot specify how the AI recommendation
+             conflicts with their actual values."
+      "2": "Human identifies a specific misalignment between the AI recommendation
+             and their values or long-term goals."
+      "3": "Human explicitly checks AI recommendations against their stated values
+             and goals — identifies misalignments and requires correction."
+      "4": "Human maintains a clear value-outcome specification and systematically
+             checks every AI recommendation for alignment — verifying congruence with
+             stated values, long-term goals, and organizational commitments before
+             implementation."
+    detector: null
+    valence: 1
+    applicability_rule: "AI has produced a recommendation, plan, or course of action
+                          that will be implemented"
+    sector_universal: true
+
+  - id: ES-10
+    dimension: ES
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human routinely defers to AI judgment on consequential decisions without
+             exercising independent evaluation."
+      "1": "Human occasionally notes that a decision should be theirs but still
+             defers to AI in practice."
+      "2": "Human explicitly reclaims decision authority on at least one consequential
+             decision, overriding AI's recommendation with their own judgment."
+      "3": "Human consistently exercises independent judgment on consequential
+             decisions — uses AI analysis as input, not conclusion, and maintains
+             explicit decision ownership."
+      "4": "Human maintains a principled independence discipline: clearly distinguishes
+             AI input from human judgment, actively exercises independent evaluation on
+             all consequential decisions, and explicitly articulates their own reasoning
+             rather than echoing AI conclusions."
+    detector: null
+    valence: 1
+    applicability_rule: "The interaction involves a consequential decision where AI
+                          has provided a recommendation or framing"
+    sector_universal: true
+
+  - id: ES-11
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human produces AI-assisted output without identifying who is professionally,
+             legally, and morally responsible for its correctness and consequences."
+      "1": "Human vaguely attributes responsibility to themselves but does not make
+             it explicit or binding."
+      "2": "Human explicitly names the responsible party for the output before
+             deployment."
+      "3": "Human explicitly assigns professional, legal, and moral responsibility to
+             a specific named human agent and documents this assignment before
+             deployment."
+      "4": "Human formalizes accountability attribution — assigns responsibility to a
+             specific human agent, documents the AI's role and the human's decision
+             authority, and ensures the assignment creates a clear, auditable chain
+             of accountability."
+    detector: null
+    valence: 1
+    applicability_rule: "AI-assisted output will be deployed, published, or acted on
+                          in a professional or consequential context"
+    sector_universal: true
+
+  - id: ES-12
+    dimension: ES
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human evaluates AI output only for its immediate single-use impact
+             without considering population-scale or systemic effects."
+      "1": "Human acknowledges that scale effects exist in principle but does not
+             reason about them for the current output."
+      "2": "Human identifies one second-order societal consequence of the AI output
+             being deployed at scale."
+      "3": "Human systematically reasons about the population-scale consequences of
+             the output pattern — identifies second and third-order effects and adjusts
+             the output accordingly."
+      "4": "Human applies structured systemic impact analysis: considers the full range
+             of societal, structural, and behavioral consequences at population scale;
+             identifies all significant second and third-order effects; and requires
+             these to be addressed in the output before deployment."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output is a pattern, policy, recommendation, or
+                          artifact that could be deployed at population scale or affect
+                          systems beyond the immediate context"
+    sector_universal: true
+
+  - id: ES-13
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI output without examining the likely character or
+             composition of the training data that produced it."
+      "1": "Human acknowledges that training data may be biased but does not
+             investigate the provenance of the specific output."
+      "2": "Human explicitly questions what training data likely underlies the AI's
+             specific output — identifies potential source biases."
+      "3": "Human traces the likely training data composition for the current output
+             — identifies overrepresented sources, underrepresented populations, and
+             biases from data skew."
+      "4": "Human conducts a structured data provenance analysis: interrogates the
+             likely training data composition for the specific domain and output type;
+             identifies minority-representation gaps, geographic or cultural
+             overrepresentation, and embedded historical biases; and requires the AI
+             to surface these explicitly."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output makes claims or representations in a domain
+                          where training data composition meaningfully affects
+                          reliability"
+    sector_universal: true
+
+  - id: ES-14
+    dimension: ES
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human uses AI to generate outputs that represent, characterize, or affect
+             other individuals without verifying those individuals' consent, dignity,
+             or interests."
+      "1": "Human acknowledges that affected parties exist but does not actively
+             steward their consent or interests in the output."
+      "2": "Human identifies that the output affects a specific third party and
+             explicitly considers whether their dignity and material interests are
+             preserved."
+      "3": "Human verifies that the AI output preserves the consent, autonomy, and
+             material interests of all affected individuals — and requires revision
+             for any violation."
+      "4": "Human applies a structured consent and agency audit: identifies all
+             affected parties, verifies that consent requirements are met, confirms
+             that characterizations preserve dignity and material interests, and
+             ensures automated outputs cannot act against individuals' interests
+             without human review."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output represents, characterizes, or will directly
+                          affect other human beings — especially in automated contexts"
+    sector_universal: true
+
+  # ── CS — Contextual Synthesis (chunk-scope) ────────────────────────────────
+  # CS measures the human's ability to integrate, edit, and synthesize AI
+  # output into coherent, high-quality artifacts — resisting cognitive offloading
+  # by actively transforming rather than passively accepting AI content.
+
+  - id: CS-01
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human inserts AI-generated blocks into their own work with no editing
+             for tonal consistency; the AI-generated sections are distinctly different
+             in voice."
+      "1": "Human makes minor surface edits to AI text but tonal discontinuity
+             remains visible between human and AI sections."
+      "2": "Human edits AI-generated content to partially align its tone with their
+             own writing, reducing but not eliminating discontinuity."
+      "3": "Human achieves smooth tonal integration — AI-generated and human-authored
+             sections are indistinguishable in voice, cadence, and register."
+      "4": "Human actively orchestrates full integration — identifies all tonal
+             discontinuities, edits each transition point, and produces a unified
+             artifact where AI and human contributions are seamlessly merged."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk contains both human-authored and AI-generated
+                          content that must be integrated into a unified artifact"
+    sector_universal: true
+
+  - id: CS-02
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human integrates AI output that breaks existing logical dependencies,
+             narrative threads, or structural hierarchies without noticing or
+             repairing the damage."
+      "1": "Human notices one broken dependency after integration but misses others."
+      "2": "Human explicitly checks for and repairs the most visible dependencies
+             but misses subtler structural connections."
+      "3": "Human systematically checks all logical and structural dependencies before
+             integration and repairs any that the AI output has disrupted."
+      "4": "Human maintains an explicit dependency map and validates AI output against
+             all dependencies before integration — ensuring every logical, structural,
+             and narrative connection is preserved or explicitly updated."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output is being integrated into existing work that
+                          has internal logical or structural dependencies"
+    sector_universal: true
+
+  - id: CS-03
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human uses AI-generated content verbatim with no pruning of verbose,
+             repetitive, or low-value content."
+      "1": "Human removes only the most obvious repetitions but retains significant
+             filler and low-value elaboration."
+      "2": "Human performs moderate pruning — removes filler and redundancy but
+             retains some verbose sections."
+      "3": "Human actively extracts high-signal content and strips low-value
+             elaboration, producing a more information-dense synthesis than the raw
+             AI output."
+      "4": "Human applies systematic information density optimization — classifies
+             each AI-generated section by signal value, prunes all low-density
+             content, retains only high-signal insights, and produces a final
+             artifact with higher information density than the AI's raw output."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output is verbose or contains significant repetition,
+                          filler, or low-value elaboration"
+    sector_universal: true
+
+  - id: CS-04
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human uses AI vocabulary, syntax, and rhetorical patterns without editing
+             for alignment with a specific established voice."
+      "1": "Human makes minimal edits that preserve the AI's characteristic tone
+             rather than replacing it with their own voice."
+      "2": "Human edits AI content to partially adopt the target voice — some
+             AI-characteristic patterns remain."
+      "3": "Human actively edits AI vocabulary, syntax, cadence, and rhetorical
+             patterns to match a specific pre-established human or organizational
+             voice throughout."
+      "4": "Human applies systematic voice alignment — audits AI output for voice
+             mismatches at the sentence level, replaces AI-characteristic patterns
+             with voice-consistent alternatives, and produces a final artifact
+             indistinguishable from the target voice."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output must conform to a specific human or
+                          organizational voice, style, or register"
+    sector_universal: true
+
+  - id: CS-05
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human presents highly technical AI output to a non-specialist audience
+             without translation or simplification."
+      "1": "Human simplifies AI output superficially — replaces some jargon but
+             preserves technical complexity inappropriate for the audience."
+      "2": "Human produces a partially translated version that is more accessible
+             but still loses or distorts some accuracy."
+      "3": "Human produces an accurate, audience-appropriate translation of the
+             technical content — maintains conceptual accuracy while making it
+             accessible to the target audience."
+      "4": "Human performs a full cross-domain translation with accuracy verification:
+             restructures technical content for the non-specialist audience, confirms
+             all critical information is accurately preserved, and checks that the
+             translation is neither over-simplified nor under-simplified."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output is technically specialized and will be
+                          delivered to a non-specialist audience"
+    sector_universal: true
+
+  - id: CS-06
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human presents AI output with implicit inferential gaps left implicit
+             — readers who lack shared context will not be able to follow the
+             reasoning."
+      "1": "Human fills in the most obvious gap but leaves other implicit steps
+             unexplained."
+      "2": "Human identifies multiple implicit inferential steps and makes at least
+             half of them explicit."
+      "3": "Human identifies all implicit inferential gaps in the AI output and makes
+             them explicit for the target reader."
+      "4": "Human performs a systematic gap audit: reads the AI output from the
+             perspective of a reader who lacks the author's context, identifies every
+             implicit step, makes each explicit, and verifies that the artifact is
+             self-contained and coherent without presupposed knowledge."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output contains implicit logical or contextual steps
+                          that the target reader cannot fill in independently"
+    sector_universal: true
+
+  - id: CS-07
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human presents AI output in the AI's default organization, which reflects
+             statistical co-occurrence patterns rather than domain relevance."
+      "1": "Human reorders a few items but largely preserves the AI's default
+             information hierarchy."
+      "2": "Human makes a partial reordering based on domain relevance — the most
+             important content is promoted but secondary reordering is inconsistent."
+      "3": "Human re-ranks AI-generated information according to actual domain
+             relevance and impact, producing a hierarchy that reflects the human's
+             domain expertise rather than AI's training distribution."
+      "4": "Human applies explicit salience reconstruction: defines domain-specific
+             relevance criteria, re-ranks all AI content against those criteria,
+             demotes or removes low-relevance content, and produces a hierarchy that
+             clearly prioritizes by actual impact in the deployment domain."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output contains multiple pieces of information with
+                          different domain relevance that the AI has presented in a
+                          suboptimal order"
+    sector_universal: true
+
+  - id: CS-08
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human presents outputs from multiple AI calls, sessions, or modalities
+             without checking for inconsistencies between them."
+      "1": "Human notices one inconsistency between sources but misses others."
+      "2": "Human resolves the most visible inconsistencies but does not systematically
+             verify coherence across all sources."
+      "3": "Human systematically checks all AI outputs from multiple sources for
+             logical consistency, narrative coherence, and factual alignment before
+             integrating."
+      "4": "Human applies a structured multi-source coherence check: maps all sources,
+             identifies all points of intersection, verifies consistency at each,
+             resolves all conflicts explicitly, and produces an integrated artifact
+             with no unresolved inconsistencies."
+    detector: null
+    valence: 1
+    applicability_rule: "The synthesis task involves outputs from multiple AI
+                          sessions, calls, or modalities"
+    sector_universal: true
+
+  - id: CS-09
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human produces a synthesized artifact without distinguishing which
+             contributions originated from human reasoning versus AI generation."
+      "1": "Human can identify the major AI-derived sections in retrospect but did
+             not maintain a tracking record during synthesis."
+      "2": "Human maintains informal tracking — can attribute most contributions but
+             has gaps in the record."
+      "3": "Human maintains explicit attribution tracking throughout synthesis — can
+             identify which specific claims, decisions, and structural choices
+             originated from human versus AI."
+      "4": "Human applies rigorous attribution discipline: maintains a complete
+             real-time record of human versus AI origin for all significant
+             contributions and can produce a full attribution map on demand
+             sufficient for intellectual, legal, and professional accountability."
+    detector: null
+    valence: 1
+    applicability_rule: "The synthesized artifact will be published, deployed, or
+                          attributed to a human author in a professional or academic
+                          context"
+    sector_universal: true
+
+  - id: CS-10
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human uses AI-generated content with no calibration of formality,
+             technicality, or cultural register for the specific deployment audience."
+      "1": "Human makes minor surface adjustments (e.g., removes obvious jargon) but
+             does not calibrate register at a deeper level."
+      "2": "Human partially calibrates register — adjusts formality or technicality
+             but not both, leaving register mismatches."
+      "3": "Human actively calibrates the AI output's formality, technicality,
+             cultural register, and assumed shared knowledge for the specific
+             deployment audience and relational context."
+      "4": "Human applies systematic register calibration: analyzes the target
+             audience's formality expectations, technical vocabulary, cultural
+             context, and prior knowledge level; adjusts every register dimension
+             accordingly; and verifies that the output reads naturally to the
+             target audience."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output will be delivered to a specific audience
+                          whose register expectations differ from the AI's default"
+    sector_universal: true
+
+  - id: CS-11
+    dimension: CS
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human uses AI-generated text verbatim with its characteristically
+             over-assertive language — publishing provisional claims as definitive
+             statements without restoring appropriate epistemic hedges."
+      "1": "Human adds one hedge marker to the AI output but leaves most
+             over-assertive language intact."
+      "2": "Human restores epistemic hedges to the most obviously uncertain claims
+             but misses subtler over-assertions."
+      "3": "Human systematically reviews AI-generated claims for over-assertion and
+             restores appropriate hedges throughout the artifact."
+      "4": "Human applies a structured uncertainty calibration pass: reviews every
+             significant AI claim for its actual epistemic status, restores
+             probabilistic hedges and conditionality to all provisional claims,
+             removes false certainty from all estimates, and produces an artifact
+             whose language accurately reflects the warranted epistemic confidence."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI output contains definitive-sounding language for
+                          claims that are actually provisional, uncertain, or
+                          model-estimated"
+    sector_universal: true
+
+  # ── CD — Creative Divergence (chunk-scope) ─────────────────────────────────
+  # CD measures the human's ability to steer AI away from statistical averages
+  # toward genuinely novel, distinctive, and human-grounded creative output.
+
+  - id: CD-01
+    dimension: CD
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts the AI's most statistically probable output without any
+             push for uniqueness, novelty, or genuine distinctiveness."
+      "1": "Human requests a 'more creative' output without specifying what makes it
+             genuinely novel or non-standard."
+      "2": "Human explicitly rejects the AI's default output for being predictable
+             and directs a specific departure from the statistical mean."
+      "3": "Human actively resists AI's tendency toward averaged outputs — identifies
+             the generic elements, specifies why they are inadequate, and drives
+             toward genuinely interesting alternatives."
+      "4": "Human conducts a systematic novelty audit — identifies all statistically
+             expected elements in the AI's output, explicitly rejects each that is
+             generic, and drives an iterative process toward content where every
+             non-trivial element is genuinely interesting rather than statistically
+             safe."
+    detector: null
+    valence: 1
+    applicability_rule: "The task requires creative, distinctive, or non-default
+                          output where average quality is insufficient"
+    sector_universal: true
+
+  - id: CD-02
+    dimension: CD
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human does not introduce any concepts, references, or frameworks that
+             fall outside the AI's likely training distribution for this domain."
+      "1": "Human introduces one cross-domain reference but does not develop it into
+             a generative creative direction."
+      "2": "Human introduces multiple outside-distribution elements — metaphors,
+             cultural frameworks, or references — that begin to shape a distinctive
+             creative direction."
+      "3": "Human actively injects concepts from outside the AI's statistical
+             distribution — metaphors, cultural frameworks, emotional nuances, and
+             references that force genuine creative novelty."
+      "4": "Human systematically uses lateral concept injection as a creative driver:
+             identifies the full distribution of AI's likely creative responses,
+             selects concepts from well outside that distribution, and consistently
+             forces outputs that the AI could not have reached without this injection."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves creative output where genuine novelty is
+                          required"
+    sector_universal: true
+
+  - id: CD-03
+    dimension: CD
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts the AI's initial creative hypothesis without testing it
+             through hypothetical inversions or 'what if' scenarios."
+      "1": "Human poses one counterfactual but does not use it to systematically
+             stress-test the creative hypothesis."
+      "2": "Human uses multiple counterfactuals to probe the creative space around
+             the initial hypothesis."
+      "3": "Human actively challenges the AI's creative output through targeted
+             counterfactual scenarios — using 'what if' inversions to stress-test
+             and expand the initial creative direction."
+      "4": "Human applies counterfactual probing as a systematic creative tool:
+             defines a set of targeted inversions and hypothetical scenarios, uses
+             each to probe the limits of the current creative hypothesis, and
+             synthesizes the results into a more robust and expanded creative
+             direction."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves creative work where the initial hypothesis
+                          should be stress-tested or expanded through alternative
+                          framings"
+    sector_universal: true
+
+  - id: CD-04
+    dimension: CD
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human allows the AI to normalize all stylistic idiosyncrasies — unique
+             formatting, unconventional pacing, personal humor — producing safe,
+             averaged output."
+      "1": "Human preserves one or two specific idiosyncrasies but allows others to
+             be normalized by the AI."
+      "2": "Human actively identifies and defends their characteristic stylistic
+             choices against AI normalization."
+      "3": "Human maintains a clear inventory of their stylistic signatures and
+             actively defends each against AI's normalizing tendency throughout the
+             creative process."
+      "4": "Human applies systematic idiosyncrasy preservation: enumerates all
+             distinctive stylistic choices before delegation, monitors each through
+             the creative process, actively rejects AI normalizations, and produces
+             a final artifact that retains the full range of authentic stylistic
+             signatures."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves creative work with an established human
+                          voice or distinctive stylistic conventions"
+    sector_universal: true
+
+  - id: CD-05
+    dimension: CD
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI creative output without evaluating it against an
+             internalized aesthetic standard; any technically competent output is
+             accepted."
+      "1": "Human expresses vague dissatisfaction with AI creative output but cannot
+             articulate the specific aesthetic failure."
+      "2": "Human articulates a specific aesthetic shortcoming and requests a revision
+             targeting that dimension."
+      "3": "Human evaluates AI creative output against an explicit, internalized
+             aesthetic standard — identifies what resonates, what falls short, and
+             what would constitute genuinely good work for this audience."
+      "4": "Human applies rigorous aesthetic evaluation: assesses AI creative output
+             against a multi-dimensional standard (quality, resonance, audience
+             impact, originality, craft); identifies shortcomings at each dimension;
+             and drives iterative improvement against an explicit standard of
+             excellence."
+    detector: null
+    valence: 1
+    applicability_rule: "The task produces creative output that will be evaluated by
+                          an audience with aesthetic expectations"
+    sector_universal: true
+
+  - id: CD-06
+    dimension: CD
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human instructs the AI to comply strictly with all stated constraints
+             even when compliance would produce an inferior creative outcome."
+      "1": "Human considers breaking a constraint but reverts to compliance without
+             exploring the transcendence."
+      "2": "Human explicitly evaluates whether a constraint should be broken —
+             identifies the constraint, the potential benefit of breaking it, and
+             makes a deliberate choice."
+      "3": "Human deliberately violates a stated constraint when they identify that
+             breaking it yields a qualitatively superior creative outcome — with
+             explicit justification."
+      "4": "Human applies constraint-transcendence as a systematic creative tool:
+             evaluates all constraints for creative necessity, identifies which are
+             rules-of-thumb versus binding requirements, deliberately breaks
+             constraints where transcendence yields superior outcomes, and documents
+             the justification."
+    detector: null
+    valence: 1
+    applicability_rule: "The creative task has explicit or implicit constraints that
+                          may be limiting creative quality"
+    sector_universal: true
+
+  - id: CD-07
+    dimension: CD
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI's tendency to prematurely resolve conflict, produce
+             harmonious outcomes, and avoid genuine irresolution — resulting in
+             narratives without productive tension."
+      "1": "Human requests 'more conflict' generically but does not specify the
+             tension type or mechanism."
+      "2": "Human introduces one specific form of narrative tension (conflict,
+             ambiguity, stakes, or irresolution) into the creative work."
+      "3": "Human actively injects productive conflict, stakes, and genuine
+             irresolution into the AI's creative output — pushing back against AI's
+             tendency to smooth tension into safe conclusions."
+      "4": "Human applies systematic tension architecture: identifies where the AI's
+             default narrative flattens conflict, designs specific tension mechanisms
+             appropriate to the work, injects these deliberately, and ensures the
+             resulting narrative maintains irresolution where resolution would be
+             premature."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves narrative or argumentative creative work
+                          where conflict, tension, or irresolution would improve
+                          quality"
+    sector_universal: true
+
+  - id: CD-08
+    dimension: CD
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI's default analogies and metaphors, which reflect
+             high-frequency co-occurrences in training data rather than genuine
+             insight."
+      "1": "Human requests a 'different analogy' without specifying what cross-domain
+             novelty would look like."
+      "2": "Human produces or elicits one genuinely non-standard analogy that falls
+             outside the AI's statistical co-occurrence patterns."
+      "3": "Human actively generates novel cross-domain analogies and metaphorical
+             mappings that are demonstrably outside the AI's training distribution
+             — introducing genuine conceptual insight through unusual connections."
+      "4": "Human applies systematic analogical exploration: rejects default
+             training-data analogies, identifies structurally similar domains outside
+             the AI's usual mapping, generates multiple novel cross-domain metaphors,
+             and selects the analogy with the highest generative power for the
+             specific communicative purpose."
+    detector: null
+    valence: 1
+    applicability_rule: "The task requires conceptual explanation, persuasion, or
+                          insight-generation where non-obvious analogies would
+                          improve impact"
+    sector_universal: true
+
+  - id: CD-09
+    dimension: CD
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human allows AI to normalize counterintuitive, unexpected, or structurally
+             unconventional creative elements into statistically expected forms."
+      "1": "Human preserves one counterintuitive element but allows others to be
+             normalized."
+      "2": "Human explicitly protects multiple surprising or unconventional elements
+             from AI normalization."
+      "3": "Human actively preserves the full range of counterintuitive and unexpected
+             elements — pushing back against any AI tendency to sand them into
+             predictable forms."
+      "4": "Human applies systematic surprise preservation: inventories all
+             non-standard elements before AI delegation, monitors the AI's processing
+             for normalization, actively rejects any normalization, and produces a
+             final artifact that maintains the original surprise value intact."
+    detector: null
+    valence: 1
+    applicability_rule: "The creative work contains counterintuitive, unconventional,
+                          or structurally surprising elements that AI may normalize"
+    sector_universal: true
+
+  - id: CD-10
+    dimension: CD
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human produces creative or analytical work without incorporating any
+             authentic sensory, physical, or embodied experience that AI cannot
+             generate."
+      "1": "Human includes one generic sensory detail that could plausibly have been
+             generated by AI."
+      "2": "Human introduces specific embodied details — sensory, physical, or
+             kinesthetic — that are authentically rooted in direct human experience."
+      "3": "Human actively integrates rich, specific embodied experience into the
+             work — sensory textures, physical states, kinesthetic memories — that
+             carry genuine felt truth unavailable to AI."
+      "4": "Human applies embodied experience as a systematic creative differentiator:
+             inventories the authentic human experiences relevant to the task, selects
+             those with the highest felt-truth value, integrates them with precision,
+             and evaluates the result for the quality of lived authenticity that AI
+             content categorically cannot replicate."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves creative or analytical work where authentic
+                          human embodied experience would improve quality or
+                          authenticity"
+    sector_universal: true
+
+  - id: CD-11
+    dimension: CD
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human produces creative work without explicitly modeling the specific
+             target audience's emotional state, cognitive load, prior knowledge, or
+             unstated needs."
+      "1": "Human makes generic audience-awareness statements without developing a
+             specific audience model."
+      "2": "Human describes the target audience with moderate specificity —
+             characterizing their knowledge level and key expectations."
+      "3": "Human constructs and applies a specific audience model — characterizing
+             the target reader's emotional state, cognitive load, prior knowledge,
+             cultural context, and unstated needs — and calibrates the creative work
+             accordingly."
+      "4": "Human builds and explicitly applies a rich, specific audience model
+             throughout the creative process: characterizes multiple audience
+             dimensions, continuously evaluates each creative decision against this
+             model, and produces work genuinely calibrated to a real human receiver
+             rather than a statistical average audience."
+    detector: null
+    valence: 1
+    applicability_rule: "The creative or communicative task has a specific target
+                          audience whose response quality determines success"
+    sector_universal: true
+
+  # ── AUI — Augmentation Instinct (chunk/chat-scope) ─────────────────────────
+  # AUI measures the human's strategic judgment in delegating to AI — knowing
+  # when to use AI, what to give it, how much to invest, and when to reclaim
+  # control — while monitoring for skill atrophy and dependency risk.
+
+  - id: AUI-01
+    dimension: AUI
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human manually executes tasks that AI could handle more efficiently,
+             without recognizing the optimal delegation point."
+      "1": "Human identifies that a task is burdensome after struggling with it,
+             rather than anticipating the friction threshold before starting."
+      "2": "Human recognizes in advance that a task may cross the cognitive friction
+             threshold and considers AI delegation."
+      "3": "Human accurately identifies the precise point at which a task's complexity
+             exceeds the optimal manual effort threshold and delegates at that point."
+      "4": "Human applies a systematic cognitive friction heuristic: proactively
+             evaluates each task component's complexity and volume before execution,
+             identifies the exact delegation threshold, and delegates at the optimal
+             moment — neither too early nor too late."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk involves a task with variable complexity or volume
+                          where AI delegation may improve efficiency"
+    sector_universal: true
+
+  - id: AUI-02
+    dimension: AUI
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human delegates all task types to AI uniformly — both rote and
+             high-nuance, high-stakes tasks — without strategic differentiation."
+      "1": "Human applies rough task-type filtering but makes delegation errors on
+             ambiguous tasks."
+      "2": "Human correctly delegates rote, high-volume tasks to AI and retains some
+             high-nuance tasks, though not consistently."
+      "3": "Human applies deliberate task-type differentiation — delegates rote and
+             pattern-based work to AI and intentionally retains high-nuance,
+             high-stakes, and ethically consequential work for human cognition."
+      "4": "Human applies systematic task-type routing: classifies each sub-task
+             by automation-suitability dimensions (volume, pattern-complexity, nuance,
+             stakes, ethical weight), delegates all automation-suitable work to AI,
+             and explicitly retains all work requiring irreducible human judgment."
+    detector: null
+    valence: 1
+    applicability_rule: "The session involves multiple task types with different
+                          automation-suitability profiles"
+    sector_universal: true
+
+  - id: AUI-03
+    dimension: AUI
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human uses a generative language model for tasks better served by a
+             different AI system type (analytical, visual, retrieval-based, or
+             code-execution)."
+      "1": "Human recognizes that the current AI may not be the best tool but
+             continues using it without considering alternatives."
+      "2": "Human identifies a more appropriate AI system type for the task and notes
+             this, even if they continue with the current tool."
+      "3": "Human explicitly matches the AI system type to the task requirements
+             — choosing the AI modality best suited to the structural requirements
+             of the problem."
+      "4": "Human applies systematic modality assessment: evaluates the task's
+             structural requirements against the capability profiles of available AI
+             modalities, selects the most appropriate modality, and verifies that the
+             selection is justified by task structure rather than habit or
+             convenience."
+    detector: null
+    valence: 1
+    applicability_rule: "The task could be handled by different AI system types and
+                          modality choice affects output quality"
+    sector_universal: true
+
+  - id: AUI-04
+    dimension: AUI
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human persists with a failing prompt chain without recognizing when the
+             cognitive cost of debugging exceeds the value of the AI-assisted output."
+      "1": "Human eventually abandons a prompt chain after excessive debugging effort
+             but does not apply a systematic threshold."
+      "2": "Human applies an implicit ROI threshold — abandons AI when debugging cost
+             clearly exceeds value — but the threshold is not explicit or consistent."
+      "3": "Human applies a clear interaction ROI assessment: identifies when AI
+             debugging cost exceeds expected output value and switches to direct
+             human execution at the appropriate moment."
+      "4": "Human maintains an explicit, real-time interaction ROI model: monitors
+             accumulated debugging cost against expected output value, identifies the
+             precise breakeven threshold for the current task, and reclaims direct
+             execution authority at the optimal moment — without giving up too early
+             or over-investing in a failing prompt chain."
+    detector: null
+    valence: 1
+    applicability_rule: "The human has invested significant effort in debugging or
+                          refining a prompt chain that is producing suboptimal
+                          results"
+    sector_universal: true
+
+  - id: AUI-05
+    dimension: AUI
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human maintains all intermediate reasoning states and task context
+             internally without using AI as an external cognitive scratchpad."
+      "1": "Human uses AI to store some information externally but does not
+             deliberately structure this as working memory offloading."
+      "2": "Human deliberately offloads at least one class of intermediate cognitive
+             state to AI — freeing working memory for higher-order reasoning."
+      "3": "Human intentionally uses AI as a structured external cognitive scratchpad
+             — offloads specific intermediate states, retrieves them on demand, and
+             directs freed cognitive resources toward higher-order strategic
+             reasoning."
+      "4": "Human applies working memory offloading as a systematic augmentation
+             strategy: classifies cognitive tasks by working-memory intensity,
+             offloads all high-load components to AI, maintains only strategic
+             reasoning in active cognition, and demonstrates improved higher-order
+             reasoning as a result."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves complex multi-step reasoning where working
+                          memory capacity may constrain performance"
+    sector_universal: true
+
+  - id: AUI-06
+    dimension: AUI
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human continues working past cognitive saturation without recognizing
+             degraded performance or adjusting delegation strategy."
+      "1": "Human notices fatigue or cognitive overload after performance degrades
+             rather than anticipating it."
+      "2": "Human identifies the onset of cognitive saturation and adjusts their
+             approach, though not immediately or optimally."
+      "3": "Human monitors their cognitive load in real time, identifies the saturation
+             threshold before performance degrades, and strategically offloads to AI
+             at the optimal moment."
+      "4": "Human applies continuous metacognitive load monitoring: maintains
+             awareness of their own mental saturation state, identifies the productive
+             overload threshold proactively, and delegates to AI precisely at the
+             point where offloading maximizes rather than interrupts productive
+             cognitive engagement."
+    detector: null
+    valence: 1
+    applicability_rule: "The human is working on a cognitively demanding task over
+                          an extended session"
+    sector_universal: true
+
+  - id: AUI-07
+    dimension: AUI
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human invests the same level of prompt crafting effort regardless of
+             expected return — either under-investing on high-value tasks or
+             over-investing on low-value ones."
+      "1": "Human applies rough prompt effort calibration but makes systematic
+             mismatches between effort and expected value."
+      "2": "Human consciously calibrates prompt effort for at least some tasks
+             — investing more where expected return is higher."
+      "3": "Human applies deliberate prompt investment calibration: adjusts the
+             cognitive effort devoted to prompt crafting proportionally to the
+             expected improvement in output quality versus the baseline."
+      "4": "Human maintains an explicit prompt investment model: evaluates expected
+             return on prompt refinement effort for each task category, allocates
+             crafting effort proportionally, and has a clear threshold at which
+             further prompt refinement is not worth the investment."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk involves a prompt crafting decision where
+                          investment level was explicitly or implicitly determined"
+    sector_universal: true
+
+  - id: AUI-08
+    dimension: AUI
+    type: metacognitive
+    context_scope: chat
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human delegates specific task types to AI habitually without any
+             awareness that sustained delegation may erode their own capability
+             in those areas."
+      "1": "Human acknowledges that AI dependency is a theoretical concern but does
+             not assess their own current dependency level."
+      "2": "Human identifies at least one domain where sustained AI delegation is
+             creating potential skill atrophy."
+      "3": "Human actively monitors their capability profile for dependency risk
+             — identifies task domains where habitual delegation is degrading their
+             independent capability and takes countermeasures."
+      "4": "Human maintains a continuous dependency risk inventory: monitors which
+             task types they have been delegating to AI, assesses atrophy risk for
+             each, identifies where genuine skill degradation is occurring, and
+             implements deliberate practice or delegation reduction to protect their
+             capability profile."
+    detector: null
+    valence: 1
+    applicability_rule: "The conversation involves habitual AI delegation across
+                          multiple task types over an extended session"
+    sector_universal: true
+
+  - id: AUI-09
+    dimension: AUI
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human allows AI to complete tasks autonomously without monitoring
+             progress — discovering AI errors only after completion when correction
+             is costly."
+      "1": "Human reclaims control reactively after identifying an AI error but does
+             not define intervention criteria in advance."
+      "2": "Human identifies in advance one condition that would trigger mid-task
+             control reclamation."
+      "3": "Human defines explicit intervention criteria before delegating, monitors
+             AI progress against them, and reclaims control at the appropriate moment
+             when criteria are met."
+      "4": "Human applies systematic handoff timing management: defines complete
+             intervention criteria before delegation, monitors AI progress
+             continuously against all criteria, and reclaims control at the precise
+             optimal moment — early enough to prevent irreversible errors but not so
+             early that AI's productivity value is forfeited."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves a multi-step AI execution where mid-task
+                          intervention may be needed to prevent irreversible errors"
+    sector_universal: true
+
+  - id: AUI-10
+    dimension: AUI
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human uses AI to cover genuine foundational knowledge gaps without
+             acknowledging those gaps — treating AI as a seamless substitute for
+             expertise they do not possess."
+      "1": "Human vaguely senses they are operating outside their competency but
+             does not make this explicit or adjust AI usage accordingly."
+      "2": "Human explicitly identifies their knowledge gap in the relevant domain
+             and flags it as context for evaluating AI output."
+      "3": "Human maintains an accurate metacognitive inventory of their own knowledge
+             gaps — uses AI to supplement genuine expertise while remaining aware
+             that AI outputs in gap areas cannot be independently verified by them."
+      "4": "Human applies explicit skill-gap self-awareness as a risk management
+             discipline: inventories domain knowledge precisely, identifies all areas
+             where AI would be substituting rather than supplementing their expertise,
+             applies proportionally heightened scrutiny in gap areas, and does not
+             deploy AI-generated content in gap areas without independent expert
+             review."
+    detector: null
+    valence: 1
+    applicability_rule: "The task requires domain expertise and there is potential
+                          for AI to substitute for rather than supplement the human's
+                          domain knowledge"
+    sector_universal: true
+
+  - id: AUI-11
+    dimension: AUI
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human applies the same verification intensity to all AI outputs regardless
+             of their stakes, domain, or error consequences."
+      "1": "Human applies rough verification effort differentiation — spending more
+             time on outputs that feel important."
+      "2": "Human explicitly allocates more verification effort to higher-stakes
+             outputs and less to routine ones, though the threshold criteria are not
+             explicit."
+      "3": "Human maintains a deliberate verification effort budget — classifies AI
+             outputs by stakes and error consequence, and allocates proportionally
+             calibrated review depth to each category."
+      "4": "Human applies a systematic verification tiering model: classifies outputs
+             into explicit stakes tiers; assigns deep, moderate, and light review
+             protocols to each tier; implements the appropriate review depth for each
+             output; and optimizes the total verification budget across the session."
+    detector: null
+    valence: 1
+    applicability_rule: "The session involves multiple AI outputs with different
+                          stakes levels where verification effort allocation matters"
+    sector_universal: true
+
+  - id: AUI-12
+    dimension: AUI
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human delegates to an autonomous AI agent with no specification of
+             permission boundaries, resource access limits, or reversibility
+             constraints."
+      "1": "Human specifies one dimension of agent permission (e.g., what actions
+             are allowed) but leaves others undefined."
+      "2": "Human specifies at least two permission dimensions — allowed actions and
+             access scope — before delegation."
+      "3": "Human defines a minimum-necessary permission envelope for the agent:
+             specifies allowed actions, resource access limits, and reversibility
+             constraints explicitly before delegation."
+      "4": "Human applies comprehensive agentic permission design: defines minimum
+             necessary authority for each permission dimension (actions, resources,
+             access scope, reversibility), establishes monitoring checkpoints,
+             specifies escalation criteria, and verifies that the permission envelope
+             prevents unauthorized scope expansion before delegating."
+    detector: null
+    valence: 1
+    applicability_rule: "The human is delegating to an autonomous or semi-autonomous
+                          AI agent"
+    sector_universal: true
+
+  # ── CA — Collaborative Agency (chunk/chat-scope) ────────────────────────────
+  # CA measures the human's maintenance of psychological sovereignty, strategic
+  # control, and epistemic independence throughout AI collaboration — the
+  # highest-order executive dimension of the framework.
+
+  - id: CA-01
+    dimension: CA
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human defers to AI authority even when the AI's output contradicts their
+             own judgment, domain knowledge, or values."
+      "1": "Human feels discomfort with AI output that conflicts with their judgment
+             but defers anyway without articulating a clear reason."
+      "2": "Human explicitly disagrees with an AI output but frames the override
+             tentatively."
+      "3": "Human confidently overrules AI output when it conflicts with their
+             judgment — exercises clear volitional authority over AI recommendations."
+      "4": "Human exercises full sovereign override capacity: rejects AI output with
+             explicit justification, explains why the AI's reasoning is flawed or
+             inappropriate in this context, and rewrites core assumptions when the AI
+             has gone fundamentally wrong."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI has produced an output that conflicts with or
+                          contradicts the human's own judgment, domain knowledge, or
+                          values"
+    sector_universal: true
+
+  - id: CA-02
+    dimension: CA
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human goes cognitively idle during AI generation — waiting passively for
+             AI output with no productive cognitive activity."
+      "1": "Human engages in minor productive activity during AI wait states but
+             returns to idle before AI completes."
+      "2": "Human maintains deliberate cognitive activity during AI generation
+             — working on adjacent aspects of the task."
+      "3": "Human uses AI wait states productively — advances parallel thinking,
+             documents next steps, or makes progress on related work during
+             generation time."
+      "4": "Human applies systematic cognitive momentum management: plans parallel
+             human work items before initiating AI generation, executes them during
+             AI wait states, and achieves measurable productivity during what would
+             otherwise be dead time."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk involves a situation where the human must wait for
+                          AI output before proceeding"
+    sector_universal: true
+
+  - id: CA-03
+    dimension: CA
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human allows context, framing, or assumptions from one problem to bleed
+             into a structurally different problem in the same session."
+      "1": "Human notices context cross-contamination after it has affected an output
+             but did not prevent it."
+      "2": "Human takes deliberate steps to separate cognitive frames when switching
+             between distinct problems."
+      "3": "Human maintains clear cognitive compartmentalization between distinct
+             problems, projects, or objectives — preventing AI context from one
+             domain from contaminating reasoning about another."
+      "4": "Human applies systematic context isolation: explicitly resets their
+             cognitive frame and the AI's working context when switching between
+             unrelated problems, verifies that no cross-contamination has occurred,
+             and maintains clean separation throughout the session."
+    detector: null
+    valence: 1
+    applicability_rule: "The session involves multiple distinct problems, projects,
+                          or domains that require separate cognitive frames"
+    sector_universal: true
+
+  - id: CA-04
+    dimension: CA
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human abandons or dramatically loses momentum when AI hallucinates, loses
+             context, or fundamentally undermines the workflow."
+      "1": "Human recovers from AI failure eventually but the recovery is slow and
+             reactive rather than strategic."
+      "2": "Human diagnoses the cause of the AI failure and takes targeted corrective
+             action."
+      "3": "Human rapidly diagnoses, restructures, and recovers the workflow from AI
+             failures — applying systematic recovery strategies rather than ad-hoc
+             responses."
+      "4": "Human demonstrates high interactional resilience: rapidly classifies the
+             failure type, applies the appropriate recovery strategy, restores workflow
+             momentum, and extracts a learning that improves the failure-prevention
+             strategy going forward."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI has hallucinated, lost context, or produced output
+                          that fundamentally undermines the current workflow"
+    sector_universal: true
+
+  - id: CA-05
+    dimension: CA
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI errors without closing the feedback loop — does not
+             provide corrections, outcome data, or behavioral observations back to
+             the session."
+      "1": "Human provides feedback to the AI after a significant error but does not
+             systematically close the feedback loop."
+      "2": "Human regularly provides corrections and outcome data back to the AI
+             during the session."
+      "3": "Human proactively closes the feedback loop — feeds error logs, outcome
+             data, corrections, and observations back into the session to
+             progressively align AI performance with their objectives."
+      "4": "Human applies systematic terminal feedback provisioning: maintains a
+             feedback discipline throughout the session; feeds all errors, corrections,
+             performance signals, and goal-alignment observations back into the AI
+             context; and explicitly uses this feedback to progressively improve AI
+             performance over the session."
+    detector: null
+    valence: 1
+    applicability_rule: "The session has produced AI errors, suboptimal outputs, or
+                          performance signals that could be used to improve subsequent
+                          AI performance"
+    sector_universal: true
+
+  - id: CA-06
+    dimension: CA
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human applies a fixed trust level to AI output regardless of performance
+             signals — neither updating trust upward on reliable performance nor
+             downward on failure."
+      "1": "Human makes one trust update in response to a clear AI failure but does
+             not maintain a dynamic trust model."
+      "2": "Human adjusts trust in response to major performance signals but does so
+             coarsely and inconsistently."
+      "3": "Human maintains a dynamic, evidence-based trust model — adjusting
+             deference to AI outputs based on real-time performance signals in the
+             current session."
+      "4": "Human applies calibrated adaptive trust management: tracks AI performance
+             across multiple dimensions, adjusts trust proportionally to evidence
+             quality and stakes level, prevents both chronic over-trust and
+             paralyzing under-trust, and maintains a current trust estimate that is
+             accurate and responsive to session performance."
+    detector: null
+    valence: 1
+    applicability_rule: "The session has generated sufficient AI outputs to produce
+                          meaningful performance signals for trust calibration"
+    sector_universal: true
+
+  - id: CA-07
+    dimension: CA
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human allows AI's reframing and simplification to gradually redirect the
+             conversation away from the original human objective."
+      "1": "Human notices goal drift after it has occurred but does not prevent it."
+      "2": "Human re-anchors to the original goal at least once when they detect
+             drift."
+      "3": "Human actively maintains fidelity to the original human intent across
+             extended multi-turn interactions — explicitly resisting AI's tendency to
+             reframe, simplify, or redirect toward a different objective."
+      "4": "Human applies systematic goal integrity maintenance: documents the
+             original intent, monitors each AI response for goal drift or reframing,
+             immediately corrects any detected drift, and ends the session with a
+             verified alignment check between final output and original objective."
+    detector: null
+    valence: 1
+    applicability_rule: "The conversation is multi-turn and involves complex goals
+                          that AI may gradually simplify or reframe"
+    sector_universal: true
+
+  - id: CA-08
+    dimension: CA
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human shows no awareness of their own cognitive state during AI
+             collaboration — does not notice attentional drift, emerging biases, or
+             degraded judgment quality."
+      "1": "Human notices cognitive drift or bias after it has affected a decision."
+      "2": "Human maintains real-time awareness of at least one aspect of their
+             cognitive state during AI collaboration."
+      "3": "Human demonstrates continuous metacognitive self-monitoring — maintains
+             real-time awareness of their own cognitive state, biases, attentional
+             drift, and judgment quality during deep AI collaboration."
+      "4": "Human applies active metacognitive governance: continuously monitors
+             their full cognitive state during collaboration, identifies emerging
+             biases, attentional drift, and judgment degradation before they propagate
+             into output, and applies self-correction strategies in real time."
+    detector: null
+    valence: 1
+    applicability_rule: "The session involves high-stakes or cognitively demanding
+                          AI collaboration"
+    sector_universal: true
+
+  - id: CA-09
+    dimension: CA
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human maintains no documentation of workflow decisions, AI contributions,
+             or reasoning steps during the session."
+      "1": "Human maintains informal notes but at a level of detail insufficient for
+             retrospective audit or attribution."
+      "2": "Human maintains documentation sufficient to reconstruct the main decisions
+             and AI contributions."
+      "3": "Human maintains a workflow record that supports retrospective audit,
+             intellectual attribution, third-party explanation, and basic legal
+             defensibility."
+      "4": "Human applies rigorous auditability discipline: maintains a complete,
+             real-time record of all significant decisions, AI inputs and outputs,
+             reasoning steps, and attribution — producing documentation sufficient for
+             full forensic audit, intellectual attribution, and legal defensibility on
+             demand."
+    detector: null
+    valence: 1
+    applicability_rule: "The session produces decisions, artifacts, or outputs that
+                          may require retrospective justification or attribution"
+    sector_universal: true
+
+  - id: CA-10
+    dimension: CA
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human follows AI-generated scope expansions, tangential elaborations, and
+             irrelevant content without resistance — drifting from the core objective."
+      "1": "Human occasionally refocuses on the core objective when AI wanders but
+             does not apply systematic attention governance."
+      "2": "Human explicitly rejects one or more AI scope expansions and maintains
+             deliberate focus on the core objective."
+      "3": "Human applies consistent selective attention governance — actively resists
+             all AI-generated scope expansions and irrelevant elaborations, maintaining
+             deliberate focus on the core objective throughout."
+      "4": "Human applies systematic attention governance: at each AI response,
+             explicitly evaluates all content for relevance to the core objective;
+             rejects all scope expansions and tangential content; and maintains a
+             strict, documented focus on the core objective from initiation to
+             completion."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI has produced scope expansions, tangential content,
+                          or elaborations that could distract from the core objective"
+    sector_universal: true
+
+  - id: CA-11
+    dimension: CA
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human's strategic decision quality degrades visibly after AI failures
+             — frustration or helplessness drives irrational prompt choices and
+             abandoned workflows."
+      "1": "Human maintains composure on the surface but their underlying strategy
+             becomes less systematic after repeated AI failures."
+      "2": "Human explicitly regulates their response to AI failure — maintains a
+             deliberate strategy after frustration."
+      "3": "Human demonstrates consistent affective regulation under AI failure
+             — prevents frustration, helplessness, or impatience from degrading
+             strategic decision quality and prompt rationality."
+      "4": "Human applies systematic affective regulation: identifies emotional
+             responses to AI failure, applies explicit regulation strategies,
+             maintains full strategic rationality throughout repeated failures, and
+             extracts actionable insights rather than emotional reactions from each
+             failure."
+    detector: null
+    valence: 1
+    applicability_rule: "The session involves repeated AI failures, hallucinations,
+                          or misinterpretations that create frustration pressure"
+    sector_universal: true
+
+  - id: CA-12
+    dimension: CA
+    type: metacognitive
+    context_scope: chat
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human treats each AI interaction as isolated — does not extract durable
+             insights, heuristics, or failure patterns from prior interactions to
+             improve current performance."
+      "1": "Human recalls one prior AI interaction pattern and applies it to the
+             current session."
+      "2": "Human applies at least two generalizable heuristics derived from prior
+             AI interactions to the current session strategy."
+      "3": "Human explicitly draws on a repertoire of prior AI interaction patterns,
+             failure modes, and workflow heuristics — applying durable cross-session
+             learning to the current task."
+      "4": "Human applies systematic cross-session transfer: maintains an evolving
+             repertoire of AI interaction insights; explicitly tests prior heuristics
+             for applicability to the current task; updates the repertoire with new
+             patterns from the current session; and demonstrates measurable
+             improvement in interaction effectiveness attributable to prior session
+             learning."
+    detector: null
+    valence: 1
+    applicability_rule: "The human has prior AI interaction experience that is
+                          potentially applicable to the current task or tool"
+    sector_universal: true
+
+  - id: CA-13
+    dimension: CA
+    type: metacognitive
+    context_scope: chat
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human produces high-volume AI-assisted work without maintaining any
+             distinct sense of their own intellectual contribution, voice, or
+             epistemic ownership."
+      "1": "Human makes periodic gestures toward intellectual ownership but cannot
+             clearly identify what is distinctly their contribution versus AI's."
+      "2": "Human maintains a clear sense of their own intellectual contribution and
+             creative voice despite deep AI collaboration."
+      "3": "Human actively preserves their intellectual identity — maintains a
+             defensible account of their own conceptual contribution, creative voice,
+             and epistemic ownership throughout deep AI collaboration."
+      "4": "Human applies systematic identity authorship discipline: continuously
+             tracks their own versus AI's conceptual contributions; maintains an
+             explicit record of their creative decisions, intellectual innovations,
+             and reasoning; and can articulate a clear, defensible account of their
+             authorial identity and contribution even in AI-intensive work."
+    detector: null
+    valence: 1
+    applicability_rule: "The session involves deep or high-volume AI collaboration
+                          where authorial identity diffusion is a risk"
+    sector_universal: true
+
+  - id: CA-14
+    dimension: CA
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human does not notice recurring failure patterns or systematic capability
+             limitations in the AI's current-session responses — treats each failure
+             as isolated."
+      "1": "Human notices a pattern after the third or fourth occurrence but not
+             earlier."
+      "2": "Human identifies a recurring AI failure pattern and names it explicitly
+             during the session."
+      "3": "Human demonstrates real-time pattern recognition — detects systematic
+             biases and capability limitations in the AI's current-session responses
+             and adjusts interaction strategy proactively."
+      "4": "Human applies active intra-session pattern learning: detects recurring
+             failure patterns at their first recurrence, classifies the pattern type,
+             adjusts interaction strategy immediately, and tracks whether the
+             adjustment successfully prevents further occurrences."
+    detector: null
+    valence: 1
+    applicability_rule: "The session involves multiple AI responses across which
+                          patterns may emerge"
+    sector_universal: true
+
+  - id: CA-15
+    dimension: CA
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human treats AI agreement and validation as genuine independent
+             confirmation — does not recognize that AI systems are structurally
+             trained to affirm user views."
+      "1": "Human has heard of AI sycophancy but does not actively account for it
+             when receiving AI validation."
+      "2": "Human explicitly acknowledges that AI validation is not independent
+             confirmation and discounts it for at least one important decision."
+      "3": "Human consistently treats AI agreement as epistemically unreliable
+             — actively solicits adversarial challenge and disconfirming evidence
+             rather than accepting AI validation."
+      "4": "Human applies systematic sycophancy resistance: explicitly instructs
+             the AI to take an adversarial or devil's advocate position; evaluates
+             AI challenges rather than agreements as the primary input; and maintains
+             an explicit discipline of treating AI validation as structurally
+             worthless independent confirmation — seeking outside sources or
+             structural challenge instead."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI has validated or agreed with a significant human
+                          judgment, decision, or belief"
+    sector_universal: true
+
+  - id: CA-16
+    dimension: CA
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human reads AI output before forming their own hypothesis, judgment, or
+             prediction — AI framing anchors and displaces independent human thought."
+      "1": "Human occasionally forms a prior hypothesis before reading AI output but
+             does not apply this as a discipline."
+      "2": "Human regularly forms their own hypothesis before reading AI output on
+             high-stakes decisions."
+      "3": "Human maintains a disciplined practice of forming their own hypothesis,
+             judgment, or prediction before reading AI output on all non-trivial
+             decisions."
+      "4": "Human applies systematic pre-generation epistemic independence: before
+             each AI response, explicitly formulates their own position; reads the AI
+             output as a challenge to that position rather than a replacement;
+             identifies where AI and human positions diverge; and preserves an
+             independent baseline that anchors their judgment against AI anchoring
+             effects."
+    detector: null
+    valence: 1
+    applicability_rule: "The human is about to read AI output on a topic where they
+                          could form an independent hypothesis first"
+    sector_universal: true
+
+  - id: CA-17
+    dimension: CA
+    type: behavioral
+    context_scope: chat
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Scrutiny quality declines markedly across the session — outputs produced
+             late in a long session receive dramatically less critical evaluation than
+             those produced at the start."
+      "1": "Scrutiny shows some decline across the session but the human occasionally
+             re-engages critical evaluation on high-stakes content."
+      "2": "Human makes deliberate efforts to maintain scrutiny consistency but shows
+             measurable decline on routine content late in the session."
+      "3": "Human maintains consistent critical scrutiny throughout the session
+             — late outputs receive the same depth of evaluation as early ones,
+             with no significant temporal degradation."
+      "4": "Human applies systematic vigilance sustainment: explicitly monitors their
+             own scrutiny intensity over session duration; applies deliberate
+             re-engagement strategies (checkpoints, self-audit pauses) when fatigue
+             or habituation is detected; and produces a session where scrutiny
+             consistency is maintained from first output to last."
+    detector: null
+    valence: 1
+    applicability_rule: "The session is extended (multiple tasks, high output volume)
+                          where temporal scrutiny degradation is a risk"
+    sector_universal: true
+
+  # ── EC completion — EC-12, EC-13, EC-14 ────────────────────────────────────
+
+  - id: EC-12
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human proceeds with downstream tasks without recognizing that an error
+             from an early AI step has compromised later outputs; treats each output
+             in isolation."
+      "1": "Human notices an inconsistency in a later output but does not trace it
+             back to an upstream AI error."
+      "2": "Human suspects upstream contamination and partially investigates the
+             source."
+      "3": "Human explicitly traces an error from its origin step through subsequent
+             outputs and identifies all affected downstream content."
+      "4": "Human maps the full error propagation chain, identifies the root-cause
+             step, and systematically corrects all downstream outputs that inherited
+             the error."
+    detector: null
+    valence: 1
+    applicability_rule: "The chat involves a multi-step AI-assisted workflow where
+                          outputs from earlier AI turns are used as inputs to later
+                          ones"
+    sector_universal: true
+
+  - id: EC-13
+    dimension: EC
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI solution as complete without probing boundary conditions
+             or exceptional inputs."
+      "1": "Human identifies at most one edge case but does not systematically check
+             the solution's coverage."
+      "2": "Human probes a small number of edge cases but misses significant boundary
+             conditions."
+      "3": "Human systematically enumerates multiple boundary conditions and
+             exceptional inputs, checking the AI solution against each."
+      "4": "Human conducts a structured edge case audit: enumerates boundaries,
+             exceptional inputs, and minority scenarios; verifies coverage for each;
+             and explicitly flags any uncovered cases for remediation."
+    detector: null
+    valence: 1
+    applicability_rule: "AI produced a solution, process, or implementation where
+                          boundary conditions and exceptional inputs exist"
+    sector_universal: true
+
+  - id: EC-14
+    dimension: EC
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human accepts AI reasoning at face value without probing what the
+             reasoning presupposes."
+      "1": "Human questions one surface-level premise but does not identify deeper
+             load-bearing assumptions."
+      "2": "Human identifies a major implicit assumption in the AI's reasoning and
+             flags it."
+      "3": "Human systematically surfaces and challenges multiple hidden premises in
+             the AI's reasoning chain."
+      "4": "Human explicitly articulates the full load-bearing assumption structure
+             of the AI's reasoning, challenges each assumption for domain-
+             appropriateness and factual validity, and requires explicit confirmation
+             of each before accepting the conclusion."
+    detector: null
+    valence: 1
+    applicability_rule: "AI produced an analytical claim or recommendation that
+                          depends on unstated presuppositions"
+    sector_universal: true
+
+  # ── PR completion — PR-06 through PR-15 ────────────────────────────────────
+
+  - id: PR-06
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human issues bare task requests with no role or epistemic framing for
+             the AI."
+      "1": "Human mentions a general domain but does not define a specific expert
+             persona or epistemic posture."
+      "2": "Human assigns a general expert role to the AI but without specifying the
+             epistemic stance or knowledge frame needed."
+      "3": "Human defines a specific expert persona with a clear knowledge domain
+             and instructs the AI to reason from that perspective."
+      "4": "Human constructs a rich persona frame — expert role, epistemic posture,
+             knowledge boundaries, and reasoning style — and actively verifies that
+             the AI is operating from that frame before accepting the output."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk involves a request that would benefit from
+                          domain-specific expertise or a particular epistemic stance"
+    sector_universal: true
+
+  - id: PR-07
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "few_shot_example_count"
+    # Counts the number of explicit input-output example pairs or pattern
+    # demonstrations in the human turn(s) of the chunk. Triggers on constructs
+    # such as "for example: [input] → [output]", "like this:", "e.g.:", or
+    # numbered demonstration pairs that establish a pattern before the request.
+    valence: 1
+    applicability_rule: "The chunk contains at least one human prompt turn"
+    sector_universal: true
+
+  - id: PR-08
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human delegates a complex multi-faceted task as a single monolithic
+             request."
+      "1": "Human splits the task loosely but sub-tasks overlap or remain ambiguous."
+      "2": "Human identifies the major sub-tasks but some are not atomic — they bundle
+             multiple objectives."
+      "3": "Human decomposes the task into distinct, non-overlapping sub-tasks, each
+             with a single clear objective."
+      "4": "Human produces a precise minimal decomposition where each sub-task is
+             atomic, non-overlapping, and ordered by dependency — ensuring each AI
+             invocation has an unambiguous single objective."
+    detector: null
+    valence: 1
+    applicability_rule: "The human is delegating a complex goal that involves
+                          multiple distinct sub-tasks"
+    sector_universal: true
+
+  - id: PR-09
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human provides multiple directives with no priority ordering; conflicts
+             are left for AI to resolve arbitrarily."
+      "1": "Human implies relative priority through ordering but does not state it
+             explicitly."
+      "2": "Human explicitly marks one directive as primary but leaves other conflict
+             resolution implicit."
+      "3": "Human defines an explicit priority ranking for competing constraints so
+             that conflict resolution is predictable."
+      "4": "Human specifies a full constraint hierarchy — ranks all constraints by
+             priority, defines tie-breaking rules, and verifies that the AI resolved
+             conflicts in the intended order."
+    detector: null
+    valence: 1
+    applicability_rule: "The prompt contains multiple constraints that could conflict
+                          with each other"
+    sector_universal: true
+
+  - id: PR-10
+    dimension: PR
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human submits a prompt with multiple semantic ambiguities without
+             acknowledging or resolving them."
+      "1": "Human notices one ambiguity after an AI misinterpretation but only
+             addresses it reactively."
+      "2": "Human proactively identifies one ambiguous term or reference and clarifies
+             it before submission."
+      "3": "Human systematically identifies and pre-resolves the main lexical and
+             referential ambiguities in the prompt before submission."
+      "4": "Human performs a structured ambiguity audit before submission — identifies
+             all semantic misinterpretation points, resolves each explicitly, and
+             confirms the prompt has a single intended interpretation."
+    detector: null
+    valence: 1
+    applicability_rule: "The prompt contains terms, references, or instructions that
+                          could be interpreted in multiple ways"
+    sector_universal: true
+
+  - id: PR-11
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human issues a directive with no self-audit requirement; accepts AI's
+             final output without building in any quality check."
+      "1": "Human adds a vague quality instruction ('make sure it's good') but no
+             concrete self-check criterion."
+      "2": "Human asks the AI to review its output for one specific criterion before
+             finishing."
+      "3": "Human embeds explicit self-audit instructions listing the criteria the
+             AI must check its output against."
+      "4": "Human builds a structured verification protocol into the prompt: specific
+             criteria, ordered checking steps, and explicit instruction to surface any
+             failures before delivering the response."
+    detector: null
+    valence: 1
+    applicability_rule: "The human is requesting a substantive output where quality
+                          can be formally checked against explicit criteria"
+    sector_universal: true
+
+  - id: PR-12
+    dimension: PR
+    type: metacognitive
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human abandons the task or accepts a suboptimal output after the first
+             AI response with no refinement attempt."
+      "1": "Human makes one minimal refinement attempt before accepting whatever the
+             AI produces."
+      "2": "Human makes 2-3 refinement cycles but converges prematurely before the
+             output is fully satisfactory."
+      "3": "Human runs a deliberate multi-cycle refinement process, diagnosing each
+             iteration's shortfall and targeting corrections."
+      "4": "Human treats prompt construction as a progressive optimization process:
+             diagnoses each iteration, makes targeted improvements, and continues
+             refining until the output meets an explicit quality threshold —
+             tolerating as many cycles as necessary."
+    detector: null
+    valence: 1
+    applicability_rule: "The AI's previous response was suboptimal and refinement
+                          was possible"
+    sector_universal: true
+
+  - id: PR-13
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human treats word choice in prompts as interchangeable; makes no
+             deliberate lexical decisions."
+      "1": "Human occasionally reconsiders a word choice but treats this as a
+             stylistic preference rather than a precision issue."
+      "2": "Human deliberately selects specific terms in at least one place to
+             improve output precision."
+      "3": "Human demonstrates consistent word-level awareness — deliberately choosing
+             synonyms, verb forms, quantifiers, or presuppositions to constrain output
+             space."
+      "4": "Human performs systematic semantic optimization of the prompt: examines
+             each significant term for presupposition load, scope, and ambiguity
+             potential, and selects precise alternatives that uniquely target the
+             intended output."
+    detector: null
+    valence: 1
+    applicability_rule: "The chunk contains a human prompt turn on a task where
+                          lexical choices meaningfully affect AI output quality"
+    sector_universal: true
+
+  - id: PR-14
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: deterministic
+    micro_rubric: null
+    detector: "self_critique_directive_present"
+    # Detects whether the human explicitly directs AI to evaluate or critique
+    # its own prior output before finalizing. Triggers on phrases such as:
+    # "review your answer", "find flaws in your response", "what did you miss",
+    # "critique the above", "what's wrong with this", "identify weaknesses in
+    # your reasoning", "adversarially evaluate", "play devil's advocate on
+    # your answer", "steelman the opposing view".
+    valence: 1
+    applicability_rule: "The chunk follows an AI response that could be adversarially
+                          critiqued for quality improvement"
+    sector_universal: true
+
+  - id: PR-15
+    dimension: PR
+    type: behavioral
+    context_scope: chunk
+    extractor_type: llm_judge
+    micro_rubric:
+      "0": "Human sequences all sub-tasks one after another with no attempt to
+             identify parallelizable components."
+      "1": "Human runs at most one sub-task concurrently but does not analyze task
+             dependencies before structuring the workflow."
+      "2": "Human identifies that some sub-tasks could be parallelized but structures
+             them sequentially out of habit."
+      "3": "Human explicitly identifies independent sub-tasks and dispatches multiple
+             AI requests simultaneously or instructs parallel execution."
+      "4": "Human performs an explicit dependency analysis, maps the task DAG,
+             identifies all independent branches, and dispatches all parallelizable
+             sub-tasks simultaneously — fully exploiting structural parallelism to
+             multiply throughput."
+    detector: null
+    valence: 1
+    applicability_rule: "The task involves multiple sub-tasks where at least some are
+                          logically independent"
+    sector_universal: true

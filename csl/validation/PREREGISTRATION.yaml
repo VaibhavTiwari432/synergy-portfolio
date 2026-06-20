@@ -1,0 +1,63 @@
+# CSL validation — FROZEN pre-registration of test designs (Phase 3).
+#
+# Machine-readable companion to the narrative draft (csl/PREREGISTRATION_DRAFT.md).
+# Registers, for each validation test, WHAT METRIC, WHAT GATE, and WHAT OUTCOME
+# VARIABLE — frozen BEFORE the data/probe exist so no threshold can be tuned on
+# pilot/gold outcomes after the fact (v3.1 addendum #2; null results publishable).
+#
+# Thresholds here are pre-registered conventions, NOT fitted values. Changing one
+# after data arrives requires an ADR and re-registration.
+
+version: v0.1
+status: FROZEN_PREREGISTRATION
+narrative_ref: csl/PREREGISTRATION_DRAFT.md
+discipline: >
+  Null results are publishable. No threshold may be tuned on pilot/gold outcomes
+  after registration. Data-gated tests raise a structured DataGatedError until the
+  required corpus/probe exists; they never fit on the n=26 pilot.
+
+tests:
+
+  # Phase 3.1 — WIRED (csl/validation/harness.py); dormant until corpus >= 8.
+  independence:
+    phase: "3.1"
+    metric: Pearson correlation per (ARI dimension, ACF level) pair
+    gate:
+      min_sessions: 8
+      near_one_threshold: 0.95
+    outcome_variable: per-pair correlation; flag when |r| >= near_one_threshold
+    decision_rule: >
+      Any flagged pair is evidence the CSL partition may be re-measuring ARI and
+      must be reviewed before claims are upgraded. No flag does not validate CSL.
+    status: WIRED_DATA_GATED
+
+  # Phase 3.2 — DATA-GATED (stub raises until the gold corpus exists).
+  per_level_icc:
+    phase: "3.2"
+    metric: intraclass correlation (ICC) per ACF level across replicate judge ratings
+    gate:
+      min_corpus: 60          # gold corpus with archetype spread (Continuous C.1)
+      min_per_level_n: 8      # minimum rated sessions a level needs to certify
+      icc_threshold: 0.75     # registered convention (>=0.75 = good reliability)
+    outcome_variable: per-level ICC; a level is CERTIFIED iff ICC >= icc_threshold
+    expectation: C4 expected cleanest; C2 expected weakest
+    certified_effect: >
+      Only levels with ICC >= icc_threshold expose ownership as a certified output;
+      others remain present but flagged uncertified_pending_icc.
+    status: DATA_GATED
+
+  # Phase 3.3 — PROBE-GATED (registered now, runnable only after probe deploy).
+  predictive_validity:
+    phase: "3.3"
+    metric: >
+      incremental predictive validity of CSL ownership + emergence rate over a
+      quality-only baseline (nested-model comparison)
+    gate:
+      requires_probe: true    # Layer-4 retention/transfer probe must be deployed
+      min_corpus: 60
+    outcome_variable: Layer-4 solo retention/transfer score
+    decision_rule: >
+      CSL features must add incremental predictive validity over quality-only at
+      the registered effect size and significance, or the predictive claim is not
+      supported. CSL ownership/emergence are leading indicators only until then.
+    status: REGISTERED_NOT_RUNNABLE

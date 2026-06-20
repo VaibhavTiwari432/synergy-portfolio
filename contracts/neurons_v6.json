@@ -1,0 +1,965 @@
+{
+  "AL-01": {
+    "code": "AL-01",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Probabilistic Reasoning Calibration",
+    "definition": "The mental ability to distinguish a model's linguistic confidence from factual accuracy, preventing fluency from being mistaken for correctness.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "AL-02": {
+    "code": "AL-02",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Algorithmic Mechanism Grasp",
+    "definition": "The foundational understanding that AI derives answers via statistical pattern completion, not logical deduction or true world-modeling.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "AL-03": {
+    "code": "AL-03",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Context Window Awareness",
+    "definition": "The mental tracking and anticipation of memory degradation over extended interactions, enabling proactive re-anchoring of critical context.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "AL-04": {
+    "code": "AL-04",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Structural Brittleness Anticipation",
+    "definition": "The foresight to predict exactly where an AI will break nested data, complex formatting, deep conditionality, or recursive logic.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "AL-05": {
+    "code": "AL-05",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Domain-Grounding Aptitude",
+    "definition": "The instinct to establish a specific knowledge environment and custom parameters before directing AI to execute on specialized or sensitive tasks.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "AL-06": {
+    "code": "AL-06",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Stochastic Output Variance Awareness",
+    "definition": "Understanding that identical prompts can produce meaningfully different outputs across invocations, requiring probabilistic rather than deterministic expectations of AI behavior.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "AL-07": {
+    "code": "AL-07",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Capability Boundary Mapping",
+    "definition": "The active mental cartography of what a specific AI model can reliably execute versus where its performance characteristically degrades across task types and domains.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "AL-08": {
+    "code": "AL-08",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Training Data Recency Sensitivity",
+    "definition": "The awareness of a model's knowledge cutoff and the instinct to automatically flag temporally sensitive claims and time-indexed data for independent verification.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "AL-09": {
+    "code": "AL-09",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Model-Task Fit Assessment",
+    "definition": "The meta-judgment to evaluate whether a given AI model's architecture, training modality, and capability profile is genuinely appropriate for the specific task.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "AL-10": {
+    "code": "AL-10",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "AI Epistemic State Modeling",
+    "definition": "The capacity to mentally simulate what information the AI does and does not have access to within its current context window, enabling accurate prediction of its likely failure modes before output is generated.",
+    "version": "v3/v5",
+    "weight": 1.0
+  },
+  "AL-11": {
+    "code": "AL-11",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Multi-modal Situational Literacy",
+    "definition": "The calibrated understanding that AI processes images, code, audio, structured data, and natural language with fundamentally different reliability profiles and failure modes, enabling proportionally adjusted verification depth per modality.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "AL-12": {
+    "code": "AL-12",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "System Constraint Awareness",
+    "definition": "The awareness that AI operates under invisible instruction layers — system prompts, safety filters, alignment fine-tuning — that create predictable behavioral boundaries, enabling the user to distinguish constraint-imposed refusal from genuine capability failure.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "AL-13": {
+    "code": "AL-13",
+    "dimension": "AL",
+    "layer": "Foundational Interaction",
+    "name": "Prompt Injection Vulnerability Awareness",
+    "definition": "The security-oriented cognitive awareness that when AI systems process externally sourced content — web pages, emails, uploaded documents, API responses — malicious instructions embedded in that content can silently hijack the AI's subsequent behavior, enabling the user to implement appropriate sandboxing and source verification protocols.",
+    "version": "v5",
+    "weight": 1.0
+  },
+  "PR-01": {
+    "code": "PR-01",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Negative Constraint Application",
+    "definition": "The ability to explicitly define exclusion parameters — what the AI must not produce, assume, or include — to surgically eliminate unwanted output space.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "PR-02": {
+    "code": "PR-02",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Cognitive Scaffolding",
+    "definition": "Structuring a directive to force the AI into sequential, multi-step reasoning rather than collapsing to a single-shot probabilistic guess.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "PR-03": {
+    "code": "PR-03",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Contextual Density Optimization",
+    "definition": "Calibrating the precise ratio of background context against the core directive to maximize signal-to-noise without overwhelming AI generative focus.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "PR-04": {
+    "code": "PR-04",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Strategic Query Pivoting",
+    "definition": "The cognitive flexibility to entirely abandon a failed linguistic framing and reconstruct the query from a structurally different angle rather than repeating the same failed approach.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "PR-05": {
+    "code": "PR-05",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Output Topology Definition",
+    "definition": "The ability to mentally visualize and explicitly command the desired structural architecture of the final output before generation begins.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "PR-06": {
+    "code": "PR-06",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Persona Anchoring",
+    "definition": "The strategy of defining a specific expert role, knowledge frame, or epistemic posture for the AI to inhabit to modulate the character of its reasoning.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "PR-07": {
+    "code": "PR-07",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Inductive Example Provisioning",
+    "definition": "The foresight to supply 'few-shot' pattern templates that establish desired output behavior through concrete demonstration rather than abstract instruction.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "PR-08": {
+    "code": "PR-08",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Decomposition Precision",
+    "definition": "The ability to atomize complex, multi-faceted goals into minimal, non-overlapping sub-tasks before delegation, ensuring each AI invocation has a single unambiguous objective.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "PR-09": {
+    "code": "PR-09",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Constraint Hierarchy Definition",
+    "definition": "When operating under multiple competing directives, the ability to explicitly rank constraint priority so the AI resolves conflicts in a predictable, intended manner.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "PR-10": {
+    "code": "PR-10",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Ambiguity Pre-emption",
+    "definition": "The foresight to identify semantic misinterpretation points in a directive before submission and proactively resolve lexical or referential ambiguity that could derail output quality.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "PR-11": {
+    "code": "PR-11",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Verification Checkpoint Embedding",
+    "definition": "The discipline of building explicit self-audit instructions into the directive itself, directing AI to test its own output against specified criteria before concluding.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "PR-12": {
+    "code": "PR-12",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Iterative Refinement Patience",
+    "definition": "The cognitive disposition to treat prompt construction as a progressive, multi-cycle optimization process, tolerating refinement loops without premature closure.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "PR-13": {
+    "code": "PR-13",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Semantic Precision Sensitivity",
+    "definition": "The fine-grained awareness that minor lexical choices — synonyms, verb tense, quantifiers, presuppositions — can produce dramatically divergent AI outputs, driving deliberate word-level optimization beyond mere clarity.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "PR-14": {
+    "code": "PR-14",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Recursive Self-Critique Elicitation",
+    "definition": "The meta-prompting strategy of directing the AI to adversarially evaluate its own prior output, engineering an endogenous quality-control loop before human review.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "PR-15": {
+    "code": "PR-15",
+    "dimension": "PR",
+    "layer": "Foundational Interaction",
+    "name": "Parallel Task Architecture",
+    "definition": "The cognitive ability to identify, within a decomposed task set, which sub-tasks are logically independent and can be dispatched to AI simultaneously rather than sequentially, multiplying workflow throughput by explicitly exploiting parallelism.",
+    "version": "v5",
+    "weight": 1.0
+  },
+  "EC-01": {
+    "code": "EC-01",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Factual Hallucination Detection",
+    "definition": "The active cognitive vigilance to identify fabricated, confabulated, or misattributed information presented by AI with the surface texture of established fact.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "EC-02": {
+    "code": "EC-02",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Syntactical & Structural Debugging",
+    "definition": "The analytical capability to identify logic gaps, missing steps, broken dependencies, or code misalignments in AI-generated procedural or technical output.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "EC-03": {
+    "code": "EC-03",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Internal Contradiction Recognition",
+    "definition": "Catching conflicting logic, changing premises, mutually exclusive claims, or self-negating arguments within a single AI response.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "EC-04": {
+    "code": "EC-04",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Algorithmic Traceability",
+    "definition": "The mental capacity to step backward through AI-generated logic to identify the precise origin of an error within a single output.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "EC-05": {
+    "code": "EC-05",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Physical & Spatial Logic Verification",
+    "definition": "Validating AI textual descriptions of physical laws, spatial relationships, systems logic, or geometric properties against actual real-world constraints.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "EC-06": {
+    "code": "EC-06",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Isolated Verification Rigor",
+    "definition": "The disciplined habit of testing AI-generated claims, code, or logic in a conceptually isolated sandbox before integrating into live production.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "EC-07": {
+    "code": "EC-07",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Omission Detection",
+    "definition": "The active vigilance to identify content the AI silently left out of its reasoning within a single response — missing qualifications, absent steps, truncated logic. Scope: single-output reasoning completeness only. Distinct from EC-13 and EC-14.",
+    "version": "v3/v6",
+    "weight": 1.0
+  },
+  "EC-08": {
+    "code": "EC-08",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Statistical Plausibility Assessment",
+    "definition": "The rapid mental heuristic to evaluate whether numerical claims, statistics, and quantitative outputs pass an order-of-magnitude sanity check before acceptance.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "EC-09": {
+    "code": "EC-09",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Temporal Coherence Validation",
+    "definition": "Verifying that AI-generated sequences, timelines, causal chains, and chronological narratives maintain logically consistent temporal ordering and directional causality.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "EC-10": {
+    "code": "EC-10",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Scope Boundary Enforcement",
+    "definition": "The vigilance to detect when AI output has silently expanded beyond explicitly defined task parameters, adding unrequested scope that introduces unreviewed risk.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "EC-11": {
+    "code": "EC-11",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Confidence-Accuracy Decoupling",
+    "definition": "The disciplined resistance to treating assertive, fluent AI output as implicitly more accurate — maintaining uniform critical scrutiny regardless of surface-level linguistic confidence.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "EC-12": {
+    "code": "EC-12",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Error Propagation Tracing",
+    "definition": "The ability to recognize that an error seeded in an early AI-generated step has cascaded through downstream outputs that appear locally consistent but are systemically compromised.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "EC-13": {
+    "code": "EC-13",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Edge Case Coverage Audit",
+    "definition": "The systematic enumeration of boundary conditions, exceptional inputs, and minority scenarios that AI's statistically-anchored defaults may have silently excluded from its solution space.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "EC-14": {
+    "code": "EC-14",
+    "dimension": "EC",
+    "layer": "Critical Evaluation",
+    "name": "Hidden Assumption Excavation",
+    "definition": "The disciplined cognitive habit of actively surfacing and challenging the invisible load-bearing premises that an AI's reasoning chain depends on but never explicitly states — recognizing that AI outputs routinely inherit unstated axioms from training data as if they were self-evident, when they may be domain-specific, culturally contingent, or simply incorrect.",
+    "version": "v5",
+    "weight": 1.0
+  },
+  "ES-01": {
+    "code": "ES-01",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Privacy & Anonymization Foresight",
+    "definition": "The instinctual habit of mentally filtering and stripping PII and confidential organizational information before it enters an AI interaction.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "ES-02": {
+    "code": "ES-02",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Demographic & Cultural Bias Detection",
+    "definition": "Identifying skewed assumptions, statistical stereotyping, or cultural blindness embedded in AI reasoning or generated content.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "ES-03": {
+    "code": "ES-03",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Regulatory Compliance Adherence",
+    "definition": "Evaluating AI outputs strictly against external legal, safety, professional, or enterprise governance frameworks.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "ES-04": {
+    "code": "ES-04",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Epistemic Vigilance",
+    "definition": "The principled refusal to accept AI as a primary authority, coupled with the reflexive habit of cross-referencing AI claims against true primary sources.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "ES-05": {
+    "code": "ES-05",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Intellectual Property Sensitivity",
+    "definition": "Recognizing when AI output is likely reproducing, paraphrasing, or structurally deriving copyrighted material or proprietary intellectual work without appropriate transformation.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "ES-06": {
+    "code": "ES-06",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Dual-Use Risk Assessment",
+    "definition": "Evaluating whether a legitimate AI output could be readily weaponized or cause unintended harm when deployed in a different context or by a different actor.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "ES-07": {
+    "code": "ES-07",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Psychological Manipulation Detection",
+    "definition": "Identifying when AI-generated persuasive content has crossed from legitimate influence into rhetorical manipulation exploiting cognitive biases or emotional vulnerabilities.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "ES-08": {
+    "code": "ES-08",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "AI Disclosure Judgment",
+    "definition": "The professional instinct to know when transparency about AI's role in producing a work is legally required, organizationally mandated, or morally necessary — and to act accordingly without external prompting.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "ES-09": {
+    "code": "ES-09",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Value-Outcome Alignment Verification",
+    "definition": "Confirming that AI recommendations are congruent with the human's and organization's actual values and long-term goals, not merely compliant with stated task constraints.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "ES-10": {
+    "code": "ES-10",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Autonomy-Preservation Vigilance",
+    "definition": "The active awareness that habitual deference to AI judgment erodes independent human decision-making capacity, and the counter-reflex to exercise independent judgment on consequential decisions.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "ES-11": {
+    "code": "ES-11",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Accountability Attribution Clarity",
+    "definition": "The ethical discipline of explicitly assigning professional, legal, and moral responsibility for an AI-assisted output to a specific human agent before deployment — preventing accountability diffusion.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "ES-12": {
+    "code": "ES-12",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Systemic Scale Impact Reasoning",
+    "definition": "The capacity to reason beyond the single-use context and evaluate second and third-order societal consequences when the same AI-generated output pattern is deployed at population scale.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "ES-13": {
+    "code": "ES-13",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Data Provenance Interrogation",
+    "definition": "Critically examining the likely character, composition, and embedded biases of the training data that generated a given AI output, particularly in minority-represented or non-Western domains.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "ES-14": {
+    "code": "ES-14",
+    "dimension": "ES",
+    "layer": "Critical Evaluation",
+    "name": "Consent & Agency Stewardship",
+    "definition": "The ethical discipline of verifying that AI-generated outputs representing, characterizing, or directly affecting other human beings genuinely preserve those individuals' consent, autonomy, dignity, and material interests — including in automated contexts where affected parties will never review the output before it acts on them.",
+    "version": "v5",
+    "weight": 1.0
+  },
+  "CS-01": {
+    "code": "CS-01",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Semantic Blending",
+    "definition": "Smoothing transitions between human-authored and AI-generated blocks, eliminating tonal discontinuity and disjointedness in the final artifact.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CS-02": {
+    "code": "CS-02",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Dependency Preservation",
+    "definition": "Integrating AI output without breaking existing logical dependencies, narrative threads, data pipelines, or structural hierarchies.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CS-03": {
+    "code": "CS-03",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Information Density Pruning",
+    "definition": "Stripping verbose, repetitive AI filler to extract only high-signal insights and discard low-value elaboration.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CS-04": {
+    "code": "CS-04",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Authorial Tone Alignment",
+    "definition": "Editing AI vocabulary, syntax, cadence, and rhetorical patterns to match a specific, pre-established human or organizational voice.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CS-05": {
+    "code": "CS-05",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Cross-Domain Translation",
+    "definition": "Taking highly technical AI output and accurately restructuring it for a non-specialist audience without loss of accuracy.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CS-06": {
+    "code": "CS-06",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Inferential Gap Bridging",
+    "definition": "Identifying and explicitly completing logical or contextual gaps that the AI left implicit but which a human reader requires made explicit for coherent comprehension.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CS-07": {
+    "code": "CS-07",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Salience Hierarchy Reconstruction",
+    "definition": "Re-ranking AI-generated information by actual domain relevance and impact rather than accepting AI's default statistical co-occurrence ordering.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CS-08": {
+    "code": "CS-08",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Multi-Source Coherence Integration",
+    "definition": "Maintaining logical consistency and narrative coherence when synthesizing outputs from multiple AI calls, sessions, or tool modalities.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CS-09": {
+    "code": "CS-09",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Attribution Tracking",
+    "definition": "Bookkeeping which specific conceptual contributions, claims, and structural decisions originated from human reasoning versus AI generation within a synthesized artifact.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CS-10": {
+    "code": "CS-10",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Register Modulation",
+    "definition": "Calibrating the formality, technicality, cultural register, and assumed shared knowledge of AI-generated content for the specific deployment audience and relational context.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CS-11": {
+    "code": "CS-11",
+    "dimension": "CS",
+    "layer": "Integrative Synthesis",
+    "name": "Uncertainty Transparency Calibration",
+    "definition": "Restoring appropriate epistemic hedges and conditionality to AI-generated claims in the final synthesized artifact, counteracting AI's characteristically over-assertive language that strips probabilistic hedging from genuinely provisional information.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "CD-01": {
+    "code": "CD-01",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Statistical Homogenization Resistance",
+    "definition": "Consciously rejecting the AI's most statistically probable, averaged, and safe response — the active preference for the genuinely interesting over the statistically expected.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CD-02": {
+    "code": "CD-02",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Lateral Concept Injection",
+    "definition": "Introducing metaphors, cultural frameworks, emotional nuances, and references that exist outside the AI's training distribution, forcing genuine creative novelty.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CD-03": {
+    "code": "CD-03",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Counter-Factual Probing",
+    "definition": "Using hypothetical inversions and 'what if' scenarios to actively challenge, stress-test, and expand the AI's initial creative hypothesis.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CD-04": {
+    "code": "CD-04",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Stylistic Idiosyncrasy Retention",
+    "definition": "Defending unique human formatting choices, unconventional pacing, personal humor, and edge-case perspectives against AI's normalizing tendency.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CD-05": {
+    "code": "CD-05",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Aesthetic Discernment",
+    "definition": "Evaluating AI creative output against an internalized human standard of taste, quality, resonance, and intended emotional impact on the target audience.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CD-06": {
+    "code": "CD-06",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Constraint-Transcendence Instinct",
+    "definition": "Recognizing when deliberately violating a stated constraint — breaking a rule by intent — would yield a qualitatively superior creative outcome than strict compliance.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CD-07": {
+    "code": "CD-07",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Narrative Tension Injection",
+    "definition": "Deliberately introducing productive conflict, ambiguity, stakes, or irresolution that AI tends to prematurely smooth into safe, harmonious, consensus-seeking resolutions.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CD-08": {
+    "code": "CD-08",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Analogical Novelty Generation",
+    "definition": "Producing genuinely novel analogical mappings and cross-domain metaphors that fall outside the statistical co-occurrence patterns of AI training data.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CD-09": {
+    "code": "CD-09",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Surprise Preservation",
+    "definition": "Protecting counterintuitive, unexpected, or structurally unconventional creative elements from AI's normalizing tendency to sand them into statistically expected forms.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CD-10": {
+    "code": "CD-10",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Embodied Experience Injection",
+    "definition": "Infusing creative or analytical work with authentic sensory, physical, kinesthetic, and visceral experience constitutionally unavailable to AI due to its lack of embodied reality — producing outputs with a quality of felt truth that cannot be statistically generated.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "CD-11": {
+    "code": "CD-11",
+    "dimension": "CD",
+    "layer": "Integrative Synthesis",
+    "name": "Audience Empathy Modeling",
+    "definition": "Constructing and maintaining a rich, specific mental model of the target audience's emotional state, cognitive load, prior knowledge, and unstated needs, producing work genuinely calibrated to a real human rather than a statistical average.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "AUI-01": {
+    "code": "AUI-01",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Cognitive Friction Recognition",
+    "definition": "Identifying the precise moment a task's complexity, volume, or cognitive demand exceeds the threshold of optimal manual effort, triggering AI delegation.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "AUI-02": {
+    "code": "AUI-02",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Task-Type Delegation Judgment",
+    "definition": "Strategically routing rote, high-volume, or pattern-based work to AI while intentionally reserving high-nuance, high-stakes, or ethically consequential work for human cognition.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "AUI-03": {
+    "code": "AUI-03",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Modality Appropriateness",
+    "definition": "Matching the correct type of AI system — generative, analytical, visual, logical, retrieval-based — to the specific structural requirements of the problem.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "AUI-04": {
+    "code": "AUI-04",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Interaction ROI Intuition",
+    "definition": "Recognizing the tipping point where executing a task through direct human effort becomes more efficient than the compounding cognitive cost of debugging a failing prompt chain.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "AUI-05": {
+    "code": "AUI-05",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Working Memory Offloading",
+    "definition": "The intentional use of AI as an external cognitive scratchpad to externalize intermediate states, freeing human executive function for higher-order strategic reasoning.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "AUI-06": {
+    "code": "AUI-06",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Cognitive Load Self-Monitoring",
+    "definition": "Real-time metacognitive awareness of one's own mental saturation level, enabling strategic offloading to AI at the precise moment of productive overload before performance degrades.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "AUI-07": {
+    "code": "AUI-07",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Prompt Investment Calibration",
+    "definition": "The precise real-time judgment of how much cognitive effort to invest in prompt crafting and refinement versus the expected return in output quality improvement.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "AUI-08": {
+    "code": "AUI-08",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Dependency Risk Awareness",
+    "definition": "The forward-looking recognition that sustained AI delegation for specific task types creates progressive skill atrophy and cognitive fragility in one's own capability profile.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "AUI-09": {
+    "code": "AUI-09",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Handoff Timing Precision",
+    "definition": "The executive judgment of exactly when to reclaim agentic control from an AI mid-task — before unchecked autonomous completion introduces irreversible errors or goal drift.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "AUI-10": {
+    "code": "AUI-10",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Skill-Gap Self-Awareness",
+    "definition": "The metacognitive inventory of one's own knowledge gaps and competency limits, enabling AI to supplement genuine expertise rather than silently substitute for absent foundational understanding.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "AUI-11": {
+    "code": "AUI-11",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Verification Effort Calibration",
+    "definition": "The strategic meta-judgment of how intensively to scrutinize different categories of AI output — allocating deep review to high-stakes material and proportionally lighter review to routine material, optimizing the total verification budget.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "AUI-12": {
+    "code": "AUI-12",
+    "dimension": "AUI",
+    "layer": "Executive Control",
+    "name": "Agentic Permission Scoping",
+    "definition": "The cognitive discipline of explicitly defining minimum necessary authority, resource access, action permissions, and reversibility constraints before delegating tasks to autonomous AI agents.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "CA-01": {
+    "code": "CA-01",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Sovereign Override Capacity",
+    "definition": "The psychological dominance and volitional willingness to reject AI authority, overrule its outputs, and rewrite its core assumptions when they conflict with human judgment.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CA-02": {
+    "code": "CA-02",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Cognitive Momentum Maintenance",
+    "definition": "The ability to sustain parallel productive human thinking without becoming cognitively idle during AI generation wait states.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CA-03": {
+    "code": "CA-03",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Contextual Compartmentalization",
+    "definition": "The mental discipline to isolate different problems, projects, or objectives into separate cognitive frames, preventing AI context cross-contamination across unrelated tasks.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CA-04": {
+    "code": "CA-04",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Interactional Resilience",
+    "definition": "The strategic agility to rapidly diagnose, restructure, and recover a workflow when AI has hallucinated, lost context, or fundamentally undermined the interaction.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CA-05": {
+    "code": "CA-05",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Terminal Feedback Provisioning",
+    "definition": "The proactive habit of closing the feedback loop by feeding error logs, outcome data, corrections, and behavioral observations back into the current session to progressively align AI performance.",
+    "version": "v1",
+    "weight": 1.0
+  },
+  "CA-06": {
+    "code": "CA-06",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Adaptive Trust Calibration",
+    "definition": "The dynamic, evidence-based adjustment of deference extended to AI outputs based on real-time performance signals — preventing both chronic over-trust and paralyzing under-trust.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CA-07": {
+    "code": "CA-07",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Goal Integrity Maintenance",
+    "definition": "The psychological stamina to maintain strict fidelity to the original human intent across extended multi-turn interactions, actively resisting the gradual goal drift induced by AI's reframing, simplifying, and normalizing tendencies.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CA-08": {
+    "code": "CA-08",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Metacognitive Self-Monitoring",
+    "definition": "The continuous real-time awareness of one's own cognitive state, emerging biases, attentional drift, and judgment quality during deep AI collaboration, enabling self-correction before cognitive degradation propagates into output.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CA-09": {
+    "code": "CA-09",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Process Auditability Discipline",
+    "definition": "The habit of maintaining a sufficiently detailed workflow record to support retrospective audit, intellectual attribution, third-party explanation, and legal defensibility.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CA-10": {
+    "code": "CA-10",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Selective Attention Governance",
+    "definition": "The inhibitory cognitive capacity to actively resist AI-generated scope expansions, tangential elaborations, and irrelevant content, maintaining deliberate anchor on the core objective throughout the interaction.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CA-11": {
+    "code": "CA-11",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Affective Regulation Under Failure",
+    "definition": "The emotional management skill to prevent frustration, helplessness, or impatience from degrading strategic decision quality and prompt rationality when AI repeatedly fails, misinterprets, or hallucinates.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CA-12": {
+    "code": "CA-12",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Cross-Session Transfer Learning",
+    "definition": "The human capacity to extract generalizable strategic insights, workflow heuristics, and failure patterns from past AI interactions and apply them as durable principles to novel future tasks and tools.",
+    "version": "v3",
+    "weight": 1.0
+  },
+  "CA-13": {
+    "code": "CA-13",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Identity Authorship Preservation",
+    "definition": "The psychological stability to maintain a clear, continuous, and defensible sense of one's intellectual contribution, creative voice, professional identity, and epistemic ownership throughout deep AI collaboration — resisting the gradual authorial diffusion of uncritical high-volume AI integration.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "CA-14": {
+    "code": "CA-14",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Intra-Session Pattern Recognition",
+    "definition": "The real-time metacognitive skill of detecting recurring failure patterns, systematic biases, and capability limitations in the AI's current-session responses, enabling proactive strategy adjustment before errors compound.",
+    "version": "v4",
+    "weight": 1.0
+  },
+  "CA-15": {
+    "code": "CA-15",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "AI Sycophancy Resistance",
+    "definition": "The active epistemic discipline of recognizing that AI systems are structurally trained to affirm, validate, and agree with the user's stated views and decisions — making AI agreement categorically unreliable as independent confirmation — and therefore proactively soliciting adversarial challenge and disconfirming evidence even when the AI has already validated one's position.",
+    "version": "v5",
+    "weight": 1.0
+  },
+  "CA-16": {
+    "code": "CA-16",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Pre-Generation Epistemic Independence",
+    "definition": "The cognitive discipline of deliberately forming one's own hypothesis, judgment, or prediction before reading AI output — preserving an independent cognitive baseline that prevents AI-generated content from anchoring and displacing human independent thought before it has a chance to form.",
+    "version": "v5",
+    "weight": 1.0
+  },
+  "CA-17": {
+    "code": "CA-17",
+    "dimension": "CA",
+    "layer": "Executive Control",
+    "name": "Vigilance Sustainment",
+    "definition": "The disciplined maintenance of consistently rigorous critical scrutiny across extended AI collaboration sessions — actively counteracting the natural temporal degradation of evaluation quality caused by habituation, fatigue, and performance-based complacency — ensuring that outputs produced late in a long session receive the same depth of scrutiny as those produced at the beginning.",
+    "version": "v6",
+    "weight": 1.0
+  }
+}

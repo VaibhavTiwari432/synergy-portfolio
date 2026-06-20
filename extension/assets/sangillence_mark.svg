@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" role="img" aria-label="Sangillence">
+  <!--
+    CE-PROVIDED PLACEHOLDER MARK (§11 — CE owns the asset; Codex references only).
+    Abstract synergy mark: two interlocking arcs (human + AI) around a shared node.
+    Monochrome white so it renders correctly via <img> on every current dark
+    surface (FAB, dark sidebar, drawer empty-state). Swap with the official
+    Sangillence asset at THIS SAME PATH/filename — no code change needed. A dark
+    variant is only required if a light-sidebar theme is ever added (§2.4).
+  -->
+  <path d="M15.5 4.2a8 8 0 0 0-9.3 12.4 4.4 4.4 0 0 1 6.1-6.1 4.4 4.4 0 0 0 3.2-6.3Z" fill="#FFFFFF"/>
+  <path d="M8.5 19.8a8 8 0 0 0 9.3-12.4 4.4 4.4 0 0 1-6.1 6.1 4.4 4.4 0 0 0-3.2 6.3Z" fill="#FFFFFF" fill-opacity="0.78"/>
+  <circle cx="12" cy="12" r="1.9" fill="#FFFFFF"/>
+</svg>

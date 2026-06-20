@@ -1,0 +1,139 @@
+const PROJECTS_READY_MESSAGE = 'SAF_PROJECTS_API_READY';
+
+export function initSidebar(shadowRoot) {
+  const navItems = Array.from(shadowRoot.querySelectorAll('.saf-nav-item[data-view]'));
+  const panels = Array.from(shadowRoot.querySelectorAll('[data-view-panel]'));
+  const projectsNav = shadowRoot.querySelector('.saf-nav-item[data-view="projects"]');
+  let disposed = false;
+  let chatsCleanup = null;
+  let detailCleanup = null;
+  let portfolioCleanup = null;
+  let projectsCleanup = null;
+  let settingsCleanup = null;
+  let profileCleanup = null;
+
+  function panelFor(view) {
+    return panels.find((panel) => panel.dataset.viewPanel === view);
+  }
+
+  function unlockProjectsNav() {
+    if (!projectsNav) return;
+    projectsNav.classList.remove('is-disabled');
+    projectsNav.removeAttribute('aria-disabled');
+    projectsNav.removeAttribute('title');
+  }
+
+  function setActiveView(view) {
+    const targetPanel = panelFor(view);
+    const targetNav = navItems.find((item) => item.dataset.view === view);
+    if (!targetPanel || !targetNav || targetNav.getAttribute('aria-disabled') === 'true') return;
+
+    navItems.forEach((item) => {
+      const isActive = item === targetNav;
+      item.classList.toggle('is-active', isActive);
+      if (isActive) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    });
+
+    panels.forEach((panel) => {
+      const isActive = panel === targetPanel;
+      panel.hidden = !isActive;
+      panel.classList.toggle('is-active', isActive);
+    });
+  }
+
+  function handleSidebarClick(event) {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const navItem = target.closest('.saf-nav-item[data-view]');
+    if (!navItem || !shadowRoot.contains(navItem)) return;
+    if (navItem.getAttribute('aria-disabled') === 'true') return;
+
+    setActiveView(navItem.dataset.view);
+  }
+
+  function handleRuntimeMessage(message) {
+    if (message?.type !== PROJECTS_READY_MESSAGE) return;
+    if (projectsCleanup) {
+      unlockProjectsNav();
+      return;
+    }
+    // SAF_PROJECTS_API_READY means the API is live — NOT that the S8/S9 projects
+    // view exists. Unlocking on the signal alone would expose a nav item whose
+    // view file may be absent (broken target). Gate the unlock on projects.js
+    // importing successfully; on failure keep the nav disabled and log. (CE-
+    // directed fix — see DISCREPANCY D-025.)
+    import(chrome.runtime.getURL('panel/views/projects.js'))
+      .then((mod) => {
+        if (disposed) return;
+        if (typeof mod.initProjectsView === 'function') {
+          projectsCleanup = mod.initProjectsView(shadowRoot);
+        }
+        unlockProjectsNav();
+      })
+      .catch((error) => {
+        console.error('[SAF] projects view unavailable — keeping nav disabled', error);
+      });
+  }
+
+  shadowRoot.addEventListener('click', handleSidebarClick);
+  chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+
+  import(chrome.runtime.getURL('panel/views/chats.js'))
+    .then(({ initChatsView }) => {
+      if (disposed) return;
+      chatsCleanup = initChatsView(shadowRoot);
+    })
+    .catch((error) => {
+      console.error('[SAF] failed to initialise chats view', error);
+    });
+
+  import(chrome.runtime.getURL('panel/views/detail.js'))
+    .then(({ initDetailView }) => {
+      if (disposed) return;
+      detailCleanup = initDetailView(shadowRoot);
+    })
+    .catch((error) => {
+      console.error('[SAF] failed to initialise detail view', error);
+    });
+
+  import(chrome.runtime.getURL('panel/views/portfolio.js'))
+    .then(({ initPortfolioView }) => {
+      if (disposed) return;
+      portfolioCleanup = initPortfolioView(shadowRoot);
+    })
+    .catch((error) => {
+      console.error('[SAF] failed to initialise portfolio view', error);
+    });
+
+  import(chrome.runtime.getURL('panel/views/settings.js'))
+    .then(({ initSettingsView }) => {
+      if (disposed) return;
+      settingsCleanup = initSettingsView(shadowRoot);
+    })
+    .catch((error) => {
+      console.error('[SAF] failed to initialise settings view', error);
+    });
+
+  import(chrome.runtime.getURL('panel/views/profile.js'))
+    .then(({ initProfileView }) => {
+      if (disposed) return;
+      profileCleanup = initProfileView(shadowRoot);
+    })
+    .catch((error) => {
+      console.error('[SAF] failed to initialise profile view', error);
+    });
+
+  return () => {
+    disposed = true;
+    chatsCleanup?.();
+    detailCleanup?.();
+    portfolioCleanup?.();
+    projectsCleanup?.();
+    settingsCleanup?.();
+    profileCleanup?.();
+    shadowRoot.removeEventListener('click', handleSidebarClick);
+    chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
+  };
+}

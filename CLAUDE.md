@@ -1,159 +1,63 @@
-# Synergy Portfolio Analyzer — CLAUDE.md
+# CLAUDE.md - Current v3/v3.1 Addendum Pointer
 
-This file is read by Claude Code at the start of every session. Treat it as authoritative.
+**Read this first:** the current v3/v3.1 addendum is appended at the end of this
+file. It supersedes historical rules only where it is more specific about the
+current update, data-gating, disclosure gates, and no-pilot-fitting constraints.
 
-## What this project is
+---
 
-A browser-extension-based system that observes a user's chats with ChatGPT or Claude.ai and silently scores their AI-collaboration quality across 8 dimensions (AL, PR, AUI, EC, CS, CD, ES, CA). Scores accumulate into a per-user portfolio with archetype classification and targeted drills.
+# CLAUDE.md — Non-negotiables (AGENT_REBUILD_BRIEF_v3.md §8, verbatim; all agents bound)
 
-Phase II of the broader **Sangillence Insight System (SIS)**. Phase I was the SOBO'25 cognitive test (already shipped). This is the live-chat synergy layer.
+1. **Ontology freeze:** exactly 107 neurons, 8 dims, 4 pillars. Fields may be added to the contract table; items may not.
+2. **No score multipliers for state.** State → evidence precision (CI width) only. (R2)
+3. **Never claim "true synergy" from transcripts** (Tier 1–2). (R3)
+4. **"synergy" never appears in Tier-1 user-facing output.**
+5. **"surrender" never appears in regime-overlay output** (CSPC construct only).
+6. **No leaderboards / population ranking / bare composite without CI + rung.**
+7. **No raw "Cognitive Debt Score"** — measured quantities + inference language only.
+8. **CSPC is sole owner of latent state.** Overlay is rules only; no second latent model.
+9. **Full HGF deferred.** ProxyEstimator behind the StateEstimator interface.
+10. **Self-ratings never used raw** — Dawid–Skene corrected only. (Scope B concern; rule stands.)
+11. **Latency thresholds personal + relative** (~1.5 SD vs rolling baseline). Never absolute.
+12. **Absent ≠ zero.** N/A or INSUFFICIENT_SAMPLE.
+13. **Ecology and laboratory data pools never merge.**
+14. **Every emitted claim carries exactly one rung;** nothing presented above it.
+15. **Minor protection:** no bare composite / peer rank / debt score to `is_minor: true`.
+16. **Data dignity:** minimization; deletion propagates to derived features.
+17. **Rejected ideas stay rejected:** Cognitive Primitive Layer, two-pass EC, multipliers, transcript true-synergy, second latent model → read `legacy/adr_v1/` + spec §14, write an ADR, stop for approval.
+18. **MAE ratchet ≤ 0.2994** is a release gate.
+19. **EC is a data problem.** Do not prompt-tune past v1.3's lesson; the fix is 40+ high-band gold chats.
+20. **Judge family ≠ partner family.** Gemini judge for Claude/ChatGPT partners; if a Gemini-partner chat is scored, flag it (see ADR-0002 / gc-003 caveat). Never an Anthropic model as judge.
+21. **(Team) Never edit a file you don't own; never silently work around a blocker** — `DISCREPANCY.md` or nothing.
+# CLAUDE.md - v3/v3.1 Addendum For Current Framework
 
-## The spec is the source of truth
+These rules are current as of 2026-06-18 and supersede the historical
+non-negotiables above where they are more specific.
 
-**Read `SYNERGY_PORTFOLIO_SPEC.md` at the start of every session.** It contains:
+1. **v3/v3.1 is an update, not a rebuild.** Preserve the working API, DB,
+   worker, extension, calibration gates, and file ownership unless a current
+   task explicitly changes them.
+2. **No pilot fitting.** Do not fit models, recompute cuts, run causal
+   discovery, or make validation claims from the 26 gold chats; they are a
+   pilot/regression set.
+3. **Data-gated means stubbed.** CDM, G-DINA, causal estimation, KT
+   sustainability, disclosure-effects analysis, drift/invariance analysis, and
+   longitudinal stability claims raise clear data-gated errors until the
+   required corpus exists.
+4. **Predictive-validity gate is load-bearing.** No config may disable it or
+   down-weight its margin. Attempts must raise:
+   `the predictive-validity gate is load-bearing and not configurable (spec 14.1)`.
+5. **Brier calibration is a field, not a replacement.** It feeds
+   CA-08/calibration gap alongside slope and returns N/A/None when no realized
+   in-session outcome exists.
+6. **Relational-AI signatures are evidence fields only.** They may map to
+   existing CA neurons after review; task-irrelevant disclosure remains an
+   unscored observation unless a human approves a clean mapping.
+7. **Negative sustainability disclosure is gated.** Minors and low-validation
+   tiers are formative-only; distress routes to support; bare negative verdicts
+   are unreachable.
+8. **Relevance is not scope.** Adjacent sciences can ground or consume SAF
+   outputs, but they do not add SAF neurons, dimensions, pillars, latent
+   variables, or live claims.
 
-- All 8 dimensional definitions and rubric anchors (§4)
-- Canonical TypeScript schemas for TaskFrame, JudgeOutput, Portfolio, RubricAnchor (§3)
-- Architecture diagram (§5)
-- Judge prompt template (§6)
-- API contracts (§7)
-- Sequential build plan with exit criteria per phase (§10)
-
-If you can't find an answer in the spec, **do not invent one** — surface it to the human and ask.
-
-## Decision protocol
-
-The spec uses three markers. Honor them strictly:
-
-- `LOCKED:` — final decision. Do not propose changing it without explicit human instruction.
-- `OPEN:` — pending human decision. Do not invent an answer. Halt and ask.
-- `EVIDENCE:` — real-world anchor. Keep it visible in implementation so we can audit later.
-
-If you find yourself about to guess on an `OPEN:` item, stop and ask in chat instead.
-
-## Build phases — current status
-
-We are currently in **Phase 0: Calibration Foundation**. The next deliverables, in order:
-
-1. `rubric_v0.1.json` — versioned JSON file derived from spec §4 (all 24 anchors: 8 dims × 3 bands)
-2. 20 hand-scored chat transcripts (`gold_standard/*.json`) — human work, not code
-3. `packages/schemas` — TypeScript types from spec §3 with Zod runtime validators
-4. `gold_standard_loader.ts` — utility to load gold chats
-
-**Do not proceed to Phase 1 (judge service) before Phase 0 deliverables exist.** Even if it seems faster to start coding the judge first, calibration without a gold standard is unverifiable.
-
-## Tech stack (locked unless human reverses)
-
-- **Language:** TypeScript everywhere (backend, extension, scripts)
-- **Runtime:** Node.js 20 LTS or newer
-- **Package manager:** pnpm (workspaces for monorepo)
-- **Validation:** Zod for all schemas — every JSON I/O must be validated, never raw-trusted
-- **Database:** PostgreSQL 16+ (use Supabase for hosted, Docker for local dev)
-- **Queue:** BullMQ on Redis for chunk processing
-- **API framework:** Hono (lightweight, runs on Node and edge) — or Express if Hono unfamiliar
-- **LLM SDK:** `@anthropic-ai/sdk` for Claude judge calls; `openai` package if we test GPT judge
-- **Extension:** Chrome Manifest V3, React + Vite for sidebar UI
-- **Testing:** Vitest for unit, Playwright for extension E2E
-
-## Repo layout (target — build incrementally)
-
-```
-synergy-portfolio/
-├── CLAUDE.md                           # this file
-├── SYNERGY_PORTFOLIO_SPEC.md           # canonical spec
-├── .claudeignore
-├── pnpm-workspace.yaml
-├── package.json
-├── apps/
-│   ├── api/                            # Hono API server
-│   ├── judge/                          # judge service worker
-│   └── extension/                      # Chrome extension
-├── packages/
-│   ├── schemas/                        # Zod schemas — single source of types
-│   ├── rubric/                         # versioned rubric JSON + loader
-│   └── shared/                         # shared utils
-├── gold_standard/                      # hand-scored chats (not code, but versioned)
-│   ├── README.md
-│   └── chats/
-├── calibration/                        # scripts to run judge against gold standard
-│   └── reports/
-└── docs/
-    └── decisions/                      # ADRs for every LOCKED decision
-```
-
-## Coding conventions
-
-- **No `any` types.** If you need to type something you don't know, use `unknown` and narrow it.
-- **No console.log in production paths.** Use a real logger (pino).
-- **No top-level await in library code.** Only in scripts.
-- **Validate at boundaries.** Every API input, every LLM output, every DB row coming back gets Zod-validated.
-- **One function, one job.** If a function name needs "And" in it, split it.
-- **Tests live next to source:** `judge.ts` ↔ `judge.test.ts`.
-
-## What NOT to do
-
-- **Don't add features not in the spec.** If a feature seems useful but isn't in `SYNERGY_PORTFOLIO_SPEC.md`, propose it in chat and wait for explicit approval before building.
-- **Don't fabricate calibration numbers.** When the spec mentions thresholds (e.g. MAE ≤ 1.5, IRR ≥ 0.6), those are targets, not claims. Don't write code that "demonstrates" hitting them without running real evaluation.
-- **Don't call paid LLM APIs without explicit human approval per session.** The first time per session, ask: "this will call the Anthropic API and cost approx ~$X — proceed?" Cache aggressively.
-- **Don't pretend to know what's in the spec without re-reading it.** If a session is long, re-read the relevant section before making decisions about it.
-- **When proposing a schema change, always quote the existing definition verbatim first.** "I think the current schema is X" is not acceptable — open the file and quote it. Paraphrase-by-default is how hallucinated definitions slip through.
-- **When the human describes spec content from memory, do not assume their memory is accurate.** Quote the file and compare. If they disagree, flag it and ask which is correct before proceeding. This applies symmetrically — the spec author can misremember their own spec.
-- **Don't write the Chrome extension scraper before Phase 2 is complete.** Backend first, extension last — order matters because the backend's contract must stabilize before the scraper depends on it.
-
-## Communication style
-
-- Be honest about uncertainty. "I'm not sure whether to use X or Y because the spec doesn't say" is better than guessing.
-- When you complete a task, summarize what changed and what's untested.
-- When you hit something ambiguous, ask one focused question, not a list of five.
-- Prefer plain prose over status emoji. This is a real-world project, not a demo.
-
-## How to start a fresh session
-
-When the human says "continue from where we left off," do this:
-
-1. Read this file.
-2. Read `SYNERGY_PORTFOLIO_SPEC.md` (full, not just sections).
-3. Check `docs/decisions/` for any ADRs added since last session.
-4. Run `git log --oneline -20` to see what's been done.
-5. Then summarize: "Last commit was X. Spec says next deliverable is Y. Should I start there?"
-
-Do not start coding until the human confirms.
-
-<!-- code-review-graph MCP tools -->
-## MCP Tools: code-review-graph
-
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
-
-### When to use graph tools FIRST
-
-- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
-- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
-- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
-- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview` + `list_communities`
-
-Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
-
-### Key Tools
-
-| Tool | Use when |
-| ------ | ---------- |
-| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context` | Need source snippets for review — token-efficient |
-| `get_impact_radius` | Understanding blast radius of a change |
-| `get_affected_flows` | Finding which execution paths are impacted |
-| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes` | Finding functions/classes by name or keyword |
-| `get_architecture_overview` | Understanding high-level codebase structure |
-| `refactor_tool` | Planning renames, finding dead code |
-
-### Workflow
-
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes` for code review.
-3. Use `get_affected_flows` to understand impact.
-4. Use `query_graph` pattern="tests_for" to check coverage.
+---

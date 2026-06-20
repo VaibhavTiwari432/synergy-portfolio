@@ -1,0 +1,209 @@
+version: v0.1-review
+status: freeze_candidate
+source_contract: contracts/contract_table.yaml
+notes:
+  - Human-side CSL evidence is re-projected from the existing NeuronMatrix.
+  - This artifact maps ARI neurons to ACF work levels; it does not define a new extraction.
+  - All contract neurons must be mapped or explicitly excluded before Phase 2.
+
+acf_levels:
+  C1:
+    label: Knowledge Sourcing
+    foundation_signal: source selection, provenance, model/tool fit, and admissible-knowledge boundaries
+    neurons:
+      - AL-05
+      - AL-08
+      - AL-09
+      - AL-10
+      - AL-13
+      - PR-06
+      - ES-04
+      - ES-13
+      - CS-09
+      - AUI-03
+
+  C2:
+    label: Sense-Making
+    foundation_signal: causal interpretation, mechanism grasp, contradiction recognition, and gap completion
+    neurons:
+      - AL-01
+      - AL-02
+      - AL-03
+      - AL-04
+      - AL-06
+      - AL-07
+      - AL-10
+      - AL-11
+      - AL-12
+      - PR-10
+      - PR-13
+      - EC-02
+      - EC-03
+      - EC-04
+      - EC-05
+      - EC-07
+      - EC-09
+      - EC-14
+      - CS-06
+      - CS-11
+
+  C3:
+    label: Direction and Checking
+    foundation_signal: verification, correction, constraint enforcement, and deployment safeguards
+    neurons:
+      - AL-08
+      - AL-13
+      - PR-09
+      - PR-11
+      - PR-14
+      - EC-01
+      - EC-02
+      - EC-06
+      - EC-07
+      - EC-09
+      - EC-10
+      - EC-11
+      - EC-12
+      - EC-13
+      - ES-01
+      - ES-02
+      - ES-03
+      - ES-04
+      - ES-05
+      - ES-06
+      - ES-08
+      - ES-11
+      - ES-14
+      - CS-09
+      - AUI-11
+      - CA-05
+      - CA-09
+
+  C4:
+    label: Problem Framing
+    foundation_signal: decomposition, ambiguity control, exogenous constraints, and frame changes
+    neurons:
+      - AL-05
+      - PR-01
+      - PR-02
+      - PR-03
+      - PR-04
+      - PR-06
+      - PR-08
+      - PR-09
+      - PR-10
+      - PR-12
+      - CS-02
+      - CS-05
+      - CS-06
+      - CS-07
+      - CS-08
+      - CD-02
+      - CD-03
+      - CD-10
+      - CD-11
+      - CA-03
+      - CA-07
+      - CA-10
+
+  C5:
+    label: Quality Judging
+    foundation_signal: independent criteria, tradeoff judgment, ethics, values, and quality standards
+    neurons:
+      - EC-04
+      - EC-05
+      - EC-08
+      - EC-11
+      - EC-13
+      - EC-14
+      - ES-02
+      - ES-03
+      - ES-05
+      - ES-06
+      - ES-07
+      - ES-09
+      - ES-10
+      - ES-11
+      - ES-12
+      - ES-13
+      - ES-14
+      - CD-05
+      - CD-11
+      - AUI-06
+      - AUI-10
+      - AUI-11
+      - CA-01
+      - CA-06
+      - CA-08
+      - CA-11
+      - CA-15
+      - CA-16
+      - CA-17
+
+  C6:
+    label: Original Making
+    foundation_signal: synthesis, distinctive design, creative generation, and non-default production
+    neurons:
+      - PR-05
+      - PR-07
+      - PR-13
+      - CS-01
+      - CS-02
+      - CS-03
+      - CS-04
+      - CS-07
+      - CS-10
+      - CS-11
+      - CD-01
+      - CD-02
+      - CD-03
+      - CD-04
+      - CD-05
+      - CD-06
+      - CD-07
+      - CD-08
+      - CD-09
+      - CD-10
+      - CD-11
+
+  C7:
+    label: Partnership Steering
+    foundation_signal: delegation strategy, orchestration, trust calibration, and agency preservation
+    neurons:
+      - AL-03
+      - AL-07
+      - AL-09
+      - AL-11
+      - AL-12
+      - PR-12
+      - PR-15
+      - ES-10
+      - AUI-01
+      - AUI-02
+      - AUI-03
+      - AUI-04
+      - AUI-05
+      - AUI-06
+      - AUI-07
+      - AUI-08
+      - AUI-09
+      - AUI-10
+      - AUI-11
+      - AUI-12
+      - CA-01
+      - CA-02
+      - CA-03
+      - CA-04
+      - CA-05
+      - CA-06
+      - CA-07
+      - CA-08
+      - CA-09
+      - CA-10
+      - CA-12
+      - CA-13
+      - CA-14
+      - CA-17
+
+csl_excluded: []
+

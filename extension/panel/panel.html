@@ -1,0 +1,511 @@
+<template id="saf-modal-template">
+  <div id="saf-modal-overlay" aria-hidden="false">
+    <section
+      id="saf-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="saf-modal-title"
+      tabindex="-1"
+    >
+      <aside class="saf-sidebar" aria-label="SAF navigation">
+        <header class="saf-sidebar-header">
+          <img class="saf-logo-img" data-saf-logo alt="" aria-hidden="true">
+          <span id="saf-modal-title" class="saf-product-name">SAF</span>
+        </header>
+
+        <nav class="saf-sidebar-nav" aria-label="Primary" data-saf-sidebar-nav>
+          <button
+            class="saf-nav-item is-active"
+            type="button"
+            data-view="chats"
+            aria-current="page"
+            aria-controls="saf-view-chats"
+          >
+            <span class="saf-nav-icon" aria-hidden="true">≡</span>
+            <span>Chats</span>
+          </button>
+          <button
+            class="saf-nav-item is-disabled"
+            type="button"
+            data-view="projects"
+            aria-disabled="true"
+            aria-controls="saf-view-projects"
+            title="Projects require a backend update - coming soon."
+          >
+            <span class="saf-nav-icon" aria-hidden="true">⊞</span>
+            <span>Projects</span>
+            <span class="saf-soon-badge">SOON</span>
+          </button>
+          <button
+            class="saf-nav-item"
+            type="button"
+            data-view="portfolio"
+            aria-controls="saf-view-portfolio"
+          >
+            <span class="saf-nav-icon" aria-hidden="true">◎</span>
+            <span>Portfolio</span>
+          </button>
+        </nav>
+
+        <nav class="saf-sidebar-nav saf-sidebar-nav-bottom" aria-label="Account" data-saf-sidebar-nav>
+          <button
+            class="saf-nav-item"
+            type="button"
+            data-view="settings"
+            aria-controls="saf-view-settings"
+          >
+            <span class="saf-nav-icon" aria-hidden="true">⚙</span>
+            <span>Settings</span>
+          </button>
+          <button
+            class="saf-nav-item"
+            type="button"
+            data-view="profile"
+            aria-controls="saf-view-profile"
+          >
+            <span class="saf-nav-icon" aria-hidden="true">○</span>
+            <span>Profile</span>
+          </button>
+        </nav>
+      </aside>
+
+      <main class="saf-main-panel" aria-label="SAF main panel">
+        <section
+          id="saf-view-chats"
+          class="saf-view-panel is-active"
+          data-view-panel="chats"
+          aria-label="Chats"
+        >
+          <header class="saf-main-header">
+            <div>
+              <h2 class="saf-view-title">Your chats</h2>
+              <p class="saf-view-subtitle">
+                <span id="saf-chat-counts">0 scored / 0 pending</span>
+              </p>
+            </div>
+            <button id="saf-chat-retry" class="saf-text-button" type="button" hidden>
+              Retry
+            </button>
+          </header>
+
+          <p id="saf-chat-status" class="saf-inline-status" role="status" aria-live="polite">
+            Loading chats...
+          </p>
+
+          <section class="saf-search-shell" aria-label="Search chats">
+            <input
+              class="saf-search-input"
+              type="search"
+              placeholder="Search chats..."
+              aria-label="Search chats"
+            >
+          </section>
+
+          <section id="saf-current-chat-section" class="saf-current-chat-shell" aria-label="Current chat" hidden>
+            <p class="saf-section-label">Current chat</p>
+            <div id="saf-current-chat-list" class="saf-chat-list" aria-live="polite"></div>
+          </section>
+
+          <section class="saf-chat-list-shell" aria-label="Recent chats">
+            <p class="saf-section-label">Recent chats</p>
+            <div id="saf-chat-list" class="saf-chat-list" aria-live="polite"></div>
+          </section>
+        </section>
+
+        <section
+          id="saf-view-projects"
+          class="saf-view-panel"
+          data-view-panel="projects"
+          aria-label="Projects"
+          hidden
+        >
+          <header class="saf-main-header">
+            <div>
+              <h2 class="saf-view-title">Projects</h2>
+              <p class="saf-view-subtitle">Group scored chats into working sets</p>
+            </div>
+            <button id="saf-projects-retry" class="saf-text-button" type="button" hidden>
+              Retry
+            </button>
+          </header>
+
+          <p id="saf-projects-status" class="saf-inline-status" role="status" aria-live="polite">
+            Loading projects...
+          </p>
+
+          <section class="saf-project-create" aria-labelledby="saf-project-create-heading">
+            <h3 id="saf-project-create-heading" class="saf-section-label">New project</h3>
+            <div class="saf-project-create-grid">
+              <input
+                id="saf-project-name"
+                class="saf-project-input"
+                type="text"
+                maxlength="120"
+                placeholder="Project name"
+                aria-label="Project name"
+              >
+              <button id="saf-project-create" class="saf-text-button" type="button">
+                Create
+              </button>
+            </div>
+            <textarea
+              id="saf-project-description"
+              class="saf-project-textarea"
+              maxlength="500"
+              placeholder="Optional description"
+              aria-label="Project description"
+            ></textarea>
+          </section>
+
+          <section class="saf-projects-layout" aria-label="Projects workspace">
+            <div class="saf-project-list-shell">
+              <p class="saf-section-label">Projects</p>
+              <div id="saf-project-list" class="saf-project-list" aria-live="polite"></div>
+              <button id="saf-project-load-more" class="saf-text-button" type="button" hidden>
+                Load more
+              </button>
+            </div>
+
+            <section id="saf-project-detail-empty" class="saf-project-detail-empty">
+              Select a project to view details
+            </section>
+
+            <section
+              id="saf-project-detail"
+              class="saf-project-detail"
+              aria-labelledby="saf-project-detail-heading"
+              hidden
+            >
+              <header class="saf-project-detail-header">
+                <div>
+                  <h3 id="saf-project-detail-heading" class="saf-project-detail-title">Project</h3>
+                  <p id="saf-project-detail-meta" class="saf-detail-meta"></p>
+                </div>
+                <button id="saf-project-conflict-retry" class="saf-text-button" type="button" hidden>
+                  Retry change
+                </button>
+              </header>
+
+              <label class="saf-project-field-label" for="saf-project-edit-name">Name</label>
+              <input
+                id="saf-project-edit-name"
+                class="saf-project-input"
+                type="text"
+                maxlength="120"
+              >
+
+              <label class="saf-project-field-label" for="saf-project-edit-description">Description</label>
+              <textarea
+                id="saf-project-edit-description"
+                class="saf-project-textarea"
+                maxlength="500"
+              ></textarea>
+
+              <div class="saf-project-actions">
+                <button id="saf-project-save" class="saf-text-button" type="button">
+                  Save
+                </button>
+                <button id="saf-project-delete" class="saf-text-button saf-text-button--danger" type="button">
+                  Delete
+                </button>
+              </div>
+
+              <section class="saf-project-assign" aria-labelledby="saf-project-assign-heading">
+                <div class="saf-project-assign-header">
+                  <h4 id="saf-project-assign-heading" class="saf-section-label">Add chats</h4>
+                  <button id="saf-project-refresh-chats" class="saf-text-button" type="button">
+                    Refresh
+                  </button>
+                </div>
+                <select
+                  id="saf-project-chat-select"
+                  class="saf-project-chat-select"
+                  multiple
+                  size="4"
+                  aria-label="Chats to add"
+                ></select>
+                <div class="saf-project-actions">
+                  <button id="saf-project-add-chats" class="saf-text-button" type="button">
+                    Add chats
+                  </button>
+                </div>
+                <p id="saf-project-assign-status" class="saf-project-assign-status" role="status" aria-live="polite"></p>
+              </section>
+
+              <section class="saf-project-profile" aria-labelledby="saf-project-profile-heading">
+                <h4 id="saf-project-profile-heading" class="saf-section-label">Project profile</h4>
+                <section
+                  id="saf-project-radar-section"
+                  class="saf-project-radar-section"
+                  aria-label="Project profile radar"
+                  hidden
+                >
+                  <div id="saf-project-radar-empty" class="saf-project-radar-empty">
+                    Not enough sessions to render profile
+                  </div>
+                  <figure id="saf-project-radar-figure" class="saf-project-radar-figure" hidden>
+                    <svg
+                      id="saf-project-radar"
+                      class="saf-radar"
+                      viewBox="0 0 240 240"
+                      role="img"
+                      aria-label="Project profile radar"
+                    ></svg>
+                  </figure>
+                </section>
+                <div id="saf-project-profile-list" class="saf-dimension-list"></div>
+              </section>
+            </section>
+          </section>
+        </section>
+
+        <section
+          id="saf-view-portfolio"
+          class="saf-view-panel"
+          data-view-panel="portfolio"
+          aria-label="Portfolio"
+          hidden
+        >
+          <header class="saf-main-header">
+            <div>
+              <h2 class="saf-view-title">Your collaboration profile</h2>
+              <p class="saf-view-subtitle">Personal baseline — your trend, not a ranking.</p>
+            </div>
+            <button id="saf-portfolio-retry" class="saf-text-button" type="button" hidden>
+              Retry
+            </button>
+          </header>
+
+          <p id="saf-portfolio-status" class="saf-inline-status" role="status" aria-live="polite">
+            Loading portfolio...
+          </p>
+
+          <section id="saf-portfolio-history" class="saf-portfolio-empty" hidden>
+            Score a few more chats to see your trend
+          </section>
+
+          <section id="saf-portfolio-content" class="saf-portfolio-content" aria-label="Portfolio radar" hidden>
+            <div class="saf-portfolio-summary">
+              <div>
+                <p class="saf-section-label">Sessions analysed</p>
+                <p id="saf-portfolio-sessions" class="saf-portfolio-metric">0</p>
+              </div>
+              <div>
+                <p class="saf-section-label">Profile type</p>
+                <p id="saf-portfolio-archetype" class="saf-portfolio-metric">Baseline</p>
+              </div>
+            </div>
+
+            <figure class="saf-radar-figure">
+              <svg
+                id="saf-portfolio-radar"
+                class="saf-radar"
+                viewBox="0 0 240 240"
+                role="img"
+                aria-label="Current profile radar"
+              ></svg>
+              <figcaption id="saf-portfolio-note" class="saf-radar-note">
+                Past baseline coming soon — showing your current profile.
+              </figcaption>
+            </figure>
+          </section>
+        </section>
+
+        <section
+          id="saf-view-settings"
+          class="saf-view-panel"
+          data-view-panel="settings"
+          aria-label="Settings"
+          hidden
+        >
+          <header class="saf-main-header">
+            <div>
+              <h2 class="saf-view-title">Settings</h2>
+              <p class="saf-view-subtitle">Extension controls</p>
+            </div>
+            <button id="saf-settings-retry" class="saf-text-button" type="button" hidden>
+              Retry
+            </button>
+          </header>
+
+          <p id="saf-settings-status" class="saf-inline-status" role="status" aria-live="polite">
+            Loading settings...
+          </p>
+
+          <section class="saf-settings-list" aria-label="Settings controls">
+            <label class="saf-toggle-row" for="saf-setting-auto-analyse">
+              <span>
+                <span class="saf-toggle-title">Auto-analyse new chats</span>
+                <span class="saf-toggle-copy">Start scoring when a captured chat is ready.</span>
+              </span>
+              <input id="saf-setting-auto-analyse" class="saf-toggle-input" type="checkbox">
+              <span class="saf-toggle-control" aria-hidden="true"></span>
+            </label>
+
+            <label class="saf-toggle-row" for="saf-setting-notification-dot">
+              <span>
+                <span class="saf-toggle-title">Show notification dot</span>
+                <span class="saf-toggle-copy">Show the FAB dot when chats need attention.</span>
+              </span>
+              <input id="saf-setting-notification-dot" class="saf-toggle-input" type="checkbox">
+              <span class="saf-toggle-control" aria-hidden="true"></span>
+            </label>
+
+            <label class="saf-toggle-row" for="saf-setting-calibration-opt-in">
+              <span>
+                <span class="saf-toggle-title">Data opt-in</span>
+                <em class="saf-toggle-copy">
+                  Anonymised session data may be used to improve the SAF scoring models.
+                  No personally identifiable information is shared. You can withdraw at any time.
+                </em>
+              </span>
+              <input id="saf-setting-calibration-opt-in" class="saf-toggle-input" type="checkbox">
+              <span class="saf-toggle-control" aria-hidden="true"></span>
+            </label>
+          </section>
+
+          <section class="saf-danger-zone" aria-labelledby="saf-danger-zone-heading">
+            <div>
+              <h3 id="saf-danger-zone-heading" class="saf-section-label">Delete my data</h3>
+              <p class="saf-danger-copy">Remove stored SAF data for this user.</p>
+            </div>
+            <button id="saf-settings-delete-data" class="saf-text-button saf-text-button--danger" type="button">
+              Delete my data
+            </button>
+          </section>
+        </section>
+
+        <section
+          id="saf-view-profile"
+          class="saf-view-panel"
+          data-view-panel="profile"
+          aria-label="Profile"
+          hidden
+        >
+          <header class="saf-main-header">
+            <div>
+              <h2 class="saf-view-title">Profile</h2>
+              <p class="saf-view-subtitle">Account context</p>
+            </div>
+            <button id="saf-profile-retry" class="saf-text-button" type="button" hidden>
+              Retry
+            </button>
+          </header>
+
+          <p id="saf-profile-status" class="saf-inline-status" role="status" aria-live="polite">
+            Loading profile...
+          </p>
+
+          <section id="saf-profile-content" class="saf-profile-content" aria-label="Profile summary" hidden>
+            <div class="saf-profile-summary">
+              <div>
+                <p class="saf-section-label">Username</p>
+                <p id="saf-profile-username" class="saf-profile-metric">-</p>
+              </div>
+              <div>
+                <p class="saf-section-label">Join date</p>
+                <p id="saf-profile-join-date" class="saf-profile-metric">-</p>
+              </div>
+              <div>
+                <p class="saf-section-label">Total scored chats</p>
+                <p id="saf-profile-scored-count" class="saf-profile-metric">0</p>
+              </div>
+              <div>
+                <p class="saf-section-label">Current streak</p>
+                <p id="saf-profile-streak" class="saf-profile-metric">0 days</p>
+              </div>
+            </div>
+
+            <a
+              id="saf-profile-manage"
+              class="saf-profile-manage is-disabled"
+              href="#"
+              aria-disabled="true"
+              title="Account management coming soon"
+            >
+              Account management coming soon
+            </a>
+          </section>
+        </section>
+      </main>
+
+      <aside class="saf-detail-drawer" aria-label="Detail drawer">
+        <button id="saf-modal-close" class="saf-close-button" type="button" aria-label="Close SAF">
+          ×
+        </button>
+        <div id="saf-detail-empty" class="saf-drawer-empty">
+          <img class="saf-empty-logo" data-saf-logo alt="" aria-hidden="true">
+          <p>Select a chat to see its profile</p>
+        </div>
+        <section id="saf-detail-content" class="saf-detail-content" aria-label="Chat profile" hidden>
+          <header class="saf-detail-header">
+            <h2 id="saf-detail-title" class="saf-detail-title">Conversation</h2>
+            <p id="saf-detail-meta" class="saf-detail-meta"></p>
+          </header>
+
+          <section class="saf-detail-section" aria-labelledby="saf-profile-heading">
+            <h3 id="saf-profile-heading" class="saf-detail-section-title">Collaboration profile</h3>
+            <div id="saf-dimension-list" class="saf-dimension-list"></div>
+          </section>
+
+          <section id="saf-trend-section" class="saf-detail-section" aria-labelledby="saf-trend-heading" hidden>
+            <h3 id="saf-trend-heading" class="saf-detail-section-title">Trend</h3>
+            <div id="saf-trend-body" class="saf-detail-note"></div>
+          </section>
+
+          <section id="saf-flags-section" class="saf-detail-section" aria-labelledby="saf-flags-heading" hidden>
+            <h3 id="saf-flags-heading" class="saf-detail-section-title">Flags</h3>
+            <div id="saf-flag-list" class="saf-flag-list"></div>
+          </section>
+
+          <section class="saf-detail-section" aria-labelledby="saf-remarks-heading">
+            <h3 id="saf-remarks-heading" class="saf-detail-section-title">Remarks</h3>
+            <textarea id="saf-remarks-text" class="saf-remarks-text" readonly></textarea>
+          </section>
+
+          <section class="saf-detail-section" aria-labelledby="saf-feedback-heading">
+            <h3 id="saf-feedback-heading" class="saf-detail-section-title">Feedback</h3>
+            <div class="saf-feedback-widget" id="saf-feedback-widget">
+              <div class="saf-feedback-actions" aria-label="Score feedback">
+                <button
+                  id="saf-feedback-up"
+                  class="saf-feedback-thumb"
+                  type="button"
+                  aria-label="This profile matches the chat"
+                  aria-pressed="false"
+                  data-feedback-value="1"
+                >
+                  &#128077;
+                </button>
+                <button
+                  id="saf-feedback-down"
+                  class="saf-feedback-thumb"
+                  type="button"
+                  aria-label="This profile does not match the chat"
+                  aria-pressed="false"
+                  data-feedback-value="-1"
+                >
+                  &#128078;
+                </button>
+              </div>
+              <label class="saf-feedback-note-label" for="saf-feedback-note">Note</label>
+              <textarea
+                id="saf-feedback-note"
+                class="saf-feedback-note"
+                maxlength="280"
+                placeholder="Optional note"
+              ></textarea>
+              <div class="saf-feedback-footer">
+                <span id="saf-feedback-count" class="saf-feedback-count">0/280</span>
+                <button id="saf-feedback-submit" class="saf-text-button" type="button">
+                  Send note
+                </button>
+              </div>
+              <p id="saf-feedback-status" class="saf-feedback-status" role="status" aria-live="polite"></p>
+            </div>
+          </section>
+        </section>
+      </aside>
+    </section>
+  </div>
+</template>

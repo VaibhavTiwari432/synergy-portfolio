@@ -1,0 +1,38 @@
+# CSL emergence-scanner frozen thresholds (Phase 2.4).
+#
+# SPEC_emergence.md: "The threshold for HIGH distance must come from a frozen
+# configuration artifact. The scanner must fail loudly if the threshold artifact
+# is missing. It must not compute or refit cut points at runtime."
+#
+# These values are PROVISIONAL and bound to the lexical fallback embedder. No live
+# semantic embedder exists yet (DISCREPANCY D-018), so they are NOT corpus
+# calibrated — freezing a cut against a corpus would be pilot-fitting (v3.1
+# addendum #2). They exist so the scanner is runnable and deterministic while
+# dormant. When a semantic embedder lands, re-freeze against it, bump embedder_id,
+# and record an ADR; the loader binds thresholds to embedder_id and the scanner
+# refuses a mismatched embedder rather than silently misusing a lexical cut.
+
+version: v0.1
+status: PLACEHOLDER_LEXICAL_UNCALIBRATED
+data_gated: true
+
+# Thresholds are only valid against the embedder they were frozen for.
+embedder_id: lexical-bow-hashing-v0
+
+thresholds:
+  # cosine distance >= novelty_high counts as "far" for bilateral novelty.
+  novelty_high: 0.5
+  # minimum uptake signal (the human response materially uses the anchor AI turn).
+  uptake_min: 0.15
+  # minimum injection signal (human adds content not derivable from the AI prior).
+  injection_min: 0.15
+  # minimum count of reframing-trace cues for a candidate (judge confirms the rest).
+  reframing_min: 1
+
+window:
+  # response span: the anchor AI turn plus 1..max_human_turns following human turns.
+  max_human_turns: 3
+  # ai_prior centroid: anchor A_t plus up to (ai_prior_turns - 1) previous AI turns.
+  ai_prior_turns: 5
+  # human_prior centroid: up to this many of the most recent prior human turns.
+  human_prior_turns: 5

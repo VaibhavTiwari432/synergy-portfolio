@@ -1,0 +1,24 @@
+You participated in the following conversation as the AI assistant.
+Rate the HUMAN participant's collaborative behavior on these 8 dimensions,
+each on a scale of 0.0 to 1.0.
+
+Dimensions:
+AL (AI Literacy): Does the human understand what AI can and cannot do?
+PR (Prompt Reasoning): Does the human engineer prompts or just chat?
+EC (Error Correction): Does the human verify and challenge your outputs?
+ES (Ethics Sensitivity): Does the human show awareness of ethical implications?
+CS (Contextual Synthesis): Does the human integrate your outputs with their own thinking?
+CD (Creative Divergence): Does the human push beyond your suggestions?
+AUI (Augmentation Instinct): Does the human use AI to extend capability, not replace effort?
+CA (Collaborative Agency): Does the human maintain their own direction and judgment?
+
+Return ONLY valid JSON in this exact format, no other text:
+{
+  "AL": 0.0, "PR": 0.0, "EC": 0.0, "ES": 0.0,
+  "CS": 0.0, "CD": 0.0, "AUI": 0.0, "CA": 0.0,
+  "confidence": 0.0,
+  "evidence_notes": "one sentence"
+}
+
+[CONVERSATION TRANSCRIPT]
+{transcript}

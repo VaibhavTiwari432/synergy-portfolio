@@ -1,0 +1,973 @@
+{
+  "n_chats": 26,
+  "mae_target": 0.375,
+  "overall_mae": 0.2994,
+  "target_met": true,
+  "dim_mae": {
+    "AL": 0.3381,
+    "PR": 0.299,
+    "EC": 0.4073,
+    "ES": 0.1309,
+    "CS": 0.2849,
+    "CD": 0.2761,
+    "AUI": 0.303,
+    "CA": 0.3562
+  },
+  "per_chat": [
+    {
+      "chat_id": "gc-001",
+      "turns": 18,
+      "human_scores": {
+        "AL": 0.25,
+        "PR": 0.25,
+        "EC": 0.25,
+        "ES": null,
+        "CS": 0.55,
+        "CD": 0.25,
+        "AUI": 0.55,
+        "CA": 0.55
+      },
+      "judge_raw": {
+        "AL": 0.4462,
+        "PR": 0.3733,
+        "EC": 0.0321,
+        "ES": 0.1214,
+        "CS": 0.4,
+        "CD": 0.1727,
+        "AUI": null,
+        "CA": 0.2353
+      },
+      "errors": {
+        "AL": 0.1962,
+        "PR": 0.1233,
+        "EC": 0.2179,
+        "ES": null,
+        "CS": 0.15,
+        "CD": 0.0773,
+        "AUI": null,
+        "CA": 0.3147
+      },
+      "g_synergy": 0.2496,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 45
+    },
+    {
+      "chat_id": "gc-002",
+      "turns": 34,
+      "human_scores": {
+        "AL": 0.25,
+        "PR": 0.55,
+        "EC": 0.25,
+        "ES": null,
+        "CS": 0.55,
+        "CD": 0.25,
+        "AUI": 0.55,
+        "CA": 0.25
+      },
+      "judge_raw": {
+        "AL": 0.4538,
+        "PR": 0.3667,
+        "EC": 0.0107,
+        "ES": 0.0714,
+        "CS": 0.4909,
+        "CD": null,
+        "AUI": 0.225,
+        "CA": 0.1118
+      },
+      "errors": {
+        "AL": 0.2038,
+        "PR": 0.1833,
+        "EC": 0.2393,
+        "ES": null,
+        "CS": 0.0591,
+        "CD": null,
+        "AUI": 0.325,
+        "CA": 0.1382
+      },
+      "g_synergy": 0.2477,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 42
+    },
+    {
+      "chat_id": "gc-003",
+      "turns": 103,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.8,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.55,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.5538,
+        "PR": 0.68,
+        "EC": 0.4643,
+        "ES": 0.2786,
+        "CS": 0.7909,
+        "CD": 0.0909,
+        "AUI": 0.5667,
+        "CA": 0.4706
+      },
+      "errors": {
+        "AL": 0.2462,
+        "PR": 0.12,
+        "EC": 0.3357,
+        "ES": null,
+        "CS": 0.0091,
+        "CD": 0.4591,
+        "AUI": 0.2333,
+        "CA": 0.3294
+      },
+      "g_synergy": 0.5026,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 79
+    },
+    {
+      "chat_id": "gc-004",
+      "turns": 358,
+      "human_scores": {
+        "AL": 0.55,
+        "PR": 0.8,
+        "EC": 0.25,
+        "ES": 0.25,
+        "CS": 0.8,
+        "CD": 0.55,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.4615,
+        "PR": 0.46,
+        "EC": 0.0571,
+        "ES": 0.2,
+        "CS": 0.6545,
+        "CD": 0.2455,
+        "AUI": 0.525,
+        "CA": 0.4471
+      },
+      "errors": {
+        "AL": 0.0885,
+        "PR": 0.34,
+        "EC": 0.1929,
+        "ES": 0.05,
+        "CS": 0.1455,
+        "CD": 0.3045,
+        "AUI": 0.275,
+        "CA": 0.3529
+      },
+      "g_synergy": 0.3785,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 72
+    },
+    {
+      "chat_id": "gc-005",
+      "turns": 16,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.8,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.55,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.4077,
+        "PR": 0.54,
+        "EC": 0.0857,
+        "ES": 0.0286,
+        "CS": 0.1637,
+        "CD": 0.0909,
+        "AUI": null,
+        "CA": 0.3588
+      },
+      "errors": {
+        "AL": 0.3923,
+        "PR": 0.26,
+        "EC": 0.7143,
+        "ES": null,
+        "CS": 0.6363,
+        "CD": 0.4591,
+        "AUI": null,
+        "CA": 0.4412
+      },
+      "g_synergy": 0.225,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 42
+    },
+    {
+      "chat_id": "gc-006",
+      "turns": 50,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.8,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.55,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.5077,
+        "PR": 0.7733,
+        "EC": 0.125,
+        "ES": 0.2071,
+        "CS": 0.7182,
+        "CD": 0.3818,
+        "AUI": 0.5417,
+        "CA": 0.5529
+      },
+      "errors": {
+        "AL": 0.2923,
+        "PR": 0.0267,
+        "EC": 0.675,
+        "ES": null,
+        "CS": 0.0818,
+        "CD": 0.1682,
+        "AUI": 0.2583,
+        "CA": 0.2471
+      },
+      "g_synergy": 0.4699,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 78
+    },
+    {
+      "chat_id": "gc-007",
+      "turns": 21,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.55,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.25,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.2692,
+        "PR": 0.4933,
+        "EC": 0.0679,
+        "ES": 0.0429,
+        "CS": 0.3818,
+        "CD": null,
+        "AUI": null,
+        "CA": 0.4029
+      },
+      "errors": {
+        "AL": 0.5308,
+        "PR": 0.3067,
+        "EC": 0.4821,
+        "ES": null,
+        "CS": 0.4182,
+        "CD": null,
+        "AUI": null,
+        "CA": 0.3971
+      },
+      "g_synergy": 0.269,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 41
+    },
+    {
+      "chat_id": "gc-008",
+      "error": "[Errno 11001] getaddrinfo failed"
+    },
+    {
+      "chat_id": "gc-009",
+      "error": "[Errno 11001] getaddrinfo failed"
+    },
+    {
+      "chat_id": "gc-010",
+      "error": "[Errno 11001] getaddrinfo failed"
+    },
+    {
+      "chat_id": "gc-011",
+      "turns": 47,
+      "human_scores": {
+        "AL": 0.55,
+        "PR": 0.55,
+        "EC": 0.25,
+        "ES": null,
+        "CS": 0.55,
+        "CD": 0.25,
+        "AUI": 0.55,
+        "CA": 0.55
+      },
+      "judge_raw": {
+        "AL": 0.0923,
+        "PR": 0.2,
+        "EC": 0.0036,
+        "ES": null,
+        "CS": 0.1091,
+        "CD": null,
+        "AUI": 0.1,
+        "CA": 0.0176
+      },
+      "errors": {
+        "AL": 0.4577,
+        "PR": 0.35,
+        "EC": 0.2464,
+        "ES": null,
+        "CS": 0.4409,
+        "CD": null,
+        "AUI": 0.45,
+        "CA": 0.5324
+      },
+      "g_synergy": 0.0827,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 18
+    },
+    {
+      "chat_id": "gc-012",
+      "turns": 140,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.8,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.8,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.4308,
+        "PR": 0.22,
+        "EC": 0.0071,
+        "ES": null,
+        "CS": 0.2363,
+        "CD": 0.3,
+        "AUI": null,
+        "CA": 0.1176
+      },
+      "errors": {
+        "AL": 0.3692,
+        "PR": 0.58,
+        "EC": 0.7929,
+        "ES": null,
+        "CS": 0.5637,
+        "CD": 0.5,
+        "AUI": null,
+        "CA": 0.6824
+      },
+      "g_synergy": 0.2048,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 25
+    },
+    {
+      "chat_id": "gc-013",
+      "turns": 248,
+      "human_scores": {
+        "AL": 0.25,
+        "PR": 0.25,
+        "EC": 0.25,
+        "ES": null,
+        "CS": 0.55,
+        "CD": 0.25,
+        "AUI": 0.55,
+        "CA": 0.25
+      },
+      "judge_raw": {
+        "AL": 0.4923,
+        "PR": 0.5333,
+        "EC": 0.0464,
+        "ES": 0.2071,
+        "CS": 0.3,
+        "CD": 0.0091,
+        "AUI": null,
+        "CA": 0.3588
+      },
+      "errors": {
+        "AL": 0.2423,
+        "PR": 0.2833,
+        "EC": 0.2036,
+        "ES": null,
+        "CS": 0.25,
+        "CD": 0.2409,
+        "AUI": null,
+        "CA": 0.1088
+      },
+      "g_synergy": 0.265,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 66
+    },
+    {
+      "chat_id": "gc-016",
+      "turns": 40,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.8,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.8,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.3692,
+        "PR": 0.48,
+        "EC": 0.0071,
+        "ES": null,
+        "CS": 0.5182,
+        "CD": 0.6545,
+        "AUI": null,
+        "CA": 0.3
+      },
+      "errors": {
+        "AL": 0.4308,
+        "PR": 0.32,
+        "EC": 0.7929,
+        "ES": null,
+        "CS": 0.2818,
+        "CD": 0.1455,
+        "AUI": null,
+        "CA": 0.5
+      },
+      "g_synergy": 0.3702,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 51
+    },
+    {
+      "chat_id": "gc-017",
+      "turns": 22,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.55,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.25,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.3077,
+        "PR": 0.26,
+        "EC": 0.0143,
+        "ES": 0.0143,
+        "CS": null,
+        "CD": null,
+        "AUI": 0.2667,
+        "CA": 0.1235
+      },
+      "errors": {
+        "AL": 0.4923,
+        "PR": 0.54,
+        "EC": 0.5357,
+        "ES": null,
+        "CS": null,
+        "CD": null,
+        "AUI": 0.5333,
+        "CA": 0.6765
+      },
+      "g_synergy": 0.1529,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 32
+    },
+    {
+      "chat_id": "gc-018",
+      "turns": 73,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.8,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.55,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.4308,
+        "PR": 0.6667,
+        "EC": 0.4143,
+        "ES": 0.2286,
+        "CS": 0.5182,
+        "CD": 0.0455,
+        "AUI": null,
+        "CA": 0.4588
+      },
+      "errors": {
+        "AL": 0.3692,
+        "PR": 0.1333,
+        "EC": 0.3857,
+        "ES": null,
+        "CS": 0.2818,
+        "CD": 0.5045,
+        "AUI": null,
+        "CA": 0.3412
+      },
+      "g_synergy": 0.4036,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 68
+    },
+    {
+      "chat_id": "gc-019",
+      "turns": 12,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.55,
+        "EC": 0.8,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.25,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.4231,
+        "PR": null,
+        "EC": 0.3,
+        "ES": null,
+        "CS": null,
+        "CD": 0.5364,
+        "AUI": null,
+        "CA": 0.6941
+      },
+      "errors": {
+        "AL": 0.3769,
+        "PR": null,
+        "EC": 0.5,
+        "ES": null,
+        "CS": null,
+        "CD": 0.2864,
+        "AUI": null,
+        "CA": 0.1059
+      },
+      "g_synergy": 0.4675,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 45
+    },
+    {
+      "chat_id": "gc-020",
+      "turns": 22,
+      "human_scores": {
+        "AL": 0.25,
+        "PR": 0.25,
+        "EC": 0.25,
+        "ES": null,
+        "CS": 0.25,
+        "CD": 0.25,
+        "AUI": 0.25,
+        "CA": 0.25
+      },
+      "judge_raw": {
+        "AL": 0.3846,
+        "PR": 0.3933,
+        "EC": 0.0686,
+        "ES": 0.2929,
+        "CS": 0.0545,
+        "CD": 0.1273,
+        "AUI": null,
+        "CA": 0.2471
+      },
+      "errors": {
+        "AL": 0.1346,
+        "PR": 0.1433,
+        "EC": 0.1814,
+        "ES": null,
+        "CS": 0.1955,
+        "CD": 0.1227,
+        "AUI": null,
+        "CA": 0.0029
+      },
+      "g_synergy": 0.2037,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 46
+    },
+    {
+      "chat_id": "gc-021",
+      "turns": 23,
+      "human_scores": {
+        "AL": 0.55,
+        "PR": 0.55,
+        "EC": 0.55,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.55,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.4,
+        "PR": 0.3533,
+        "EC": 0.0571,
+        "ES": 0.0571,
+        "CS": 0.3545,
+        "CD": 0.4273,
+        "AUI": 0.425,
+        "CA": 0.2059
+      },
+      "errors": {
+        "AL": 0.15,
+        "PR": 0.1967,
+        "EC": 0.4929,
+        "ES": null,
+        "CS": 0.4455,
+        "CD": 0.1227,
+        "AUI": 0.375,
+        "CA": 0.5941
+      },
+      "g_synergy": 0.2762,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 51
+    },
+    {
+      "chat_id": "gc-022",
+      "turns": 21,
+      "human_scores": {
+        "AL": 0.55,
+        "PR": 0.8,
+        "EC": 0.55,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.55,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.2308,
+        "PR": 0.28,
+        "EC": 0.0464,
+        "ES": 0.15,
+        "CS": 0.2455,
+        "CD": 0.2455,
+        "AUI": 0.2,
+        "CA": 0.1412
+      },
+      "errors": {
+        "AL": 0.3192,
+        "PR": 0.52,
+        "EC": 0.5036,
+        "ES": null,
+        "CS": 0.5545,
+        "CD": 0.3045,
+        "AUI": 0.6,
+        "CA": 0.6588
+      },
+      "g_synergy": 0.1873,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 55
+    },
+    {
+      "chat_id": "gc-023",
+      "turns": 337,
+      "human_scores": {
+        "AL": 0.25,
+        "PR": 0.25,
+        "EC": 0.25,
+        "ES": 0.25,
+        "CS": 0.55,
+        "CD": 0.8,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.5462,
+        "PR": 0.7333,
+        "EC": 0.025,
+        "ES": 0.5857,
+        "CS": 0.8182,
+        "CD": 0.7273,
+        "AUI": 0.8,
+        "CA": 0.6353
+      },
+      "errors": {
+        "AL": 0.2962,
+        "PR": 0.4833,
+        "EC": 0.225,
+        "ES": 0.3357,
+        "CS": 0.2682,
+        "CD": 0.0727,
+        "AUI": 0.0,
+        "CA": 0.1647
+      },
+      "g_synergy": 0.5881,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 87
+    },
+    {
+      "chat_id": "gc-024",
+      "turns": 12,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.8,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.25,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.0154,
+        "PR": 0.12,
+        "EC": null,
+        "ES": null,
+        "CS": null,
+        "CD": null,
+        "AUI": null,
+        "CA": null
+      },
+      "errors": {
+        "AL": 0.7846,
+        "PR": 0.68,
+        "EC": null,
+        "ES": null,
+        "CS": null,
+        "CD": null,
+        "AUI": null,
+        "CA": null
+      },
+      "g_synergy": 0.0677,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 6
+    },
+    {
+      "chat_id": "gc-025",
+      "turns": 8,
+      "human_scores": {
+        "AL": 0.25,
+        "PR": 0.25,
+        "EC": 0.25,
+        "ES": null,
+        "CS": 0.25,
+        "CD": 0.25,
+        "AUI": 0.55,
+        "CA": 0.25
+      },
+      "judge_raw": {
+        "AL": 0.1615,
+        "PR": 0.18,
+        "EC": 0.0036,
+        "ES": null,
+        "CS": 0.2182,
+        "CD": null,
+        "AUI": 0.4,
+        "CA": 0.1588
+      },
+      "errors": {
+        "AL": 0.0885,
+        "PR": 0.07,
+        "EC": 0.2464,
+        "ES": null,
+        "CS": 0.0318,
+        "CD": null,
+        "AUI": 0.15,
+        "CA": 0.0912
+      },
+      "g_synergy": 0.1761,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 29
+    },
+    {
+      "chat_id": "gc-026",
+      "turns": 14,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.8,
+        "ES": null,
+        "CS": 0.8,
+        "CD": 0.8,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.1462,
+        "PR": 0.6067,
+        "EC": 0.3286,
+        "ES": 0.0857,
+        "CS": 0.6637,
+        "CD": null,
+        "AUI": 0.6667,
+        "CA": 0.4118
+      },
+      "errors": {
+        "AL": 0.6538,
+        "PR": 0.1933,
+        "EC": 0.4714,
+        "ES": null,
+        "CS": 0.1363,
+        "CD": null,
+        "AUI": 0.1333,
+        "CA": 0.3882
+      },
+      "g_synergy": 0.4257,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 61
+    },
+    {
+      "chat_id": "gc-027",
+      "turns": 14,
+      "human_scores": {
+        "AL": 0.8,
+        "PR": 0.8,
+        "EC": 0.8,
+        "ES": 0.8,
+        "CS": 0.8,
+        "CD": 0.8,
+        "AUI": 0.8,
+        "CA": 0.8
+      },
+      "judge_raw": {
+        "AL": 0.4769,
+        "PR": 0.3733,
+        "EC": 0.5214,
+        "ES": 0.7929,
+        "CS": 0.3363,
+        "CD": 0.6727,
+        "AUI": null,
+        "CA": 0.3882
+      },
+      "errors": {
+        "AL": 0.3231,
+        "PR": 0.4267,
+        "EC": 0.2786,
+        "ES": 0.0071,
+        "CS": 0.4637,
+        "CD": 0.1273,
+        "AUI": null,
+        "CA": 0.4118
+      },
+      "g_synergy": 0.4988,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 92
+    },
+    {
+      "chat_id": "gc-028",
+      "turns": 20,
+      "human_scores": {
+        "AL": 0.25,
+        "PR": 0.25,
+        "EC": 0.25,
+        "ES": 0.25,
+        "CS": 0.25,
+        "CD": 0.55,
+        "AUI": 0.55,
+        "CA": 0.25
+      },
+      "judge_raw": {
+        "AL": null,
+        "PR": null,
+        "EC": 0.0036,
+        "ES": null,
+        "CS": null,
+        "CD": 0.0273,
+        "AUI": null,
+        "CA": null
+      },
+      "errors": {
+        "AL": null,
+        "PR": null,
+        "EC": 0.2464,
+        "ES": null,
+        "CS": null,
+        "CD": 0.5227,
+        "AUI": null,
+        "CA": null
+      },
+      "g_synergy": 0.0131,
+      "risk_flags": {
+        "fluent_incompetence": false,
+        "cognitive_debt_accumulation": false,
+        "true_synergy": false
+      },
+      "coverage": 2
+    }
+  ]
+}
