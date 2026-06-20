@@ -1018,6 +1018,38 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-023  [OPEN]  — Feedback pre-population: score API returns only feedback_given:bool; append-per-call storage blocks "thumb + note" recall
+- Raised by: Chief Engineer
+- Date: 2026-06-20
+- File(s): src/api/routers/users.py (get_chat_score → out["feedback_given"] is a
+  bool; no chat-level rating/comment returned), src/db/queries.py
+  (insert_feedback appends a row per call; feedback_given() returns bool only),
+  extension/panel/views/detail.js (S6 widget)
+- Problem: CODEX_AGENT_UI.md §5.6 and the S6 brief require "pre-select the correct
+  thumb and show the note if present" from existing feedback. But GET
+  /chats/{id}/score returns only `feedback_given: bool` — not the stored
+  match_rating/comment — so detail.js cannot pre-select 👍/👎 or pre-fill the note.
+  Underneath, the storage model appends one feedback row per submitFeedback call,
+  and a note submission writes match_rating='partial' (api_client mapping), so a
+  thumb-then-note sequence loses the thumb at the latest-row level. Clean recall of
+  "one thumb vote + optional note" therefore needs BOTH a read path and a model
+  decision, not just a field add.
+- Proposed fix (deferred): (a) add get_feedback(chat_id) returning the latest
+  thumb (match_rating ∈ yes/no) AND the latest note (comment) separately; surface
+  as out["feedback"] = {thumb, note, submitted_at} in get_chat_score; (b) decide
+  whether to keep append-per-call (and define latest-of-each semantics) or move
+  thumb to an upsert with a separate note row. detail.js then reverse-maps
+  match_rating→thumb and comment→note to pre-populate.
+- Decision (CE, 2026-06-20): DEFER. S6 ships submit-only with feedback_given:bool
+  driving a "feedback recorded" state (disable re-vote); full pre-selection/note
+  pre-fill waits for the read path + model decision above. Not a release blocker —
+  submitting feedback works today; only recall is missing. Chosen over building a
+  read path now to avoid baking in the messy append-per-call model under time
+  pressure.
+- Status: OPEN
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |
