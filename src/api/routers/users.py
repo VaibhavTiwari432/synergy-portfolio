@@ -16,6 +16,8 @@ Non-negotiables enforced structurally:
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any
 from uuid import UUID
 
@@ -29,15 +31,39 @@ from src.db.queries import (
     delete_user,
     feedback_given,
     get_all_scores_for_user,
+    get_portfolio_ack,
     get_scored_score_row,
     get_turn_feedback,
     insert_feedback,
     insert_turn_feedback,
+    upsert_portfolio_ack,
 )
 
 router = APIRouter(dependencies=[Depends(require_api_key)])
 
 _DIMS = [d.value for d in Dimension]
+
+#: echoed on Scope-C responses so clients can detect contract drift (§3.9)
+_CONTRACT_VERSION = "scope-c/v1.0"
+
+
+def _portfolio_snapshot_hash(body: dict[str, Any]) -> str:
+    """sha256 over the canonical portfolio state the user would acknowledge.
+    Deterministic for identical scores; changes the moment the state moves."""
+    canonical = json.dumps(body, sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+async def _portfolio_ack_block(pool, user_ref: str, current_hash: str) -> dict[str, Any]:
+    row = await get_portfolio_ack(pool, user_ref=user_ref, scope="portfolio")
+    if row is None:
+        return {"acked": False, "acked_at": None, "snapshot_hash": None}
+    return {
+        # acked is true only when the user acked THIS exact state (#snapshot-scoped)
+        "acked": row["snapshot_hash"] == current_hash,
+        "acked_at": row["acked_at"].isoformat(),
+        "snapshot_hash": row["snapshot_hash"],
+    }
 
 # Archetype thresholds: a dimension is "dominant" if its mean is at least
 # this far above the session average (DESIGNED rung — no claim stronger than that).
@@ -144,9 +170,6 @@ def _longitudinal_to_date(rows, chat_id: UUID) -> dict[str, Any]:
         if dim_counts[dim] else None
         for dim in _DIMS
     }
-    scored_dims = {dim: value for dim, value in dimensions.items() if value is not None}
-    overall = _mean(scored_dims)
-
     scored_history = [h["score"] for h in history if h["score"] is not None]
     if len(scored_history) < 2:
         trend = "baseline"
@@ -159,7 +182,9 @@ def _longitudinal_to_date(rows, chat_id: UUID) -> dict[str, Any]:
 
     return {
         "sessions_seen": len(selected),
-        "overall_score_till_now": overall,
+        # No bare composite (#6 / scope-c §3.6): per-dim means + direction only.
+        # Removing it also satisfies minor protection (#15) by construction — there
+        # is no cross-dimension total for any caller, minor or not, to receive.
         "dimensions_till_now": dimensions,
         "trend_direction": trend,
         "history": history,
@@ -206,6 +231,18 @@ async def get_chat_score(
         for r in await get_turn_feedback(pool, chat_id)
     ]
     return out
+
+
+@router.get("/v1/users/{user_ref}/sessions/{saf_session_id}")
+async def get_session_score(
+    user_ref: str,
+    saf_session_id: UUID,
+    pool=Depends(_require_pool),
+) -> dict[str, Any]:
+    """Scope-C alias of the chat-score route. saf_session_id IS raw_chats.id
+    (scope-c §1/§4.3) — identical payload; provided so S8/S9 can use the
+    project/session vocabulary without a second identity."""
+    return await get_chat_score(user_ref, saf_session_id, pool)
 
 
 class FeedbackRequest(BaseModel):
@@ -287,6 +324,7 @@ async def get_portfolio(
             "status": "INSUFFICIENT_HISTORY",
             "message": "No scored chats yet — analyse a conversation to start.",
             "sessions_analysed": 0,
+            "contract_version": _CONTRACT_VERSION,
         }
 
     sessions_count = len(rows)
@@ -378,9 +416,12 @@ async def get_portfolio(
 
     first_at = rows[0]["captured_at"].isoformat() if rows else None
 
-    return {
+    body: dict[str, Any] = {
         "profile_radar": radar,
-        "overall_score_till_now": _mean(scored_means),
+        # No bare composite (#6 / scope-c §3.6). The per-dim radar IS the signal;
+        # a single "overall score" is never emitted — which also makes the response
+        # minor-safe by construction (#15), independent of an is_minor flag (which
+        # the live ingest path does not yet persist).
         "archetype": archetype,
         "archetype_description": _ARCHETYPE_DESCRIPTIONS[archetype],
         "trajectory": trajectory,
@@ -389,6 +430,37 @@ async def get_portfolio(
         "first_analysed_at": first_at,
         "rung": "DESIGNED",  # portfolio aggregation is research-grade, not validated
     }
+    # Snapshot-hash + acknowledgement (scope-c §4.4). The hash is over the
+    # meaningful state only; when the user later acks this exact hash the UI knows
+    # there is no unacknowledged change without storing the whole state twice.
+    body["snapshot_hash"] = _portfolio_snapshot_hash(body)
+    body["ack"] = await _portfolio_ack_block(pool, user_ref, body["snapshot_hash"])
+    body["contract_version"] = _CONTRACT_VERSION
+    return body
+
+
+class PortfolioAckRequest(BaseModel):
+    snapshot_hash: str
+
+
+@router.post("/v1/users/{user_ref}/portfolio/ack")
+async def post_portfolio_ack(
+    user_ref: str,
+    body: PortfolioAckRequest,
+    pool=Depends(_require_pool),
+) -> dict[str, Any]:
+    """Acknowledge a specific portfolio snapshot (scope-c §4.4). 409 if the state
+    moved between the client's GET and this POST — the client re-reads, re-acks."""
+    current = await get_portfolio(user_ref, pool)
+    current_hash = current.get("snapshot_hash")
+    if current_hash is None or body.snapshot_hash != current_hash:
+        raise HTTPException(
+            409, detail={"error": "stale_snapshot", "current_hash": current_hash}
+        )
+    rec = await upsert_portfolio_ack(
+        pool, user_ref=user_ref, scope="portfolio", snapshot_hash=current_hash
+    )
+    return {"acked": True, "acked_at": rec["acked_at"].isoformat()}
 
 
 @router.delete("/v1/users/{user_ref}")

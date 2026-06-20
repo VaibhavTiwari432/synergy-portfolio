@@ -41,6 +41,7 @@ from contracts.schemas import (
 from src.api.middleware.auth import require_api_key
 from src.api.pipeline import score_session
 from src.api.routers.ingest import router as ingest_router
+from src.api.routers.projects import router as projects_router
 from src.api.routers.users import router as users_router
 from src.api.store import SessionStore
 from src.claims.tier_engine import detect_tier
@@ -92,6 +93,8 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
     # Scope B routers (Postgres)
     app.include_router(ingest_router)
     app.include_router(users_router)
+    # Scope C routers (Postgres) — projects / sessions (D-012, scope-c/v1.0)
+    app.include_router(projects_router)
 
     def _store() -> SessionStore:
         return app.state.store

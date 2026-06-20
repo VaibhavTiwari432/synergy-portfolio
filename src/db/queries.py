@@ -1002,3 +1002,286 @@ async def count_rows_for_user(pool: asyncpg.Pool, user_ref: str) -> dict[str, in
         "scores": sc,
         "feedback": fb + tfb,
     }
+
+
+# ── Scope-C: projects / sessions / portfolio ack (contract scope-c/v1.0) ───────
+# project_id is server-minted (gen_random_uuid). saf_session_id is an ALIAS of
+# raw_chats.id — project_sessions.chat_id IS the session id. Every read/mutation
+# is scoped by user_ref → subject_id, so a caller only ever touches their own
+# rows. Deletion of the subject (DELETE /v1/users/{ref}) cascades through these
+# tables via the migration-012 FKs (#16 data dignity).
+
+
+async def create_project(
+    pool: asyncpg.Pool,
+    *,
+    user_ref: str,
+    name: str,
+    description: str | None,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Insert a project, minting the subject if this user_ref has none yet.
+    With an Idempotency-Key a repeat returns the ORIGINAL row (no duplicate),
+    enforced by the (subject_id, idempotency_key) partial-unique index."""
+    row = await pool.fetchrow(
+        """
+        WITH subj AS (
+            INSERT INTO subjects (user_ref) VALUES ($1)
+            ON CONFLICT (user_ref) DO UPDATE SET user_ref = EXCLUDED.user_ref
+            RETURNING subject_id
+        ),
+        ins AS (
+            INSERT INTO projects (subject_id, name, description, idempotency_key)
+            SELECT subject_id, $2, $3, $4 FROM subj
+            ON CONFLICT (subject_id, idempotency_key)
+                WHERE idempotency_key IS NOT NULL
+                DO NOTHING
+            RETURNING id, name, description, version, created_at, updated_at
+        )
+        SELECT * FROM ins
+        """,
+        user_ref, name, description, idempotency_key,
+    )
+    if row is not None:
+        return dict(row)
+    # idempotent replay: the key already minted a project → return the original
+    existing = await pool.fetchrow(
+        """
+        SELECT p.id, p.name, p.description, p.version, p.created_at, p.updated_at
+        FROM projects p JOIN subjects s ON s.subject_id = p.subject_id
+        WHERE s.user_ref = $1 AND p.idempotency_key = $2
+        """,
+        user_ref, idempotency_key,
+    )
+    return dict(existing) if existing else {}
+
+
+async def list_projects(
+    pool: asyncpg.Pool,
+    *,
+    user_ref: str,
+    limit: int,
+    before_created_at: datetime | None = None,
+    before_id: UUID | None = None,
+) -> list[dict[str, Any]]:
+    """Keyset page of a subject's ACTIVE projects, newest first. The cursor is
+    the last seen (created_at, id); offset pagination is never used (#scale)."""
+    rows = await pool.fetch(
+        """
+        SELECT p.id, p.name, p.updated_at, p.created_at,
+               (SELECT COUNT(*) FROM project_sessions ps WHERE ps.project_id = p.id)
+                   AS session_count
+        FROM projects p
+        JOIN subjects s ON s.subject_id = p.subject_id
+        WHERE s.user_ref = $1
+          AND p.archived_at IS NULL
+          AND ($2::timestamptz IS NULL OR (p.created_at, p.id) < ($2, $3))
+        ORDER BY p.created_at DESC, p.id DESC
+        LIMIT $4
+        """,
+        user_ref, before_created_at, before_id, limit,
+    )
+    return [dict(r) for r in rows]
+
+
+async def get_project(
+    pool: asyncpg.Pool, *, user_ref: str, project_id: UUID
+) -> asyncpg.Record | None:
+    return await pool.fetchrow(
+        """
+        SELECT p.id, p.subject_id, p.name, p.description, p.version,
+               p.created_at, p.updated_at,
+               (SELECT COUNT(*) FROM project_sessions ps WHERE ps.project_id = p.id)
+                   AS session_count
+        FROM projects p JOIN subjects s ON s.subject_id = p.subject_id
+        WHERE s.user_ref = $1 AND p.id = $2 AND p.archived_at IS NULL
+        """,
+        user_ref, project_id,
+    )
+
+
+async def update_project(
+    pool: asyncpg.Pool,
+    *,
+    user_ref: str,
+    project_id: UUID,
+    name: str | None,
+    description: str | None,
+    expected_version: int,
+) -> dict[str, Any] | None:
+    """Optimistic-concurrency update. Returns the new row dict on success,
+    None when the project does not exist/own, or {"_conflict": current_version}
+    when expected_version is stale (→ 409 at the router). NULL name/description
+    means 'leave unchanged'."""
+    row = await pool.fetchrow(
+        """
+        UPDATE projects p
+        SET name        = COALESCE($4, p.name),
+            description = COALESCE($5, p.description),
+            version     = p.version + 1,
+            updated_at  = now()
+        FROM subjects s
+        WHERE p.subject_id = s.subject_id
+          AND s.user_ref = $1 AND p.id = $2 AND p.archived_at IS NULL
+          AND p.version = $3
+        RETURNING p.id, p.name, p.description, p.version, p.created_at, p.updated_at
+        """,
+        user_ref, project_id, expected_version, name, description,
+    )
+    if row is not None:
+        return dict(row)
+    current = await pool.fetchval(
+        """
+        SELECT p.version FROM projects p JOIN subjects s ON s.subject_id = p.subject_id
+        WHERE s.user_ref = $1 AND p.id = $2 AND p.archived_at IS NULL
+        """,
+        user_ref, project_id,
+    )
+    if current is None:
+        return None
+    return {"_conflict": current}
+
+
+async def delete_project(
+    pool: asyncpg.Pool,
+    *,
+    user_ref: str,
+    project_id: UUID,
+    expected_version: int,
+) -> dict[str, Any] | None:
+    """Hard-delete a project (cascades its project_sessions, NOT the chats).
+    Returns {"sessions_unlinked": N} on success, None when not found/owned, or
+    {"_conflict": current_version} when expected_version is stale."""
+    current = await pool.fetchrow(
+        """
+        SELECT p.version,
+               (SELECT COUNT(*) FROM project_sessions ps WHERE ps.project_id = p.id)
+                   AS session_count
+        FROM projects p JOIN subjects s ON s.subject_id = p.subject_id
+        WHERE s.user_ref = $1 AND p.id = $2 AND p.archived_at IS NULL
+        """,
+        user_ref, project_id,
+    )
+    if current is None:
+        return None
+    if current["version"] != expected_version:
+        return {"_conflict": current["version"]}
+    await pool.execute("DELETE FROM projects WHERE id = $1", project_id)
+    return {"sessions_unlinked": current["session_count"]}
+
+
+async def add_project_sessions(
+    pool: asyncpg.Pool,
+    *,
+    user_ref: str,
+    project_id: UUID,
+    chat_ids: list[UUID],
+) -> dict[str, Any] | None:
+    """Idempotently link chats (== saf_session_ids) to a project. chat_ids not
+    owned by this user are reported as 'unknown', never fatal. Returns None when
+    the project itself is not found/owned (→ 404)."""
+    owns = await pool.fetchval(
+        """
+        SELECT 1 FROM projects p JOIN subjects s ON s.subject_id = p.subject_id
+        WHERE s.user_ref = $1 AND p.id = $2 AND p.archived_at IS NULL
+        """,
+        user_ref, project_id,
+    )
+    if owns is None:
+        return None
+
+    valid = await pool.fetch(
+        "SELECT id FROM raw_chats WHERE user_ref = $1 AND id = ANY($2::uuid[])",
+        user_ref, chat_ids,
+    )
+    valid_ids = [r["id"] for r in valid]
+    valid_set = set(valid_ids)
+    unknown = [str(c) for c in chat_ids if c not in valid_set]
+
+    added_rows = await pool.fetch(
+        """
+        INSERT INTO project_sessions (project_id, chat_id)
+        SELECT $1, x FROM unnest($2::uuid[]) AS x
+        ON CONFLICT DO NOTHING
+        RETURNING chat_id
+        """,
+        project_id, valid_ids,
+    )
+    added = len(added_rows)
+    return {
+        "added": added,
+        "skipped_already_present": len(valid_ids) - added,
+        "unknown": unknown,
+    }
+
+
+async def remove_project_session(
+    pool: asyncpg.Pool, *, user_ref: str, project_id: UUID, chat_id: UUID
+) -> bool:
+    result = await pool.execute(
+        """
+        DELETE FROM project_sessions ps
+        USING projects p, subjects s
+        WHERE ps.project_id = p.id
+          AND p.subject_id = s.subject_id
+          AND s.user_ref = $1 AND p.id = $2 AND ps.chat_id = $3
+        """,
+        user_ref, project_id, chat_id,
+    )
+    parts = result.split()
+    return len(parts) == 2 and parts[1] != "0"
+
+
+async def get_project_score_rows(
+    pool: asyncpg.Pool, *, user_ref: str, project_id: UUID
+) -> list[asyncpg.Record]:
+    """Scored-chat profiles linked to a project, for radar aggregation."""
+    return await pool.fetch(
+        """
+        SELECT sc.profile, rc.captured_at
+        FROM project_sessions ps
+        JOIN projects p   ON p.id = ps.project_id
+        JOIN subjects s   ON s.subject_id = p.subject_id
+        JOIN scores sc    ON sc.chat_id = ps.chat_id
+        JOIN raw_chats rc ON rc.id = ps.chat_id
+        WHERE s.user_ref = $1 AND p.id = $2 AND rc.status = 'scored'
+        ORDER BY rc.captured_at ASC
+        """,
+        user_ref, project_id,
+    )
+
+
+async def get_portfolio_ack(
+    pool: asyncpg.Pool, *, user_ref: str, scope: str
+) -> asyncpg.Record | None:
+    return await pool.fetchrow(
+        """
+        SELECT pa.snapshot_hash, pa.acked_at
+        FROM portfolio_ack pa JOIN subjects s ON s.subject_id = pa.subject_id
+        WHERE s.user_ref = $1 AND pa.scope = $2
+        """,
+        user_ref, scope,
+    )
+
+
+async def upsert_portfolio_ack(
+    pool: asyncpg.Pool, *, user_ref: str, scope: str, snapshot_hash: str
+) -> dict[str, Any]:
+    """Record that the user acknowledged a specific portfolio snapshot (by hash).
+    Mints the subject if needed; re-acking a new hash overwrites the old ack."""
+    row = await pool.fetchrow(
+        """
+        WITH subj AS (
+            INSERT INTO subjects (user_ref) VALUES ($1)
+            ON CONFLICT (user_ref) DO UPDATE SET user_ref = EXCLUDED.user_ref
+            RETURNING subject_id
+        )
+        INSERT INTO portfolio_ack (subject_id, scope, snapshot_hash)
+        SELECT subject_id, $2, $3 FROM subj
+        ON CONFLICT (subject_id, scope) DO UPDATE
+            SET snapshot_hash = EXCLUDED.snapshot_hash, acked_at = now()
+        RETURNING acked_at
+        """,
+        user_ref, scope, snapshot_hash,
+    )
+    return dict(row)
