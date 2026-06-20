@@ -234,6 +234,25 @@
 
               <section class="saf-project-profile" aria-labelledby="saf-project-profile-heading">
                 <h4 id="saf-project-profile-heading" class="saf-section-label">Project profile</h4>
+                <section
+                  id="saf-project-radar-section"
+                  class="saf-project-radar-section"
+                  aria-label="Project profile radar"
+                  hidden
+                >
+                  <div id="saf-project-radar-empty" class="saf-project-radar-empty">
+                    Not enough sessions to render profile
+                  </div>
+                  <figure id="saf-project-radar-figure" class="saf-project-radar-figure" hidden>
+                    <svg
+                      id="saf-project-radar"
+                      class="saf-radar"
+                      viewBox="0 0 240 240"
+                      role="img"
+                      aria-label="Project profile radar"
+                    ></svg>
+                  </figure>
+                </section>
                 <div id="saf-project-profile-list" class="saf-dimension-list"></div>
               </section>
             </section>
