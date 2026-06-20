@@ -10,6 +10,7 @@ export function initSidebar(shadowRoot) {
   let portfolioCleanup = null;
   let projectsCleanup = null;
   let settingsCleanup = null;
+  let profileCleanup = null;
 
   function panelFor(view) {
     return panels.find((panel) => panel.dataset.viewPanel === view);
@@ -115,6 +116,15 @@ export function initSidebar(shadowRoot) {
       console.error('[SAF] failed to initialise settings view', error);
     });
 
+  import(chrome.runtime.getURL('panel/views/profile.js'))
+    .then(({ initProfileView }) => {
+      if (disposed) return;
+      profileCleanup = initProfileView(shadowRoot);
+    })
+    .catch((error) => {
+      console.error('[SAF] failed to initialise profile view', error);
+    });
+
   return () => {
     disposed = true;
     chatsCleanup?.();
@@ -122,6 +132,7 @@ export function initSidebar(shadowRoot) {
     portfolioCleanup?.();
     projectsCleanup?.();
     settingsCleanup?.();
+    profileCleanup?.();
     shadowRoot.removeEventListener('click', handleSidebarClick);
     chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
   };
