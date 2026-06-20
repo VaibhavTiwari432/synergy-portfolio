@@ -79,9 +79,18 @@
           <header class="saf-main-header">
             <div>
               <h2 class="saf-view-title">Your chats</h2>
-              <p class="saf-view-subtitle">0 scored / 0 pending</p>
+              <p class="saf-view-subtitle">
+                <span id="saf-chat-counts">0 scored / 0 pending</span>
+              </p>
             </div>
+            <button id="saf-chat-retry" class="saf-text-button" type="button" hidden>
+              Retry
+            </button>
           </header>
+
+          <p id="saf-chat-status" class="saf-inline-status" role="status" aria-live="polite">
+            Loading chats...
+          </p>
 
           <section class="saf-search-shell" aria-label="Search chats">
             <input
@@ -92,18 +101,14 @@
             >
           </section>
 
-          <section class="saf-current-chat-shell" aria-label="Current chat">
+          <section id="saf-current-chat-section" class="saf-current-chat-shell" aria-label="Current chat" hidden>
             <p class="saf-section-label">Current chat</p>
-            <div class="saf-chat-placeholder" aria-live="polite">
-              Current chat appears here after S4 data wiring.
-            </div>
+            <div id="saf-current-chat-list" class="saf-chat-list" aria-live="polite"></div>
           </section>
 
           <section class="saf-chat-list-shell" aria-label="Recent chats">
             <p class="saf-section-label">Recent chats</p>
-            <div class="saf-chat-placeholder">
-              Chat rows load here in the chats view.
-            </div>
+            <div id="saf-chat-list" class="saf-chat-list" aria-live="polite"></div>
           </section>
         </section>
 
