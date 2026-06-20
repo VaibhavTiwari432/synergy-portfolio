@@ -53,10 +53,12 @@
     fab.setAttribute('aria-expanded', 'false');
     fab.dataset.hasWork = 'false';
 
-    const glyph = document.createElement('span');
-    glyph.className = 'saf-logo-mark saf-fab-glyph';
-    glyph.setAttribute('aria-hidden', 'true');
-    fab.appendChild(glyph);
+    const logo = document.createElement('img');
+    logo.className = 'saf-fab-logo';
+    logo.alt = '';
+    logo.setAttribute('aria-hidden', 'true');
+    logo.dataset.safLogo = 'true';
+    fab.appendChild(logo);
 
     const dot = document.createElement('span');
     dot.className = 'saf-fab-dot';
