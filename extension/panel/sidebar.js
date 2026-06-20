@@ -4,6 +4,8 @@ export function initSidebar(shadowRoot) {
   const navItems = Array.from(shadowRoot.querySelectorAll('.saf-nav-item[data-view]'));
   const panels = Array.from(shadowRoot.querySelectorAll('[data-view-panel]'));
   const projectsNav = shadowRoot.querySelector('.saf-nav-item[data-view="projects"]');
+  let disposed = false;
+  let chatsCleanup = null;
 
   function panelFor(view) {
     return panels.find((panel) => panel.dataset.viewPanel === view);
@@ -55,7 +57,18 @@ export function initSidebar(shadowRoot) {
   shadowRoot.addEventListener('click', handleSidebarClick);
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);
 
+  import(chrome.runtime.getURL('panel/views/chats.js'))
+    .then(({ initChatsView }) => {
+      if (disposed) return;
+      chatsCleanup = initChatsView(shadowRoot);
+    })
+    .catch((error) => {
+      console.error('[SAF] failed to initialise chats view', error);
+    });
+
   return () => {
+    disposed = true;
+    chatsCleanup?.();
     shadowRoot.removeEventListener('click', handleSidebarClick);
     chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
   };
