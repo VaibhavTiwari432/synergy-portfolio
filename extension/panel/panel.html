@@ -189,10 +189,36 @@
         <button id="saf-modal-close" class="saf-close-button" type="button" aria-label="Close SAF">
           ×
         </button>
-        <div class="saf-drawer-empty">
+        <div id="saf-detail-empty" class="saf-drawer-empty">
           <img class="saf-empty-logo" data-saf-logo alt="" aria-hidden="true">
           <p>Select a chat to see its profile</p>
         </div>
+        <section id="saf-detail-content" class="saf-detail-content" aria-label="Chat profile" hidden>
+          <header class="saf-detail-header">
+            <h2 id="saf-detail-title" class="saf-detail-title">Conversation</h2>
+            <p id="saf-detail-meta" class="saf-detail-meta"></p>
+          </header>
+
+          <section class="saf-detail-section" aria-labelledby="saf-profile-heading">
+            <h3 id="saf-profile-heading" class="saf-detail-section-title">Collaboration profile</h3>
+            <div id="saf-dimension-list" class="saf-dimension-list"></div>
+          </section>
+
+          <section id="saf-trend-section" class="saf-detail-section" aria-labelledby="saf-trend-heading" hidden>
+            <h3 id="saf-trend-heading" class="saf-detail-section-title">Trend</h3>
+            <div id="saf-trend-body" class="saf-detail-note"></div>
+          </section>
+
+          <section id="saf-flags-section" class="saf-detail-section" aria-labelledby="saf-flags-heading" hidden>
+            <h3 id="saf-flags-heading" class="saf-detail-section-title">Flags</h3>
+            <div id="saf-flag-list" class="saf-flag-list"></div>
+          </section>
+
+          <section class="saf-detail-section" aria-labelledby="saf-remarks-heading">
+            <h3 id="saf-remarks-heading" class="saf-detail-section-title">Remarks</h3>
+            <textarea id="saf-remarks-text" class="saf-remarks-text" readonly></textarea>
+          </section>
+        </section>
       </aside>
     </section>
   </div>
