@@ -140,12 +140,46 @@
           <header class="saf-main-header">
             <div>
               <h2 class="saf-view-title">Your collaboration profile</h2>
-              <p class="saf-view-subtitle">Personal baseline - your trend, not a ranking</p>
+              <p class="saf-view-subtitle">Personal baseline — your trend, not a ranking.</p>
             </div>
+            <button id="saf-portfolio-retry" class="saf-text-button" type="button" hidden>
+              Retry
+            </button>
           </header>
-          <div class="saf-placeholder-panel">
-            Portfolio content wires in during the portfolio step.
-          </div>
+
+          <p id="saf-portfolio-status" class="saf-inline-status" role="status" aria-live="polite">
+            Loading portfolio...
+          </p>
+
+          <section id="saf-portfolio-history" class="saf-portfolio-empty" hidden>
+            Score a few more chats to see your trend
+          </section>
+
+          <section id="saf-portfolio-content" class="saf-portfolio-content" aria-label="Portfolio radar" hidden>
+            <div class="saf-portfolio-summary">
+              <div>
+                <p class="saf-section-label">Sessions analysed</p>
+                <p id="saf-portfolio-sessions" class="saf-portfolio-metric">0</p>
+              </div>
+              <div>
+                <p class="saf-section-label">Profile type</p>
+                <p id="saf-portfolio-archetype" class="saf-portfolio-metric">Baseline</p>
+              </div>
+            </div>
+
+            <figure class="saf-radar-figure">
+              <svg
+                id="saf-portfolio-radar"
+                class="saf-radar"
+                viewBox="0 0 240 240"
+                role="img"
+                aria-label="Current profile radar"
+              ></svg>
+              <figcaption id="saf-portfolio-note" class="saf-radar-note">
+                Past baseline coming soon — showing your current profile.
+              </figcaption>
+            </figure>
+          </section>
         </section>
 
         <section
