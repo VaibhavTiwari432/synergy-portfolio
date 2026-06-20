@@ -29,6 +29,7 @@
   --saf-fab-shadow: rgba(0,0,0,0.35);
   --saf-fab-shadow-hover: rgba(0,0,0,0.45);
   --saf-modal-shadow: rgba(0,0,0,0.6);
+  --saf-transparent: transparent;
 }
 
 #saf-fab,
@@ -235,6 +236,10 @@
   background: var(--saf-transparent);
 }
 
+.saf-nav-item:not(.is-disabled) .saf-soon-badge {
+  display: none;
+}
+
 .saf-nav-icon {
   display: inline-flex;
   align-items: center;
@@ -258,9 +263,21 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
   padding: 16px;
   background: var(--saf-bg-base);
+}
+
+.saf-view-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.saf-view-panel[hidden] {
+  display: none;
 }
 
 .saf-main-header {
@@ -336,6 +353,21 @@
   border-radius: var(--saf-radius-md);
   font-size: 12px;
   line-height: 1.35;
+}
+
+.saf-placeholder-panel {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  color: var(--saf-text-faint);
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-md);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
 }
 
 .saf-detail-drawer {
