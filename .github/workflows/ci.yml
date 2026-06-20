@@ -16,9 +16,14 @@ jobs:
           python-version: "3.12"
 
       - name: Install test dependencies
-        # Heavy deps (sentence-transformers, google-generativeai) are not needed
-        # until the modules that use them land; keep CI fast at Stage 0.
-        run: pip install pydantic pyyaml pytest fastapi httpx sqlalchemy
+        # Heavy ML deps (sentence-transformers, google-generativeai) are not
+        # needed until the modules that use them land; keep CI lean.
+        # asyncpg + pytest-asyncio ARE required: the async integration tests
+        # import pytest_asyncio at module scope and use @pytest_asyncio.fixture,
+        # so they must IMPORT cleanly to be collected — even though they then
+        # SKIP (PHASE1_GATE unset / no Postgres in CI). Without these, collection
+        # errors and the whole run fails.
+        run: pip install pydantic pyyaml pytest fastapi httpx sqlalchemy asyncpg pytest-asyncio
 
       - name: Contract + unit tests
         run: python -m pytest tests/ -q

@@ -5,8 +5,11 @@ OWNER: Chief Engineer. (Brief §3.10.)
 The report separates Observed / Inferred / Hypothesized and is the ONLY
 user-facing text surface. Every string it emits passes the forbidden-word
 scan for the session's tier before the ScoreResponse is assembled — the test
-suite proves the generator cannot say "synergy" (or "surrender", or
-"dependent") at Tier 1 through any path.
+suite proves the generator cannot emit any Tier-1 forbidden term (the
+collaboration buzzword, the regime-overlay state word, or the dependency
+adjective — see the forbidden-word table / non-negotiables #4-#5) through any
+path. Those literal words are deliberately absent from this surface file
+(non-negotiable #5; enforced by the CI forbidden-word gate).
 """
 
 from __future__ import annotations
