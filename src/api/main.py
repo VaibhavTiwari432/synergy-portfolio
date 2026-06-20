@@ -56,14 +56,26 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from src.db.connection import close_pool, init_pool
+    from src.db.connection import close_pool, get_pool_optional, init_pool
+    from src.logging_config import configure_logging
+    from src.startup_checks import check_db, check_env
+
+    configure_logging()
+    # fail loud on misconfiguration — SAF_API_KEY absent means auth fails closed
+    check_env(
+        component="api",
+        required=["SAF_API_KEY"],
+        optional=["DATABASE_URL", "GEMINI_API_KEY", "GOOGLE_API_KEY",
+                  "OPENAI_API_KEY", "SAF_GIT_SHA"],
+    )
     try:
         await init_pool()
     except Exception as exc:
         log.warning(
-            "Postgres unavailable — Scope B endpoints will return 503. (%s: %s)",
+            "Postgres unavailable — Scope B/C endpoints will return 503. (%s: %s)",
             type(exc).__name__, exc,
         )
+    await check_db(get_pool_optional())  # startup connectivity probe (logs verdict)
     yield
     await close_pool()
 
@@ -107,7 +119,18 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
 
     @app.get("/v1/health")
     async def health() -> dict[str, str]:
-        return {"status": "ok"}
+        # liveness ("status": process up) + readiness ("db": Postgres reachable);
+        # no auth so a load balancer / ops can poll it.
+        from src.db.connection import get_pool_optional
+        pool = get_pool_optional()
+        db = "unavailable"
+        if pool is not None:
+            try:
+                await pool.fetchval("SELECT 1")
+                db = "ok"
+            except Exception:
+                db = "unavailable"
+        return {"status": "ok", "db": db}
 
     @app.get("/v1/contracts")
     async def contracts() -> dict[str, str]:

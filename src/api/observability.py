@@ -23,6 +23,8 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from src.logging_config import request_id_var
+
 log = logging.getLogger("saf.api")
 
 
@@ -55,7 +57,11 @@ def install_observability(app: FastAPI) -> None:
     async def _request_id_mw(request: Request, call_next):
         rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         request.state.request_id = rid
-        response = await call_next(request)
+        token = request_id_var.set(rid)  # correlate every log line for this request
+        try:
+            response = await call_next(request)
+        finally:
+            request_id_var.reset(token)
         response.headers["X-Request-ID"] = rid
         return response
 

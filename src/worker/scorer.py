@@ -46,6 +46,12 @@ from src.trait.judge.prompt import JUDGE_PROMPT_VERSION
 
 POLL_INTERVAL: int = int(os.environ.get("WORKER_POLL_INTERVAL", "3"))
 
+# Heartbeat (Audit Track 4): the worker emits a liveness log every
+# WORKER_HEARTBEAT_SECONDS and, if WORKER_HEARTBEAT_FILE is set, touches that file
+# with a UTC timestamp — so ops can detect a silently-dead worker.
+HEARTBEAT_INTERVAL: int = int(os.environ.get("WORKER_HEARTBEAT_SECONDS", "30"))
+HEARTBEAT_FILE: str | None = os.environ.get("WORKER_HEARTBEAT_FILE") or None
+
 # Lease watchdog (stuck-scoring recovery). A chat enters status='scoring' when a
 # worker claims it; if that worker crashes or hangs before finalizing, the row is
 # wedged. The watchdog resets such rows to 'pending' after LEASE_TIMEOUT_SECONDS
@@ -308,19 +314,39 @@ async def _poll_loop(pool: asyncpg.Pool) -> None:
         await asyncio.sleep(POLL_INTERVAL)
 
 
+async def _heartbeat_loop() -> None:
+    """Liveness signal so a silently-dead worker is detectable (Track 4)."""
+    import time
+    while True:
+        ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        log.info("[WORKER] heartbeat %s (poll=%ds)", ts, POLL_INTERVAL)
+        if HEARTBEAT_FILE:
+            try:
+                with open(HEARTBEAT_FILE, "w", encoding="utf-8") as fh:
+                    fh.write(ts)
+            except Exception as exc:  # heartbeat file is best-effort, never fatal
+                log.warning("[WORKER] heartbeat file write failed: %s", exc)
+        await asyncio.sleep(HEARTBEAT_INTERVAL)
+
+
 async def run() -> None:
+    from src.startup_checks import check_db, check_env
+    check_env(
+        component="worker",
+        required=[],
+        optional=["DATABASE_URL", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"],
+    )
     await init_pool()
     pool = get_pool()
-    log.info("[WORKER] started — poll interval %ds", POLL_INTERVAL)
-    # Poll loop and lease watchdog run concurrently; if either coroutine ever
-    # raises out of its own try/except (it shouldn't), gather surfaces it loudly
-    # rather than leaving a half-dead worker.
-    await asyncio.gather(_poll_loop(pool), _lease_watchdog(pool))
+    await check_db(pool)  # startup connectivity probe (logs verdict)
+    log.info("[WORKER] started — poll interval %ds, heartbeat %ds", POLL_INTERVAL, HEARTBEAT_INTERVAL)
+    # Poll loop, lease watchdog, and heartbeat run concurrently; if any coroutine
+    # ever raises out of its own try/except (it shouldn't), gather surfaces it
+    # loudly rather than leaving a half-dead worker.
+    await asyncio.gather(_poll_loop(pool), _lease_watchdog(pool), _heartbeat_loop())
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)-5s %(message)s",
-    )
+    from src.logging_config import configure_logging
+    configure_logging()
     asyncio.run(run())
