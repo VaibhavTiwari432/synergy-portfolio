@@ -1093,6 +1093,63 @@
   line-height: 1.35;
 }
 
+.saf-profile-content[hidden] {
+  display: none;
+}
+
+.saf-profile-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.saf-profile-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.saf-profile-summary > div {
+  min-width: 0;
+  padding: 10px;
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-md);
+}
+
+.saf-profile-metric {
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--saf-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saf-profile-manage {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  color: var(--saf-text-muted);
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.saf-profile-manage.is-disabled {
+  color: var(--saf-text-dim);
+  cursor: default;
+  opacity: 0.72;
+}
+
 .saf-detail-drawer {
   position: relative;
   min-width: 0;
