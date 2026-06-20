@@ -20,6 +20,7 @@
   let isOpen = false;
   let isOpening = false;
   let closeTimer = null;
+  let sidebarCleanup = null;
 
   console.info(`[SAF] injected_icon build ${SAF_BUILD} loaded`);
 
@@ -137,6 +138,8 @@
       modalShadow.appendChild(stylesheet);
       modalShadow.appendChild(await loadModalFragment());
       setLogoSources(modalShadow);
+      const { initSidebar } = await import(chrome.runtime.getURL('panel/sidebar.js'));
+      sidebarCleanup = initSidebar(modalShadow);
 
       bindModalEvents();
       document.addEventListener('keydown', handleKeydown);
@@ -191,6 +194,8 @@
       closeTimer = null;
     }
 
+    sidebarCleanup?.();
+    sidebarCleanup = null;
     modalHost?.remove();
     modalHost = null;
     modalShadow = null;
