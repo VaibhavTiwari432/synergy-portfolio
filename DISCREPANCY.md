@@ -1050,6 +1050,28 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-024  [OPEN]  — Portfolio radar: no per-dim past/present windows (only a single all-sessions mean)
+- Raised by: Chief Engineer
+- Date: 2026-06-20
+- File(s): src/api/routers/users.py (get_portfolio → profile_radar is one per-dim
+  mean across ALL scored sessions), extension/panel/views/portfolio.js (S7)
+- Problem: CODEX_AGENT_UI.md §6/§7 and the S7 brief require a two-shape radar —
+  past (dashed) + present (solid). getPortfolio returns only a single
+  `profile_radar` (per-dim mean over all sessions); there is no per-dim
+  time-windowed past vs present data, so the "past" overlay has no backing source.
+  (trajectory is session-level composite means + a direction string, not per-dim.)
+- Decision (CE, 2026-06-20): S7 ships PRESENT-ONLY now — draws the single
+  profile_radar shape with a visible note "Past baseline coming soon — showing
+  your current profile." (honest, not a broken/empty state). Deferred CE task:
+  extend get_portfolio to return profile_radar_past / profile_radar_present by
+  splitting scored sessions into an earlier vs recent window (window definition
+  TBD — e.g. first-half vs last-half, or last-N vs prior, with a per-window min
+  session count and INSUFFICIENT handling per dim). S7 will additively bind the
+  second shape when that endpoint ships — no rework, just a new data bind.
+- Status: OPEN
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |
