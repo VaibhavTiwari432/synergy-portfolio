@@ -218,6 +218,48 @@
             <h3 id="saf-remarks-heading" class="saf-detail-section-title">Remarks</h3>
             <textarea id="saf-remarks-text" class="saf-remarks-text" readonly></textarea>
           </section>
+
+          <section class="saf-detail-section" aria-labelledby="saf-feedback-heading">
+            <h3 id="saf-feedback-heading" class="saf-detail-section-title">Feedback</h3>
+            <div class="saf-feedback-widget" id="saf-feedback-widget">
+              <div class="saf-feedback-actions" aria-label="Score feedback">
+                <button
+                  id="saf-feedback-up"
+                  class="saf-feedback-thumb"
+                  type="button"
+                  aria-label="This profile matches the chat"
+                  aria-pressed="false"
+                  data-feedback-value="1"
+                >
+                  &#128077;
+                </button>
+                <button
+                  id="saf-feedback-down"
+                  class="saf-feedback-thumb"
+                  type="button"
+                  aria-label="This profile does not match the chat"
+                  aria-pressed="false"
+                  data-feedback-value="-1"
+                >
+                  &#128078;
+                </button>
+              </div>
+              <label class="saf-feedback-note-label" for="saf-feedback-note">Note</label>
+              <textarea
+                id="saf-feedback-note"
+                class="saf-feedback-note"
+                maxlength="280"
+                placeholder="Optional note"
+              ></textarea>
+              <div class="saf-feedback-footer">
+                <span id="saf-feedback-count" class="saf-feedback-count">0/280</span>
+                <button id="saf-feedback-submit" class="saf-text-button" type="button">
+                  Send note
+                </button>
+              </div>
+              <p id="saf-feedback-status" class="saf-feedback-status" role="status" aria-live="polite"></p>
+            </div>
+          </section>
         </section>
       </aside>
     </section>
