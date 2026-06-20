@@ -122,12 +122,100 @@
           <header class="saf-main-header">
             <div>
               <h2 class="saf-view-title">Projects</h2>
-              <p class="saf-view-subtitle">Coming soon</p>
+              <p class="saf-view-subtitle">Group scored chats into working sets</p>
             </div>
+            <button id="saf-projects-retry" class="saf-text-button" type="button" hidden>
+              Retry
+            </button>
           </header>
-          <div class="saf-placeholder-panel">
-            Projects require the backend update before they can be opened.
-          </div>
+
+          <p id="saf-projects-status" class="saf-inline-status" role="status" aria-live="polite">
+            Loading projects...
+          </p>
+
+          <section class="saf-project-create" aria-labelledby="saf-project-create-heading">
+            <h3 id="saf-project-create-heading" class="saf-section-label">New project</h3>
+            <div class="saf-project-create-grid">
+              <input
+                id="saf-project-name"
+                class="saf-project-input"
+                type="text"
+                maxlength="120"
+                placeholder="Project name"
+                aria-label="Project name"
+              >
+              <button id="saf-project-create" class="saf-text-button" type="button">
+                Create
+              </button>
+            </div>
+            <textarea
+              id="saf-project-description"
+              class="saf-project-textarea"
+              maxlength="500"
+              placeholder="Optional description"
+              aria-label="Project description"
+            ></textarea>
+          </section>
+
+          <section class="saf-projects-layout" aria-label="Projects workspace">
+            <div class="saf-project-list-shell">
+              <p class="saf-section-label">Projects</p>
+              <div id="saf-project-list" class="saf-project-list" aria-live="polite"></div>
+              <button id="saf-project-load-more" class="saf-text-button" type="button" hidden>
+                Load more
+              </button>
+            </div>
+
+            <section id="saf-project-detail-empty" class="saf-project-detail-empty">
+              Select a project to view details
+            </section>
+
+            <section
+              id="saf-project-detail"
+              class="saf-project-detail"
+              aria-labelledby="saf-project-detail-heading"
+              hidden
+            >
+              <header class="saf-project-detail-header">
+                <div>
+                  <h3 id="saf-project-detail-heading" class="saf-project-detail-title">Project</h3>
+                  <p id="saf-project-detail-meta" class="saf-detail-meta"></p>
+                </div>
+                <button id="saf-project-conflict-retry" class="saf-text-button" type="button" hidden>
+                  Retry change
+                </button>
+              </header>
+
+              <label class="saf-project-field-label" for="saf-project-edit-name">Name</label>
+              <input
+                id="saf-project-edit-name"
+                class="saf-project-input"
+                type="text"
+                maxlength="120"
+              >
+
+              <label class="saf-project-field-label" for="saf-project-edit-description">Description</label>
+              <textarea
+                id="saf-project-edit-description"
+                class="saf-project-textarea"
+                maxlength="500"
+              ></textarea>
+
+              <div class="saf-project-actions">
+                <button id="saf-project-save" class="saf-text-button" type="button">
+                  Save
+                </button>
+                <button id="saf-project-delete" class="saf-text-button saf-text-button--danger" type="button">
+                  Delete
+                </button>
+              </div>
+
+              <section class="saf-project-profile" aria-labelledby="saf-project-profile-heading">
+                <h4 id="saf-project-profile-heading" class="saf-section-label">Project profile</h4>
+                <div id="saf-project-profile-list" class="saf-dimension-list"></div>
+              </section>
+            </section>
+          </section>
         </section>
 
         <section
