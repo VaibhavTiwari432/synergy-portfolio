@@ -323,10 +323,56 @@
               <h2 class="saf-view-title">Settings</h2>
               <p class="saf-view-subtitle">Extension controls</p>
             </div>
+            <button id="saf-settings-retry" class="saf-text-button" type="button" hidden>
+              Retry
+            </button>
           </header>
-          <div class="saf-placeholder-panel">
-            Settings controls arrive in the settings step.
-          </div>
+
+          <p id="saf-settings-status" class="saf-inline-status" role="status" aria-live="polite">
+            Loading settings...
+          </p>
+
+          <section class="saf-settings-list" aria-label="Settings controls">
+            <label class="saf-toggle-row" for="saf-setting-auto-analyse">
+              <span>
+                <span class="saf-toggle-title">Auto-analyse new chats</span>
+                <span class="saf-toggle-copy">Start scoring when a captured chat is ready.</span>
+              </span>
+              <input id="saf-setting-auto-analyse" class="saf-toggle-input" type="checkbox">
+              <span class="saf-toggle-control" aria-hidden="true"></span>
+            </label>
+
+            <label class="saf-toggle-row" for="saf-setting-notification-dot">
+              <span>
+                <span class="saf-toggle-title">Show notification dot</span>
+                <span class="saf-toggle-copy">Show the FAB dot when chats need attention.</span>
+              </span>
+              <input id="saf-setting-notification-dot" class="saf-toggle-input" type="checkbox">
+              <span class="saf-toggle-control" aria-hidden="true"></span>
+            </label>
+
+            <label class="saf-toggle-row" for="saf-setting-calibration-opt-in">
+              <span>
+                <span class="saf-toggle-title">Data opt-in</span>
+                <span class="saf-toggle-copy">
+                  Anonymised session data may be used to improve the SAF scoring models.
+                  No personally identifiable information is shared. You can withdraw at any time.
+                </span>
+              </span>
+              <input id="saf-setting-calibration-opt-in" class="saf-toggle-input" type="checkbox">
+              <span class="saf-toggle-control" aria-hidden="true"></span>
+            </label>
+          </section>
+
+          <section class="saf-danger-zone" aria-labelledby="saf-danger-zone-heading">
+            <div>
+              <h3 id="saf-danger-zone-heading" class="saf-section-label">Delete my data</h3>
+              <p class="saf-danger-copy">Remove stored SAF data for this user.</p>
+            </div>
+            <button id="saf-settings-delete-data" class="saf-text-button saf-text-button--danger" type="button">
+              Delete my data
+            </button>
+          </section>
         </section>
 
         <section
