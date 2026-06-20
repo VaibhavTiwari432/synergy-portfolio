@@ -569,6 +569,118 @@
   text-align: center;
 }
 
+.saf-portfolio-empty {
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  color: var(--saf-text-faint);
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-md);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.saf-portfolio-empty[hidden],
+.saf-portfolio-content[hidden] {
+  display: none;
+}
+
+.saf-portfolio-content {
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.saf-portfolio-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.saf-portfolio-summary > div {
+  min-width: 0;
+  padding: 10px;
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-md);
+}
+
+.saf-portfolio-metric {
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--saf-text-primary);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saf-radar-figure {
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-md);
+}
+
+.saf-radar {
+  width: min(100%, 300px);
+  max-height: 300px;
+  aspect-ratio: 1;
+  display: block;
+  overflow: visible;
+}
+
+.saf-radar-grid {
+  fill: none;
+  stroke: var(--saf-border-hover);
+  stroke-width: 1;
+}
+
+.saf-radar-axis {
+  stroke: var(--saf-border);
+  stroke-width: 1;
+}
+
+.saf-radar-shape {
+  fill: var(--saf-accent-light);
+  stroke: var(--saf-accent);
+  stroke-width: 2;
+}
+
+.saf-radar-point {
+  fill: var(--saf-accent);
+}
+
+.saf-radar-label {
+  fill: var(--saf-text-muted);
+  font: 600 10px/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.saf-radar-note {
+  max-width: 280px;
+  color: var(--saf-text-faint);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+}
+
 .saf-detail-drawer {
   position: relative;
   min-width: 0;
