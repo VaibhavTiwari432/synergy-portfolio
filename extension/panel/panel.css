@@ -817,6 +817,49 @@
   margin-top: 4px;
 }
 
+.saf-project-radar-section[hidden],
+.saf-project-radar-figure[hidden] {
+  display: none;
+}
+
+.saf-project-radar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.saf-project-radar-empty {
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  color: var(--saf-text-faint);
+  background: var(--saf-bg-base);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-sm);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.saf-project-radar-figure {
+  min-height: 168px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 10px;
+  background: var(--saf-bg-base);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-sm);
+}
+
+.saf-project-radar-figure .saf-radar {
+  width: min(100%, 220px);
+  max-height: 220px;
+}
+
 .saf-project-empty-row {
   display: flex;
   align-items: center;
