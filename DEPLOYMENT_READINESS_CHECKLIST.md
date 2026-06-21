@@ -23,6 +23,7 @@
 - [x] Smoke script automated - `scripts/smoke_scope_c.{ps1,sh}`
 - [x] Ops troubleshooting - structured JSON logs + request id + `/v1/health` db + worker heartbeat
 - [x] Track 5 remaining - worker concurrency, malformed-input validation, version-mismatch contract (Codex)
+- [x] Extension E2E integration - IPv6 localhost normalization, toolbar->modal flow, 127.0.0.1 host permission (`ca7e058`)
 - [ ] Deploy script verified in target env + smoke run against live backend (at staging deploy)
 
 ## Track 5 - completed closeout
@@ -37,6 +38,14 @@
 - `tests/contract/test_scope_c_validation.py`: malformed Scope-C validation matrix.
 - `tests/integration/test_worker_recovery.py`: worker concurrency finalization guard.
 - `scripts/smoke_scope_c.ps1`: Scope-C backend smoke automation.
+
+## Post-audit E2E integration fixes (extension) - `ca7e058`
+Real bugs found during end-to-end testing on Windows 11; uncommitted code shipped broken without these.
+- **A. IPv6 normalization** (`extension/utils/api_client.js`): Windows resolves `localhost` to IPv6 `::1` first, but the dev server binds IPv4 `127.0.0.1` only -> fetches failed silently as `api_unreachable`. Fetch URL now forces loopback host (`localhost`/`::1`) to `127.0.0.1`; stored/displayed endpoint untouched.
+- **B. Broken toolbar popup** (`extension/manifest.json`): `action.default_popup` pointed at `panel/panel.html`, which is a template-only shadow-DOM fragment (no `<script>`/`<body>`) -> clicking the toolbar icon opened a blank popup. Removed `default_popup`; added `http://127.0.0.1/*` host permission.
+- **C. Toolbar click handler** (`extension/background.js`): added `chrome.action.onClicked` -> opens the in-page modal on supported tabs (ChatGPT/Claude), opens ChatGPT elsewhere, and self-heals (tab reload) if the content script is not yet injected.
+- **D. Modal relay** (`extension/injected_icon.js`): handles `SAF_OPEN_MODAL` to toggle the modal; build stamp bumped to `0.5.1-toolbar-open` for load verification.
+- Validation: `node --check` clean on all four files; `manifest.json` parses; normalization unit-verified (`localhost->127.0.0.1`, remote URLs untouched). Requires extension reload at `chrome://extensions` (manifest changed).
 
 ## Verification snapshot
 - Backend full suite (CI path): **556 passed, 30 skipped**; DB extras pass under `PHASE1_GATE=1`.
