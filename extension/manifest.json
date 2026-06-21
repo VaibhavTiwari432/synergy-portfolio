@@ -8,7 +8,8 @@
     "https://chat.openai.com/*",
     "https://chatgpt.com/*",
     "https://claude.ai/*",
-    "http://localhost/*"
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "content_scripts": [
     {
@@ -45,7 +46,6 @@
     }
   ],
   "action": {
-    "default_popup": "panel/panel.html",
     "default_title": "SAF — AI Collaboration Analyser",
     "default_icon": {
       "16":  "icons/icon.png",

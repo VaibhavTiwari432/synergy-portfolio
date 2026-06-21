@@ -19,15 +19,47 @@
   const DEFAULT_ENDPOINT = 'http://localhost:8000';
   const API_REQUEST_TIMEOUT_MS = 15000;
   const TRIGGER_ANALYSIS_TIMEOUT_MS = 30000;
+  // Default SAF_API_KEY the local dev server is started with. Used as a fallback
+  // for localhost endpoints when the user has not stored a key yet, so local dev
+  // works out of the box without first saving a connection. Must match the
+  // settings view's LOCAL_DEV_API_KEY and the server's SAF_API_KEY.
+  const LOCAL_DEV_API_KEY = 'dev-local';
+
+  function _isLocalEndpoint(endpoint) {
+    try {
+      const url = new URL(endpoint);
+      return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // The dev server binds IPv4 127.0.0.1 only, but on Windows `localhost` resolves
+  // to IPv6 ::1 first — fetch can fail there before falling back. Force IPv4 for
+  // the loopback host so the call always lands on the listening socket. Stored /
+  // displayed value is untouched; this only affects the URL we fetch.
+  function _forceIpv4Local(endpoint) {
+    try {
+      const url = new URL(endpoint);
+      if (url.hostname === 'localhost' || url.hostname === '[::1]' || url.hostname === '::1') {
+        url.hostname = '127.0.0.1';
+        return url.toString().replace(/\/$/, '');
+      }
+    } catch (_) { /* fall through to original */ }
+    return endpoint;
+  }
 
   async function _getConfig() {
     const storage = globalScope.SAFStorage;
     if (!storage) throw new Error('SAFStorage not loaded');
     const keys = storage.STORAGE_KEYS;
     const values = await storage.getMany([keys.API_ENDPOINT, keys.API_KEY]);
+    const rawEndpoint = values[keys.API_ENDPOINT] || DEFAULT_ENDPOINT;
+    const endpoint = _forceIpv4Local(rawEndpoint);
+    const storedKey = values[keys.API_KEY] || '';
     return {
-      endpoint: values[keys.API_ENDPOINT] || DEFAULT_ENDPOINT,
-      key: values[keys.API_KEY] || '',
+      endpoint,
+      key: storedKey || (_isLocalEndpoint(rawEndpoint) ? LOCAL_DEV_API_KEY : ''),
     };
   }
 

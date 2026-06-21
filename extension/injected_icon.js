@@ -6,7 +6,7 @@
  */
 
 (function initSafModalShell() {
-  const SAF_BUILD = '0.5.0-s2-logo';
+  const SAF_BUILD = '0.5.1-toolbar-open';
   const FAB_ID = 'saf-fab';
   const HOST_ID = 'saf-modal-host';
   const ROOT_STYLESHEET_ID = 'saf-panel-stylesheet';
@@ -29,7 +29,7 @@
   }
 
   function logoUrl() {
-    return chrome.runtime.getURL('assets/sangillence_mark.svg');
+    return chrome.runtime.getURL('icons/icon.png');
   }
 
   function setLogoSources(root) {
@@ -185,6 +185,10 @@
   function handleRuntimeMessage(message) {
     if (message?.type === 'SAF_FAB_NOTIFICATION_DOT') {
       setFabNotification(Boolean(message.visible));
+    } else if (message?.type === 'SAF_OPEN_MODAL') {
+      // toolbar icon click relayed from background — toggle the modal open.
+      if (isOpen || isOpening) closeModal();
+      else void openModal();
     }
   }
 

@@ -1170,5 +1170,34 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// ── toolbar icon click ─────────────────────────────────────────────────────────
+// manifest has no default_popup (panel.html is an in-page shadow-DOM template,
+// not a standalone popup document). Clicking the toolbar icon opens the in-page
+// SAF modal on a supported tab; on any other tab it opens ChatGPT so the user
+// lands somewhere the FAB exists.
+const _SAF_SUPPORTED_HOSTS = ['chatgpt.com', 'chat.openai.com', 'claude.ai'];
+
+function _isSupportedSafTab(url) {
+  try {
+    return _SAF_SUPPORTED_HOSTS.includes(new URL(url).hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
+self.chrome.action.onClicked.addListener((tab) => {
+  if (tab?.id != null && _isSupportedSafTab(tab.url)) {
+    self.chrome.tabs.sendMessage(tab.id, { type: 'SAF_OPEN_MODAL' }, () => {
+      // content script not injected yet (e.g. tab opened before reload) →
+      // reload so the content scripts attach, then the FAB is available.
+      if (self.chrome.runtime.lastError) {
+        self.chrome.tabs.reload(tab.id, {}, () => void self.chrome.runtime.lastError);
+      }
+    });
+    return;
+  }
+  self.chrome.tabs.create({ url: 'https://chatgpt.com/' });
+});
+
 // Initial health check when service worker starts
 _updateHealth().catch(console.warn);
