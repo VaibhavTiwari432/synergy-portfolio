@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime  # used in the RawTurn string forward-ref alias
 from typing import Any
 
 from contracts.schemas import CanonicalSession, PartnerModel, SourceFormat, Turn

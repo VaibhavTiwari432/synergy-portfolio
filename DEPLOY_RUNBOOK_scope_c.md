@@ -4,6 +4,12 @@ Covers the API + worker + Chrome extension changes through migration 013.
 Order matters: **migrate before restarting the app**, and the asyncpg pool caches
 prepared statements, so a **restart is mandatory** after any migration.
 
+> **Automated path (recommended):** `deploy.ps1` (Windows) / `deploy.sh` (Unix)
+> run this runbook end-to-end — validate env → `alembic upgrade head` → restart
+> (`SAF_RESTART_CMD` or interactive prompt) → smoke (`scripts/smoke_scope_c.{ps1,sh}`),
+> aborting on first failure. The manual steps below are the reference the scripts
+> automate.
+
 ---
 
 ## 0. Pre-flight
