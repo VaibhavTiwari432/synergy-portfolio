@@ -13,8 +13,8 @@ GET /v1/users/{user_ref}/chats
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -87,7 +87,7 @@ class IngestResponse(BaseModel):
 @router.post("/v1/ingest", response_model=IngestResponse)
 async def ingest_chat(
     body: IngestRequest,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> IngestResponse:
     turns_dicts = canonicalize_turn_indexes([t.model_dump() for t in body.turns])
     partner_dict = body.partner_model.model_dump()
@@ -194,7 +194,7 @@ async def ingest_chat(
 @router.get("/v1/users/{user_ref}/chats")
 async def list_user_chats(
     user_ref: str,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     rows = await get_chats_for_user(pool, user_ref)
 

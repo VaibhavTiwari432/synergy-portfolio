@@ -30,7 +30,6 @@ from src.db.queries import (
     capture_validation_error,
     claim_pending_batch,
     get_telemetry_for_chat,
-    get_score_row,
     mark_scored,
     replace_neuron_firings,
     replace_turn_state,

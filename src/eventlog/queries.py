@@ -9,7 +9,7 @@ events through these helpers; they never touch EventLog internals or the writer.
 from __future__ import annotations
 
 from collections import Counter
-from typing import Iterable, Sequence
+from typing import Iterable
 
 from contracts.event_taxonomy import TRIGGER_EVENTS
 from contracts.schemas import Event, EventType

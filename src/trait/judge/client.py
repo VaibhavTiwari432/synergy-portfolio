@@ -20,7 +20,7 @@ import time
 from typing import Callable, Protocol
 
 from contracts.schemas import CanonicalSession, JudgeOutput, PartnerFamily
-from src.trait.judge.parser import JudgeParseError, parse_judge_response, unavailable_output
+from src.trait.judge.parser import parse_judge_response, unavailable_output
 from src.trait.judge.prompt import JUDGE_PROMPT_VERSION, SYSTEM_PROMPT, build_user_prompt
 
 JUDGE_MODEL = "gemini-2.5-flash"

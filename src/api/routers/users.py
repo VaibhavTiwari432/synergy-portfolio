@@ -21,13 +21,13 @@ import json
 from typing import Any
 from uuid import UUID
 
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from contracts.schemas import Dimension, ScoreResponse
 from src.api.middleware.auth import require_api_key
 from src.db.queries import (
-    count_rows_for_user,
     delete_user,
     feedback_given,
     get_all_scores_for_user,
@@ -56,7 +56,7 @@ def _portfolio_snapshot_hash(body: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-async def _portfolio_ack_block(pool, user_ref: str, current_hash: str) -> dict[str, Any]:
+async def _portfolio_ack_block(pool: asyncpg.Pool, user_ref: str, current_hash: str) -> dict[str, Any]:
     row = await get_portfolio_ack(pool, user_ref=user_ref, scope="portfolio")
     if row is None:
         return {"acked": False, "acked_at": None, "snapshot_hash": None}
@@ -80,7 +80,7 @@ def _require_pool(request: Request):
     return pool
 
 
-def _reconstruct_score(row, chat_id: UUID) -> ScoreResponse:
+def _reconstruct_score(row: asyncpg.Record, chat_id: UUID) -> ScoreResponse:
     """Rebuild ScoreResponse from individual JSONB columns."""
     data: dict = {
         "session_id": str(chat_id),
@@ -139,7 +139,7 @@ def _mean(values: dict[str, float]) -> float | None:
     return round(sum(values.values()) / len(values), 3) if values else None
 
 
-def _longitudinal_to_date(rows, chat_id: UUID) -> dict[str, Any]:
+def _longitudinal_to_date(rows: list[asyncpg.Record], chat_id: UUID) -> dict[str, Any]:
     selected = []
     found = False
     for row in rows:
@@ -200,7 +200,7 @@ def _longitudinal_to_date(rows, chat_id: UUID) -> dict[str, Any]:
 async def get_chat_score(
     user_ref: str,
     chat_id: UUID,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     row = await get_scored_score_row(pool, chat_id=chat_id, user_ref=user_ref)
     if row is None:
@@ -239,7 +239,7 @@ async def get_chat_score(
 async def get_session_score(
     user_ref: str,
     saf_session_id: UUID,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     """Scope-C alias of the chat-score route. saf_session_id IS raw_chats.id
     (scope-c §1/§4.3) — identical payload; provided so S8/S9 can use the
@@ -259,7 +259,7 @@ async def post_feedback(
     user_ref: str,
     chat_id: UUID,
     body: FeedbackRequest,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, bool]:
     if body.match_rating not in ("yes", "partial", "no"):
         raise HTTPException(422, detail="match_rating must be 'yes', 'partial', or 'no'")
@@ -317,7 +317,7 @@ async def post_feedback(
 @router.get("/v1/users/{user_ref}/portfolio")
 async def get_portfolio(
     user_ref: str,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     rows = await get_all_scores_for_user(pool, user_ref)
 
@@ -449,7 +449,7 @@ class PortfolioAckRequest(BaseModel):
 async def post_portfolio_ack(
     user_ref: str,
     body: PortfolioAckRequest,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     """Acknowledge a specific portfolio snapshot (scope-c §4.4). 409 if the state
     moved between the client's GET and this POST — the client re-reads, re-acks."""
@@ -468,7 +468,7 @@ async def post_portfolio_ack(
 @router.get("/v1/users/{user_ref}/settings")
 async def get_user_settings(
     user_ref: str,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     out = await get_settings(pool, user_ref=user_ref)
     out["contract_version"] = _CONTRACT_VERSION
@@ -484,7 +484,7 @@ class SettingsRequest(BaseModel):
 async def patch_user_settings(
     user_ref: str,
     body: SettingsRequest,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     if body.auto_analyse is None and body.calibration_opt_in is None:
         raise HTTPException(422, detail="no settings fields to update")
@@ -501,7 +501,7 @@ async def patch_user_settings(
 @router.delete("/v1/users/{user_ref}")
 async def delete_user_data(
     user_ref: str,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     """CASCADE deletion propagates to all four tables (#16 — data dignity)."""
     deleted = await delete_user(pool, user_ref)
