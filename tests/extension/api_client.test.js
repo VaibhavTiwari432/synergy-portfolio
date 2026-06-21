@@ -121,3 +121,18 @@ test('triggerAnalysis resolves with analysis_timeout when background never repli
 
   assert.deepEqual(result, { ok: false, error: 'analysis_timeout' });
 });
+
+test('submitFeedback maps thumb without value to a valid backend body', async () => {
+  const api = loadClient();
+  let request;
+  globalThis.fetch = async (url, options) => {
+    request = { url, options };
+    return { ok: true, status: 200, async json() { return { received: true }; } };
+  };
+
+  const result = await api.submitFeedback('user-1', 'chat-1', { type: 'thumb' });
+
+  assert.equal(result.ok, true);
+  assert.equal(request.url, 'http://api.local/v1/users/user-1/chats/chat-1/feedback');
+  assert.deepEqual(JSON.parse(request.options.body), { match_rating: 'no' });
+});
