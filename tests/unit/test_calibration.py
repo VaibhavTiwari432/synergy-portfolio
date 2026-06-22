@@ -178,3 +178,56 @@ def test_conflicted_dead_chat_does_not_hurt_headline_coverage():
     assert result["headline"]["coverage_pct"] == 100.0
     assert result["shadow"]["coverage_pct"] == 50.0
     assert result["ratchet_passed"] is True
+
+
+# ── Dawid–Skene judge de-biasing (Phase D — data-gated) ──────────────────────
+# The estimator is load-bearing-gated: it raises until ≥2 annotators on ≥3 chats
+# per dimension exist. Its output is a calibration bias number, NEVER a score (#10).
+
+
+def _multi_anns(chats: list[str], dim: str = "EC") -> list[dict]:
+    out: list[dict] = []
+    for chat in chats:
+        out.append({"chat_id": chat, "dimension": dim, "annotator_id": "human_1", "score": 0.6})
+        out.append({"chat_id": chat, "dimension": dim, "annotator_id": "human_2", "score": 0.4})
+    return out
+
+
+def test_dawid_skene_raises_when_data_gated():
+    from calibration.dawid_skene import DataGatedError, run_dawid_skene
+
+    # single annotator → the dual-annotation gate must fire, not a fabricated bias
+    anns = [{"chat_id": "gc-001", "dimension": "EC", "annotator_id": "human_1", "score": 0.5}]
+    with pytest.raises(DataGatedError):
+        run_dawid_skene(anns)
+
+
+def test_dawid_skene_empty_annotations_raise():
+    from calibration.dawid_skene import DataGatedError, run_dawid_skene
+
+    with pytest.raises(DataGatedError):
+        run_dawid_skene([])
+
+
+def test_dawid_skene_accepts_multi_annotated():
+    from calibration.dawid_skene import run_dawid_skene
+
+    result = run_dawid_skene(_multi_anns(["gc-001", "gc-002", "gc-003"]))
+    assert result["EC"]["status"] == "OK"
+    assert result["EC"]["bias"] is not None
+    assert result["EC"]["n_multi_annotated"] == 3
+    # output is a calibration number — a plain float, never a DimensionScore (#10)
+    assert isinstance(result["EC"]["bias"], float)
+
+
+def test_dawid_skene_under_threshold_dimension_is_data_gated_not_raised():
+    from calibration.dawid_skene import run_dawid_skene
+
+    # PR has only 2 multi-annotated chats (< 3) but EC has 3 → no raise; PR is
+    # reported DATA_GATED with a None bias (absent ≠ a fabricated zero, #12)
+    anns = _multi_anns(["gc-001", "gc-002", "gc-003"], dim="EC")
+    anns += _multi_anns(["gc-001", "gc-002"], dim="PR")
+    result = run_dawid_skene(anns)
+    assert result["EC"]["status"] == "OK"
+    assert result["PR"]["status"] == "DATA_GATED"
+    assert result["PR"]["bias"] is None
