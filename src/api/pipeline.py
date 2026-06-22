@@ -454,8 +454,9 @@ def score_session_with_artifacts(
 
     # ── sustainability ──
     ec_evidence = assess_ec_evidence(session, tags)
+    s_hat = s_human_hat(session)
     sustainability = Sustainability(
-        s_human_hat=s_human_hat(session),
+        s_human_hat=s_hat,
         debt_ewma=debt_ewma(_history_signal(session)),
         **{"lambda": lambda_estimate()},
     )
@@ -487,6 +488,28 @@ def score_session_with_artifacts(
     csl_artifact = _build_csl_artifact(
         session, tier, profile, neuron_firing_rows, state_strip, state_validity
     )
+    # Phase C.2 — falsification data for Ŝ_human, captured but NEVER used to
+    # condition a score (Tier R1: capture now, gate use). The A/S-turn partition
+    # (autonomous-redundancy r_auto vs steered-redundancy r_steer) and ΔR let us
+    # later test whether the steering term carries signal — if ΔR ≈ 0 across users
+    # the S_human metric is dropped. Stored on the (catch-all) csl artifact blob;
+    # additive even when the CSL chain itself errored (it is independent of it).
+    csl_artifact["s_human_detail"] = {
+        "r_auto": s_hat.r_auto,
+        "r_steer": s_hat.r_steer,
+        "delta_r": (
+            (s_hat.r_auto - s_hat.r_steer)
+            if (s_hat.r_auto is not None and s_hat.r_steer is not None)
+            else None
+        ),
+        "t_steered_out": s_hat.t_steered_out,
+        "value": s_hat.value,
+        "rung": "DESIGNED",
+        "note": (
+            "falsification data for S_human — drop the metric if delta_r ≈ 0 "
+            "across users; research-only, never conditions a score (#2)"
+        ),
+    }
 
     response = ScoreResponse(
         session_id=session.session_id,
