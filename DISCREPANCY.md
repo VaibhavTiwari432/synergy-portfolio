@@ -983,7 +983,7 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
-## D-022  [OPEN]  — is_minor defaults False on the live ingest path; scoring-path minor protection unenforced
+## D-022  [RESOLVED]  — is_minor defaults False on the live ingest path; scoring-path minor protection unenforced
 - Raised by: Chief Engineer
 - Date: 2026-06-20
 - File(s): src/worker/scorer.py (_build_canonical_session), src/db/queries.py
@@ -1014,7 +1014,20 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
   work; the composite removal already makes the Scope-C responses minor-safe by
   construction, so this is not a release blocker, but the scoring-path guarantee
   stays UNENFORCED until the above lands.
-- Status: OPEN
+- Resolution (CE, 2026-06-23, commit ce7cd05 — Phase B): landed exactly the
+  proposed fix. Migration 014 adds `raw_chats.is_minor BOOLEAN NOT NULL DEFAULT
+  FALSE`; `upsert_chat` accepts `is_minor` (INSERT + sticky-true conflict update
+  `is_minor = old OR new` so a chat never silently reverts minor→non-minor);
+  `IngestRequest.is_minor` threads the payload; `_build_canonical_session` sets
+  `is_minor=bool(chat.get("is_minor", False))` (the worker claim uses RETURNING *,
+  so the column is on the record). `enforce(is_minor=session.is_minor)` now
+  receives the true value on the live path. Integration test R9
+  (test_rescore_integrity.py) proves a minor chat withholds composite (value None,
+  NOT_APPLICABLE) + debt, with an adult control on identical content proving the
+  flag — not the gates — caused the withholding. R1–R9 green vs live Postgres;
+  full suite 570 passed; migration down/up round-trip clean. Approved by project
+  lead at STOP B (#15 gate).
+- Status: RESOLVED
 
 ---
 
