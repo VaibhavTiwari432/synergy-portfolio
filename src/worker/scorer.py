@@ -130,6 +130,10 @@ def _build_canonical_session(
         user_ref=chat["user_ref"],
         detected_tier=2 if telemetry is not None else 1,
         metadata=metadata,
+        # D-022 (#15): carry the persisted minor flag into scoring so enforce()
+        # receives the true value. claim_pending_batch RETURNING * supplies the
+        # column; a legacy row predating migration 014 reads as False (adult).
+        is_minor=bool(chat.get("is_minor", False)),
     )
 
 
@@ -329,12 +333,18 @@ async def _heartbeat_loop() -> None:
 
 
 async def run() -> None:
-    from src.startup_checks import check_db, check_env
+    from src.startup_checks import check_any_env, check_db, check_env
     check_env(
         component="worker",
         required=[],
         optional=["DATABASE_URL", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"],
     )
+    if not check_any_env(
+        component="worker",
+        names=["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+        purpose="judge scoring",
+    ):
+        raise SystemExit(2)
     await init_pool()
     pool = get_pool()
     await check_db(pool)  # startup connectivity probe (logs verdict)

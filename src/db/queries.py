@@ -245,6 +245,7 @@ async def upsert_chat(
     expected_turn_count: int | None = None,
     captured_turn_count: int | None = None,
     capture_complete: bool | None = None,
+    is_minor: bool = False,
 ) -> dict[str, Any]:
     """Insert or update (idempotent on user_ref + conversation_id).
 
@@ -287,9 +288,9 @@ async def upsert_chat(
         INSERT INTO raw_chats
             (user_ref, conversation_id, source, partner_model, turns, turn_count,
              content_hash, subject_id,
-             expected_turn_count, captured_turn_count, capture_complete)
+             expected_turn_count, captured_turn_count, capture_complete, is_minor)
         VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT subject_id FROM subj),
-                $8, $9, $10)
+                $8, $9, $10, $11)
         ON CONFLICT (user_ref, conversation_id) DO UPDATE
             SET turns        = CASE
                     WHEN EXCLUDED.turn_count >= raw_chats.turn_count
@@ -323,6 +324,11 @@ async def upsert_chat(
                     THEN EXCLUDED.capture_complete
                     ELSE raw_chats.capture_complete
                 END,
+                -- is_minor is a SAFETY flag (#15): sticky-true. Once a chat is
+                -- flagged minor it never silently reverts on a later ingest that
+                -- omits/clears the flag — a non-minor → minor transition is allowed,
+                -- the reverse is not.
+                is_minor = raw_chats.is_minor OR EXCLUDED.is_minor,
                 status = CASE
                     WHEN EXCLUDED.turn_count < raw_chats.turn_count
                     THEN raw_chats.status
@@ -343,7 +349,7 @@ async def upsert_chat(
         RETURNING id, status, captured_at, content_hash, turn_count
         """,
         user_ref, conversation_id, source, partner_model, turns, turn_count, content_hash,
-        expected_turn_count, captured_turn_count, capture_complete,
+        expected_turn_count, captured_turn_count, capture_complete, is_minor,
     )
     return dict(row)
 

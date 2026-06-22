@@ -74,6 +74,11 @@ class IngestRequest(BaseModel):
     captured_turn_count: int | None = None
     capture_complete: bool | None = None
     raw_retention_flag: str = "retain"
+    # D-022 (#15 minor protection): the extension sets this during onboarding. It
+    # threads ingest → raw_chats → worker → enforce() so a minor-flagged chat never
+    # receives a bare composite / peer rank / debt verdict. Absent → False (the
+    # adult default), matching prior behaviour for every legacy/unflagged ingest.
+    is_minor: bool = False
 
 
 class IngestResponse(BaseModel):
@@ -148,6 +153,7 @@ async def ingest_chat(
             expected_turn_count=body.expected_turn_count,
             captured_turn_count=captured,
             capture_complete=body.capture_complete,
+            is_minor=body.is_minor,
         )
     except ValueError as exc:
         # Role-balance / defensive completeness failure → string detail (D-014 shape)
