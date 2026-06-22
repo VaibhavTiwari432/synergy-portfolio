@@ -113,6 +113,12 @@ class ScoreRun:
     #: Descriptive only: never an ARI score (#2), never in the ScoreResponse. The
     #: chain is failure-isolated — a CSL error never fails the ARI score.
     csl: dict = field(default_factory=dict)
+    #: Phase C.1 (D-013 Track 3) — session intent at score-time, derived as the
+    #: dominant Phase across human turns (confidence = its share). Research data
+    #: (Tier R1, rung DESIGNED): captured + persisted, NEVER conditions a score
+    #: (#2) and adds no neuron/dimension/pillar/latent (#1). Reuses the existing
+    #: frozen Phase construct — it introduces no new intent ontology.
+    session_intent: dict = field(default_factory=dict)
 
 
 def telemetry_metrics(session: CanonicalSession) -> dict:
@@ -279,6 +285,28 @@ def _build_csl_artifact(
         }
     except Exception as exc:  # noqa: BLE001 — isolation is the whole point
         return {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _session_intent(phases: list) -> dict:
+    """Phase C.1 — session intent as the dominant Phase across human turns.
+
+    Deterministic + research-only (Tier R1): describes what the session was for
+    without inventing a new intent ontology — it reuses the frozen Phase construct
+    (EXPLORE/REFINE/EXTRACT/EVALUATE). `confidence` is the dominant phase's share
+    of classified turns. Empty session → intent/confidence None (absent ≠ zero,
+    #12). NEVER conditions a score (#2)."""
+    from collections import Counter
+
+    labels = [getattr(p, "value", p) for p in phases]
+    if not labels:
+        return {"intent": None, "confidence": None, "method": "dominant_phase", "rung": "DESIGNED"}
+    label, count = Counter(labels).most_common(1)[0]
+    return {
+        "intent": label,
+        "confidence": round(count / len(labels), 6),
+        "method": "dominant_phase",
+        "rung": "DESIGNED",
+    }
 
 
 def _turn_state_rows(state_strip: list[StateVector]) -> list[dict]:
@@ -546,6 +574,7 @@ def score_session_with_artifacts(
             "ec_evidence": reliance_evidence_rows(rel),
         },
         csl=csl_artifact,
+        session_intent=_session_intent(phases),
     )
 
 

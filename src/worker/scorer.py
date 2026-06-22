@@ -206,6 +206,9 @@ async def _score_one(pool: asyncpg.Pool, chat: asyncpg.Record) -> None:
                 telemetry_metrics=run.telemetry_metrics,
                 event_log=run.event_log,
                 provenance=run.provenance,
+                # Phase C.1 — session intent at score-time (research-only, #2).
+                session_intent=run.session_intent.get("intent"),
+                session_intent_confidence=run.session_intent.get("confidence"),
             )
             # Track 1: persist the evidence + judge audit trail alongside the score
             # so a chat can be reproduced/re-analysed after the transcript purges.

@@ -334,6 +334,12 @@ async def test_phase_c_research_signals_persist(pool, clean_user):
     run = score_session_with_artifacts(_session(chat_id, turns), judge=_fake_judge())
     full = json.loads(run.response.model_dump_json(by_alias=True))
 
+    # C.1: session intent is the dominant phase, research-only, absent-safe.
+    si = run.session_intent
+    assert si.get("method") == "dominant_phase" and si.get("rung") == "DESIGNED"
+    if si["intent"] is not None:
+        assert 0.0 < si["confidence"] <= 1.0, "confidence is the dominant phase's share"
+
     # C.2: the falsification detail rides on the csl artifact the pipeline built.
     shd = run.csl.get("s_human_detail")
     assert shd is not None, "C.2: s_human_detail must be attached to the csl artifact"
@@ -354,9 +360,18 @@ async def test_phase_c_research_signals_persist(pool, clean_user):
             regime_overlay=full.get("regime_overlay"), sustainability=full.get("sustainability"),
             report=full.get("report"), raw_profile=None, telemetry_metrics=run.telemetry_metrics,
             event_log=run.event_log, provenance=run.provenance,
+            session_intent=run.session_intent.get("intent"),
+            session_intent_confidence=run.session_intent.get("confidence"),
         )
         await upsert_csl(conn, chat_id=chat_id, csl=run.csl)
         await upsert_question_quality(conn, chat_id=chat_id, question_quality=run.question_quality)
+
+    # C.1 persisted: session_intent is queryable as a typed column on scores.
+    si_row = await pool.fetchrow(
+        "SELECT session_intent, session_intent_confidence FROM scores WHERE chat_id = $1",
+        chat_id,
+    )
+    assert si_row["session_intent"] == run.session_intent["intent"], "C.1 must reach a persisted row"
 
     # C.2 persisted: s_human_detail is reachable inside the stored csl blob.
     persisted_delta = await pool.fetchval(

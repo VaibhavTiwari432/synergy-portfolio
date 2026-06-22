@@ -604,6 +604,8 @@ async def upsert_score(
     telemetry_metrics: dict | None = None,
     event_log: list | None = None,
     provenance: dict | None = None,
+    session_intent: str | None = None,
+    session_intent_confidence: float | None = None,
 ) -> None:
     prov = provenance or {}
     await conn.execute(
@@ -613,9 +615,10 @@ async def upsert_score(
             state_strip, state_validity, flags, reaction_signatures,
             regime_overlay, sustainability, report, raw_profile, telemetry_metrics,
             event_log, framework_version, schema_version, contract_table_version,
-            code_git_sha, judge_model_id, judge_model_version
+            code_git_sha, judge_model_id, judge_model_version,
+            session_intent, session_intent_confidence
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                  $15, $16, $17, $18, $19, $20, $21)
+                  $15, $16, $17, $18, $19, $20, $21, $22, $23)
         ON CONFLICT (chat_id) DO UPDATE SET
             prompt_version         = EXCLUDED.prompt_version,
             tier                   = EXCLUDED.tier,
@@ -637,6 +640,8 @@ async def upsert_score(
             code_git_sha           = EXCLUDED.code_git_sha,
             judge_model_id         = EXCLUDED.judge_model_id,
             judge_model_version    = EXCLUDED.judge_model_version,
+            session_intent            = EXCLUDED.session_intent,
+            session_intent_confidence = EXCLUDED.session_intent_confidence,
             scored_at              = NOW()
         """,
         chat_id, prompt_version, tier, profile, composite,
@@ -646,6 +651,7 @@ async def upsert_score(
         prov.get("framework_version"), prov.get("schema_version"),
         prov.get("contract_table_version"), prov.get("code_git_sha"),
         prov.get("judge_model_id"), prov.get("judge_model_version"),
+        session_intent, session_intent_confidence,
     )
 
 
