@@ -100,3 +100,42 @@ contract types (`GroundingFunction`, `VigilanceResult`) and the INTERFACES.md
 §1.4/§1.5 signatures are frozen at SCHEMA_VERSION 1.2.0. **Codex implementation of
 `src/trait/grounding.py` + `src/trait/vigilance.py` is now READY** (TEAM.md task
 C-001). The merge-side precision wiring remains a separate CE follow-up.
+
+---
+
+## P-003 [REJECTED] — Omit X-API-Key header for the dev-local sentinel on localhost
+
+Found by: CE (S10 follow-up to the Settings "Use dev key" sentinel, `993a958`+`ab13ec5`).
+Domain: extension egress / local-dev auth.
+
+Finding considered: after the Settings sentinel writes `dev-local` to storage,
+should `api_client._request()` *omit* the `X-API-Key` header when
+`key === 'dev-local' && endpoint` is localhost — on the theory that the key
+"never leaves the extension on localhost"?
+
+Why rejected — **it would break localhost auth.** The backend does NOT skip auth
+on localhost. `start_saf.ps1` (default, no `-Prod`) sets `SAF_API_KEY = "dev-local"`,
+and `src/api/middleware/auth.py::require_api_key` still enforces the header on every
+guarded router (`ingest.py:33`, `users.py:44`, `projects.py:48`):
+
+```python
+if x_api_key is None or not hmac.compare_digest(x_api_key, expected):
+    raise HTTPException(status_code=401, detail="invalid or missing X-API-Key")
+```
+
+A missing header → 401 on every ingest/users/projects call — the exact failure the
+S10 sentinel was built to remove. Note the precise mechanism: the localhost server
+is **pre-configured** to accept the literal `dev-local`, NOT running auth-skipped.
+(Correcting a tempting misread — there is no localhost exemption anywhere in the
+auth path; do not add code or docs that assume one.)
+
+Also: `dev-local` is a public, well-known constant committed in `start_saf.ps1`,
+sent only to a localhost server the developer controls — transmitting it is not an
+exposure, so there is nothing to protect against.
+
+Decision (project lead, 2026-06-23): **the sentinel IS the contract.** The
+extension sends `dev-local` as a real key; the server accepts it because it is
+pre-configured to. The two localhost guards on the extension side (localhost-only
+rendering + click-time re-check, S10) already prevent accidental remote
+transmission. No api_client bypass logic; no backend auth weakening. Done.
+Status: REJECTED (unnecessary; would break localhost auth).
