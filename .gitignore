@@ -9,6 +9,7 @@ build/
 *.log
 .env
 .env.*
+.saf_api_key
 *.pem
 *.key
 coverage/

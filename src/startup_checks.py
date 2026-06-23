@@ -35,6 +35,25 @@ def check_env(*, component: str, required: list[str], optional: list[str] | None
     return missing
 
 
+def check_any_env(*, component: str, names: list[str], purpose: str) -> bool:
+    """Log whether at least one variable in ``names`` is set.
+
+    Use this for interchangeable provider credentials such as
+    GEMINI_API_KEY/GOOGLE_API_KEY. Secret values are never logged.
+    """
+    present = [name for name in names if os.environ.get(name)]
+    if present:
+        log.info("[%s] %s env present: %s", component, purpose, ", ".join(sorted(present)))
+        return True
+    log.critical(
+        "[%s] MISSING REQUIRED ENV: one of %s — %s is not configured",
+        component,
+        ", ".join(names),
+        purpose,
+    )
+    return False
+
+
 async def check_db(pool) -> bool:
     """Verify the pool can run a trivial query. Logs the verdict; returns bool."""
     if pool is None:

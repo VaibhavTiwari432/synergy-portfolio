@@ -839,7 +839,6 @@
     const userRef     = _inputVal('settings-user-ref');
     const apiEndpoint = _inputVal('settings-api-endpoint');
     const apiKey      = _inputVal('settings-api-key');
-    const openaiKey   = _inputVal('settings-openai-key');
     const consent     = document.getElementById('settings-consent')?.checked ?? false;
 
     const msg = {
@@ -849,7 +848,6 @@
       consent,
     };
     if (apiKey)    msg.apiKey    = apiKey;
-    if (openaiKey) msg.openaiApiKey = openaiKey;
 
     const res = await _sendBg(msg);
     if (res.ok && userRef) _userRef = userRef;
@@ -868,7 +866,6 @@
     const userRef     = _inputVal('input-user-ref');
     const apiEndpoint = _inputVal('input-api-endpoint') || 'http://localhost:8000';
     const apiKey      = _inputVal('input-api-key');
-    const openaiKey   = _inputVal('input-openai-key');
     const consent     = document.getElementById('toggle-consent')?.checked ?? false;
 
     const errorEl = document.getElementById('onboarding-error');
@@ -883,7 +880,6 @@
 
     const msg = { type: 'SAF_PANEL_SAVE_SETTINGS', userRef, apiEndpoint, consent };
     if (apiKey)    msg.apiKey    = apiKey;
-    if (openaiKey) msg.openaiApiKey = openaiKey;
 
     await _sendBg(msg);
     await _sendBg({ type: 'SAF_PANEL_ONBOARDING_COMPLETE' });

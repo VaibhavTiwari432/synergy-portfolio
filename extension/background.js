@@ -19,7 +19,7 @@
 // OLD worker alive, so code changes silently never take effect. Inlining removes
 // that fetch entirely: the worker has no external dependency and always installs.
 // The utils remain separate files for the content-script / panel contexts (manifest).
-console.info('[SAF] background service worker build 0.2.0 starting');
+console.info('[SAF] background service worker build 0.5.1-toolbar-open starting');
 
 (function initStorage(globalScope) {
   const STORAGE_KEYS = Object.freeze({
@@ -317,16 +317,42 @@ console.info('[SAF] background service worker build 0.2.0 starting');
 
 (function initApiClient(globalScope) {
   const DEFAULT_ENDPOINT = 'http://localhost:8000';
+  const API_REQUEST_TIMEOUT_MS = 15000;
+
+  function _forceIpv4Local(endpoint) {
+    try {
+      const url = new URL(endpoint);
+      if (url.hostname === 'localhost' || url.hostname === '[::1]' || url.hostname === '::1') {
+        url.hostname = '127.0.0.1';
+        return url.toString().replace(/\/+$/, '');
+      }
+    } catch (_) { /* keep original endpoint */ }
+    return String(endpoint || '').replace(/\/+$/, '');
+  }
 
   async function _getConfig() {
     const storage = globalScope.SAFStorage;
     if (!storage) throw new Error('SAFStorage not loaded');
     const keys = storage.STORAGE_KEYS;
     const values = await storage.getMany([keys.API_ENDPOINT, keys.API_KEY]);
+    const rawEndpoint = String(values[keys.API_ENDPOINT] || '').trim() || DEFAULT_ENDPOINT;
     return {
-      endpoint: values[keys.API_ENDPOINT] || DEFAULT_ENDPOINT,
+      endpoint: _forceIpv4Local(rawEndpoint),
       key: values[keys.API_KEY] || '',
     };
+  }
+
+  async function _fetchWithTimeout(url, options = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) {
+    if (!globalScope.AbortController || timeoutMs <= 0) {
+      return fetch(url, options);
+    }
+    const controller = new globalScope.AbortController();
+    const timer = globalScope.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      globalScope.clearTimeout(timer);
+    }
   }
 
   async function _request(method, path, body) {
@@ -341,7 +367,7 @@ console.info('[SAF] background service worker build 0.2.0 starting');
     if (cfg.key) headers['X-API-Key'] = cfg.key;
 
     try {
-      const res = await fetch(`${cfg.endpoint}${path}`, {
+      const res = await _fetchWithTimeout(`${cfg.endpoint}${path}`, {
         method,
         headers,
         body: body != null ? JSON.stringify(body) : undefined,
@@ -388,7 +414,7 @@ console.info('[SAF] background service worker build 0.2.0 starting');
       let cfg;
       try { cfg = await _getConfig(); } catch { return false; }
       try {
-        const res = await fetch(`${cfg.endpoint}/v1/health`);
+        const res = await _fetchWithTimeout(`${cfg.endpoint}/v1/health`, {}, API_REQUEST_TIMEOUT_MS);
         return res.ok;
       } catch { return false; }
     },
@@ -881,6 +907,7 @@ async function _handleCaptureReady(capture, { force = false } = {}) {
 
 self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== 'string') return undefined;
+  if (!_isTrustedSafMessageSender(sender)) return undefined;
 
   // ── content.js push messages ──────────────────────────────────────────────
   if (message.type === 'SAF_CAPTURE_UPDATED') {
@@ -1134,12 +1161,11 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'SAF_PANEL_SAVE_SETTINGS': {
       return respond((async () => {
         const updates = {};
-        const { userRef, apiEndpoint, apiKey, openaiApiKey, consent } = message;
+        const { userRef, apiEndpoint, apiKey, consent } = message;
         if (userRef !== undefined) updates[SK.USER_REF] = userRef;
         if (apiEndpoint !== undefined) updates[SK.API_ENDPOINT] = apiEndpoint;
-        // Keys stored raw but never echoed back or logged
+        // SAF API key is stored raw but never echoed back or logged.
         if (apiKey !== undefined) updates[SK.API_KEY] = apiKey;
-        if (openaiApiKey !== undefined) updates[SK.OPENAI_API_KEY] = openaiApiKey;
         if (consent !== undefined) updates[SK.CONSENT_ENABLED] = Boolean(consent);
         if (Object.keys(updates).length) await SAFStorage.set(updates);
         await _updateHealth(); // reflect new endpoint immediately
@@ -1176,6 +1202,9 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // SAF modal on a supported tab; on any other tab it opens ChatGPT so the user
 // lands somewhere the FAB exists.
 const _SAF_SUPPORTED_HOSTS = ['chatgpt.com', 'chat.openai.com', 'claude.ai'];
+const _pendingModalOpenAfterReload = new Set();
+const MODAL_OPEN_RETRY_MS = 400;
+const MODAL_OPEN_MAX_ATTEMPTS = 8;
 
 function _isSupportedSafTab(url) {
   try {
@@ -1185,12 +1214,40 @@ function _isSupportedSafTab(url) {
   }
 }
 
+function _isTrustedSafMessageSender(sender) {
+  if (!sender) return false;
+  const runtimeId = self.chrome.runtime.id;
+  if (runtimeId && sender.id && sender.id !== runtimeId) return false;
+  if (sender.tab) return _isSupportedSafTab(sender.tab.url || sender.url);
+  return Boolean(runtimeId && sender.id === runtimeId);
+}
+
+function _requestModalOpen(tabId, attempt = 1) {
+  self.chrome.tabs.sendMessage(tabId, { type: 'SAF_OPEN_MODAL' }, () => {
+    if (!self.chrome.runtime.lastError) return;
+    if (attempt >= MODAL_OPEN_MAX_ATTEMPTS) return;
+    setTimeout(() => _requestModalOpen(tabId, attempt + 1), MODAL_OPEN_RETRY_MS);
+  });
+}
+
+self.chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!_pendingModalOpenAfterReload.has(tabId)) return;
+  if (changeInfo.status !== 'complete') return;
+  if (!_isSupportedSafTab(tab.url)) {
+    _pendingModalOpenAfterReload.delete(tabId);
+    return;
+  }
+  _pendingModalOpenAfterReload.delete(tabId);
+  _requestModalOpen(tabId);
+});
+
 self.chrome.action.onClicked.addListener((tab) => {
   if (tab?.id != null && _isSupportedSafTab(tab.url)) {
     self.chrome.tabs.sendMessage(tab.id, { type: 'SAF_OPEN_MODAL' }, () => {
       // content script not injected yet (e.g. tab opened before reload) →
       // reload so the content scripts attach, then the FAB is available.
       if (self.chrome.runtime.lastError) {
+        _pendingModalOpenAfterReload.add(tab.id);
         self.chrome.tabs.reload(tab.id, {}, () => void self.chrome.runtime.lastError);
       }
     });

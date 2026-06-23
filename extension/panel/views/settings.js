@@ -1,5 +1,4 @@
 const SHOW_NOTIFICATION_DOT_KEY = 'saf_show_notification_dot';
-
 export function initSettingsView(shadowRoot) {
   const state = {
     userRef: '',
@@ -7,6 +6,8 @@ export function initSettingsView(shadowRoot) {
       auto_analyse: false,
       calibration_opt_in: false,
     },
+    apiEndpoint: '',
+    consent: false,
     notificationDot: true,
     loading: false,
     saving: false,
@@ -17,6 +18,11 @@ export function initSettingsView(shadowRoot) {
   const els = {
     status: shadowRoot.getElementById('saf-settings-status'),
     retry: shadowRoot.getElementById('saf-settings-retry'),
+    userRef: shadowRoot.getElementById('saf-setting-user-ref'),
+    apiEndpoint: shadowRoot.getElementById('saf-setting-api-endpoint'),
+    apiKey: shadowRoot.getElementById('saf-setting-api-key'),
+    consent: shadowRoot.getElementById('saf-setting-consent'),
+    saveConnection: shadowRoot.getElementById('saf-settings-save-connection'),
     autoAnalyse: shadowRoot.getElementById('saf-setting-auto-analyse'),
     notificationDot: shadowRoot.getElementById('saf-setting-notification-dot'),
     calibrationOptIn: shadowRoot.getElementById('saf-setting-calibration-opt-in'),
@@ -32,7 +38,28 @@ export function initSettingsView(shadowRoot) {
   }
 
   function detailText(result, fallback) {
-    return result?.detail || result?.error || fallback;
+    const message = result?.detail || result?.error || result?.message;
+    if (result?.status === 401 || /invalid or missing X-API-Key/i.test(String(message || ''))) {
+      return 'API key is missing or invalid for this backend.';
+    }
+    if (result?.error === 'api_unreachable') {
+      return 'Local settings loaded. SAF backend is not reachable at the configured endpoint.';
+    }
+    if (result?.error === 'user_ref_required') {
+      return 'Set your user ID before changing account settings.';
+    }
+    return message || fallback;
+  }
+
+  function healthWarning(health) {
+    if (!health?.ok) return '';
+    if (health.data?.db === 'unavailable') {
+      return 'Backend is reachable, but Postgres is unavailable.';
+    }
+    if (health.data?.scoring === 'missing_judge_key') {
+      return 'Backend is reachable, but scoring needs GEMINI_API_KEY or GOOGLE_API_KEY on the server.';
+    }
+    return '';
   }
 
   function setStatus(message = '', isError = false) {
@@ -52,9 +79,13 @@ export function initSettingsView(shadowRoot) {
     if (els.retry) els.retry.disabled = isBusy;
     setRemoteDisabled(isBusy || !state.userRef);
     if (els.notificationDot) els.notificationDot.disabled = isBusy;
+    if (els.saveConnection) els.saveConnection.disabled = isBusy;
   }
 
   function renderSettings() {
+    if (els.userRef) els.userRef.value = state.userRef || '';
+    if (els.apiEndpoint) els.apiEndpoint.value = state.apiEndpoint || api()?.DEFAULT_ENDPOINT || 'http://localhost:8000';
+    if (els.consent) els.consent.checked = Boolean(state.consent);
     if (els.autoAnalyse) els.autoAnalyse.checked = Boolean(state.settings.auto_analyse);
     if (els.calibrationOptIn) els.calibrationOptIn.checked = Boolean(state.settings.calibration_opt_in);
     if (els.notificationDot) els.notificationDot.checked = Boolean(state.notificationDot);
@@ -67,6 +98,29 @@ export function initSettingsView(shadowRoot) {
     if (!storageApi) return '';
     state.userRef = await storageApi.get(storageApi.STORAGE_KEYS.USER_REF, '');
     return state.userRef;
+  }
+
+  function isHttpEndpoint(value) {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function loadLocalSetup() {
+    const storageApi = storage();
+    if (!storageApi) return;
+    const keys = storageApi.STORAGE_KEYS;
+    const values = await storageApi.getMany([
+      keys.USER_REF,
+      keys.API_ENDPOINT,
+      keys.CONSENT_ENABLED,
+    ]);
+    state.userRef = values[keys.USER_REF] || '';
+    state.apiEndpoint = values[keys.API_ENDPOINT] || api()?.DEFAULT_ENDPOINT || 'http://localhost:8000';
+    state.consent = Boolean(values[keys.CONSENT_ENABLED]);
   }
 
   async function loadLocalPreference() {
@@ -100,13 +154,14 @@ export function initSettingsView(shadowRoot) {
     setStatus('Loading settings...');
 
     try {
+      await loadLocalSetup();
       await loadLocalPreference();
-      const userRef = await ensureUserRef();
+      const userRef = state.userRef || await ensureUserRef();
       if (state.disposed) return;
       if (!userRef) {
         state.settings = { auto_analyse: false, calibration_opt_in: false };
         renderSettings();
-        setStatus('Set your user ID before changing account settings.', true);
+        setStatus('Save your connection settings to enable capture.');
         return;
       }
 
@@ -127,6 +182,79 @@ export function initSettingsView(shadowRoot) {
       setStatus(error.message || 'Could not load settings.', true);
     } finally {
       state.loading = false;
+      setAllBusy(false);
+      renderSettings();
+    }
+  }
+
+  async function saveConnection() {
+    if (state.saving || state.loading) return;
+    const storageApi = storage();
+    const apiClient = api();
+    if (!storageApi) {
+      setStatus('Local extension storage is unavailable.', true);
+      return;
+    }
+
+    const keys = storageApi.STORAGE_KEYS;
+    const userRef = String(els.userRef?.value || '').trim();
+    const apiEndpoint = String(els.apiEndpoint?.value || apiClient?.DEFAULT_ENDPOINT || 'http://localhost:8000').trim();
+    const apiKey = String(els.apiKey?.value || '').trim();
+    const consent = Boolean(els.consent?.checked);
+
+    if (!userRef) {
+      setStatus('User ID is required before capture can run.', true);
+      return;
+    }
+    if (!apiEndpoint) {
+      setStatus('API endpoint is required.', true);
+      return;
+    }
+    if (!isHttpEndpoint(apiEndpoint)) {
+      setStatus('API endpoint must start with http:// or https://.', true);
+      return;
+    }
+
+    setAllBusy(true);
+    setStatus('Saving connection...');
+
+    try {
+      const updates = {
+        [keys.USER_REF]: userRef,
+        [keys.API_ENDPOINT]: apiEndpoint,
+        [keys.CONSENT_ENABLED]: consent,
+        [keys.ONBOARDING_COMPLETE]: true,
+      };
+      if (apiKey) updates[keys.API_KEY] = apiKey;
+      else await storageApi.remove(keys.API_KEY);
+      await storageApi.set(updates);
+
+      state.userRef = userRef;
+      state.apiEndpoint = apiEndpoint;
+      state.consent = consent;
+      if (els.apiKey) els.apiKey.value = '';
+      renderSettings();
+
+      const health = apiClient?.getHealth ? await apiClient.getHealth() : null;
+      const reachable = apiClient?.getHealth ? Boolean(health?.ok) : await apiClient?.checkHealth?.();
+      if (!reachable) {
+        setStatus('Connection saved. Backend is not reachable yet.', true);
+      } else if (apiClient?.getSettings) {
+        const authCheck = await apiClient.getSettings(userRef);
+        const warning = healthWarning(health);
+        setStatus(
+          authCheck?.ok
+            ? (warning || 'Connection saved. API key accepted.')
+            : detailText(authCheck, 'Connection saved, but API key could not be verified.'),
+          !authCheck?.ok || Boolean(warning),
+        );
+      } else {
+        setStatus('Connection saved. Backend reachable.');
+      }
+      shadowRoot.dispatchEvent?.(new CustomEvent('saf-settings-updated', { bubbles: true }));
+    } catch (error) {
+      setStatus(error.message || 'Could not save connection.', true);
+    } finally {
       setAllBusy(false);
       renderSettings();
     }
@@ -232,10 +360,15 @@ export function initSettingsView(shadowRoot) {
     void loadSettings();
   }
 
+  function handleSaveConnection() {
+    void saveConnection();
+  }
+
   function handleDelete() {
     void deleteData();
   }
 
+  els.saveConnection?.addEventListener('click', handleSaveConnection);
   els.autoAnalyse?.addEventListener('change', handleAutoAnalyseChange);
   els.notificationDot?.addEventListener('change', handleNotificationDotChange);
   els.calibrationOptIn?.addEventListener('change', handleCalibrationChange);
@@ -246,6 +379,7 @@ export function initSettingsView(shadowRoot) {
 
   return () => {
     state.disposed = true;
+    els.saveConnection?.removeEventListener('click', handleSaveConnection);
     els.autoAnalyse?.removeEventListener('change', handleAutoAnalyseChange);
     els.notificationDot?.removeEventListener('change', handleNotificationDotChange);
     els.calibrationOptIn?.removeEventListener('change', handleCalibrationChange);

@@ -1,15 +1,17 @@
 {
   "manifest_version": 3,
   "name": "SAF — AI Collaboration Analyser",
-  "version": "0.2.0",
-  "description": "Analyses how you collaborate with AI — not what you asked, but how you worked together. (build 0.2.0)",
+  "version": "0.5.1",
+  "description": "Analyses how you collaborate with AI — not what you asked, but how you worked together. (build 0.5.1)",
   "permissions": ["storage", "activeTab", "scripting", "tabs", "alarms"],
   "host_permissions": [
     "https://chat.openai.com/*",
     "https://chatgpt.com/*",
     "https://claude.ai/*",
     "http://localhost/*",
-    "http://127.0.0.1/*"
+    "http://127.0.0.1/*",
+    "http://*/*",
+    "https://*/*"
   ],
   "content_scripts": [
     {

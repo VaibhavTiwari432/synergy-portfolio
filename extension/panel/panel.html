@@ -83,9 +83,14 @@
                 <span id="saf-chat-counts">0 scored / 0 pending</span>
               </p>
             </div>
-            <button id="saf-chat-retry" class="saf-text-button" type="button" hidden>
-              Retry
-            </button>
+            <div class="saf-header-actions">
+              <button id="saf-analyse-current" class="saf-text-button saf-text-button--primary" type="button">
+                Analyse current
+              </button>
+              <button id="saf-chat-retry" class="saf-text-button" type="button" hidden>
+                Retry
+              </button>
+            </div>
           </header>
 
           <p id="saf-chat-status" class="saf-inline-status" role="status" aria-live="polite">
@@ -331,6 +336,33 @@
           <p id="saf-settings-status" class="saf-inline-status" role="status" aria-live="polite">
             Loading settings...
           </p>
+
+          <section class="saf-connection-card" aria-labelledby="saf-connection-heading">
+            <h3 id="saf-connection-heading" class="saf-section-label">Connection</h3>
+            <label class="saf-field-row" for="saf-setting-user-ref">
+              <span class="saf-field-label">User ID</span>
+              <input id="saf-setting-user-ref" class="saf-project-input" type="text" autocomplete="off">
+            </label>
+            <label class="saf-field-row" for="saf-setting-api-endpoint">
+              <span class="saf-field-label">API endpoint</span>
+              <input id="saf-setting-api-endpoint" class="saf-project-input" type="url" placeholder="http://localhost:8000">
+            </label>
+            <label class="saf-field-row" for="saf-setting-api-key">
+              <span class="saf-field-label">API key</span>
+              <input id="saf-setting-api-key" class="saf-project-input" type="password" autocomplete="off" placeholder="Paste SAF_API_KEY from start_saf.ps1">
+            </label>
+            <label class="saf-toggle-row" for="saf-setting-consent">
+              <span>
+                <span class="saf-toggle-title">Capture consent</span>
+                <span class="saf-toggle-copy">Allow SAF to send captured chats to your configured backend.</span>
+              </span>
+              <input id="saf-setting-consent" class="saf-toggle-input" type="checkbox">
+              <span class="saf-toggle-control" aria-hidden="true"></span>
+            </label>
+            <button id="saf-settings-save-connection" class="saf-text-button saf-text-button--primary" type="button">
+              Save connection
+            </button>
+          </section>
 
           <section class="saf-settings-list" aria-label="Settings controls">
             <label class="saf-toggle-row" for="saf-setting-auto-analyse">

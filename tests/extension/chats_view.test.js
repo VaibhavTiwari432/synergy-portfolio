@@ -76,6 +76,7 @@ class FakeShadowRoot {
     [
       'saf-chat-counts',
       'saf-chat-status',
+      'saf-analyse-current',
       'saf-chat-retry',
       'saf-current-chat-section',
       'saf-current-chat-list',
@@ -221,4 +222,79 @@ test('stuck pending chats stop polling and become retryable failed rows', async 
   const row = shadow.getElementById('saf-chat-list').children[0];
   assert.equal(row.dataset.status, 'failed');
   assert.match(shadow.getElementById('saf-chat-status').textContent, /taking longer than expected/);
+});
+
+test('pending chats surface missing scorer configuration from health', async () => {
+  globalThis.SAFStorage = {
+    STORAGE_KEYS: { USER_REF: 'user_ref' },
+    async get() { return 'user-1'; },
+  };
+  globalThis.SAFApiClient = {
+    async getChatList() {
+      return {
+        ok: true,
+        data: {
+          chats: [{ chat_id: 'chat-1', conversation_id: 'conv-1', status: 'pending', captured_at: '2026-06-21T00:00:00Z' }],
+          summary: { total: 1, scored: 0, pending: 1, failed: 0 },
+        },
+      };
+    },
+    async getHealth() {
+      return { ok: true, data: { status: 'ok', db: 'ok', scoring: 'missing_judge_key' } };
+    },
+  };
+
+  const initChatsView = loadInitChatsView({
+    globalThis: {
+      location: { href: 'https://chatgpt.com/' },
+      setInterval() { return 1; },
+      clearInterval() {},
+    },
+  });
+  const shadow = new FakeShadowRoot();
+  initChatsView(shadow);
+  await flush();
+  await flush();
+
+  assert.match(shadow.getElementById('saf-chat-status').textContent, /GEMINI_API_KEY or GOOGLE_API_KEY/);
+});
+
+test('Analyse current starts capture without an existing chat row', async () => {
+  let triggerArgument = 'not-called';
+  globalThis.SAFStorage = {
+    STORAGE_KEYS: { USER_REF: 'user_ref' },
+    async get() { return 'user-1'; },
+  };
+  globalThis.SAFApiClient = {
+    async getChatList() {
+      return {
+        ok: true,
+        data: {
+          chats: [],
+          summary: { total: 0, scored: 0, pending: 0, failed: 0 },
+        },
+      };
+    },
+    async triggerAnalysis(chatId) {
+      triggerArgument = chatId;
+      return { ok: false, error: 'consent_off' };
+    },
+  };
+
+  const initChatsView = loadInitChatsView({
+    globalThis: {
+      location: { href: 'https://chatgpt.com/c/current-conversation' },
+      setInterval() { return 1; },
+      clearInterval() {},
+    },
+  });
+  const shadow = new FakeShadowRoot();
+  initChatsView(shadow);
+  await flush();
+
+  shadow.getElementById('saf-analyse-current').click();
+  await flush();
+
+  assert.equal(triggerArgument, undefined);
+  assert.match(shadow.getElementById('saf-chat-status').textContent, /Enable capture consent/);
 });

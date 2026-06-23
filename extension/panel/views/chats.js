@@ -10,12 +10,14 @@ export function initChatsView(shadowRoot) {
     pollTimer: null,
     pollAttempts: 0,
     analysingChatIds: new Set(),
+    analysingCurrent: false,
     loading: false,
   };
 
   const els = {
     counts: shadowRoot.getElementById('saf-chat-counts'),
     status: shadowRoot.getElementById('saf-chat-status'),
+    analyseCurrent: shadowRoot.getElementById('saf-analyse-current'),
     retry: shadowRoot.getElementById('saf-chat-retry'),
     search: shadowRoot.querySelector('.saf-search-input'),
     currentSection: shadowRoot.getElementById('saf-current-chat-section'),
@@ -91,10 +93,60 @@ export function initChatsView(shadowRoot) {
     return { label: 'Analyse', action: 'analyse', className: 'saf-chat-cta--primary' };
   }
 
+  function friendlyError(result, fallback = 'Something went wrong.') {
+    const message = result?.message || result?.detail || result?.error || result?.message;
+    if (result?.status === 401 || /invalid or missing X-API-Key/i.test(String(message || ''))) {
+      return 'API key is missing or invalid. Open Settings and save the API key for this backend.';
+    }
+    if (message === 'api_unreachable') {
+      return 'SAF backend is not reachable. Start the backend or update the API endpoint in Settings.';
+    }
+    if (message === 'user_ref_required' || message === 'no_user') {
+      return 'Set your user ID in Settings before analysing chats.';
+    }
+    if (message === 'consent_off') {
+      return 'Enable capture consent in Settings before analysing chats.';
+    }
+    if (message === 'runtime_unavailable') {
+      return 'Analysis is unavailable in this tab. Reload the ChatGPT tab and try again.';
+    }
+    if (message === 'analysis_timeout') {
+      return 'Capture timed out. Reload the ChatGPT tab and try again.';
+    }
+    return message || fallback;
+  }
+
+  async function readinessWarning(apiClient, summary) {
+    if (!apiClient?.getHealth) return '';
+    const pending = Number(summary?.pending || 0);
+    const failed = Number(summary?.failed || 0);
+    if (pending <= 0 && failed <= 0) return '';
+    try {
+      const health = await apiClient.getHealth();
+      if (!health?.ok) return '';
+      if (health.data?.db === 'unavailable') {
+        return 'Backend is reachable, but Postgres is unavailable. Start the database and restart SAF.';
+      }
+      if (health.data?.scoring === 'missing_judge_key') {
+        return 'Scoring is not configured. Set GEMINI_API_KEY or GOOGLE_API_KEY, then restart the SAF worker.';
+      }
+    } catch (_) {
+      return '';
+    }
+    return '';
+  }
+
   function setStatus(message, isError = false) {
     if (!els.status) return;
     els.status.textContent = message;
     els.status.classList.toggle('is-error', isError);
+  }
+
+  function setAnalyseCurrentBusy(isBusy) {
+    state.analysingCurrent = isBusy;
+    if (!els.analyseCurrent) return;
+    els.analyseCurrent.disabled = isBusy;
+    els.analyseCurrent.textContent = isBusy ? 'Capturing...' : 'Analyse current';
   }
 
   function setCounts(summary) {
@@ -268,31 +320,62 @@ export function initChatsView(shadowRoot) {
     if (!hasPendingWork()) state.pollAttempts = 0;
   }
 
-  async function analyseChat(chat) {
+  async function analyseChat(chat = {}) {
     if (state.analysingChatIds.has(chat.chat_id)) return;
     const apiClient = api();
     if (!apiClient?.triggerAnalysis) {
       setStatus('Analysis is unavailable in this tab.', true);
       return;
     }
-    state.analysingChatIds.add(chat.chat_id);
-    setLocalStatus(chat.chat_id, 'scoring');
+    if (chat.chat_id) {
+      state.analysingChatIds.add(chat.chat_id);
+      setLocalStatus(chat.chat_id, 'scoring');
+    }
     setStatus('Starting analysis...');
     startPolling();
 
     const result = await apiClient.triggerAnalysis(chat.chat_id);
     if (!result?.ok) {
-      state.analysingChatIds.delete(chat.chat_id);
-      setLocalStatus(chat.chat_id, 'failed');
-      setStatus(result?.message || result?.error || 'Analysis could not start.', true);
+      if (chat.chat_id) {
+        state.analysingChatIds.delete(chat.chat_id);
+        setLocalStatus(chat.chat_id, 'failed');
+      }
+      setStatus(friendlyError(result, 'Analysis could not start.'), true);
       if (!hasPendingWork()) stopPolling();
       return;
     }
 
     setStatus('Analysis started.');
     await loadChats({ silent: true });
-    state.analysingChatIds.delete(chat.chat_id);
+    if (chat.chat_id) state.analysingChatIds.delete(chat.chat_id);
     render();
+  }
+
+  async function analyseCurrentChat() {
+    if (state.analysingCurrent) return;
+    const apiClient = api();
+    if (!apiClient?.triggerAnalysis) {
+      setStatus('Analysis is unavailable in this tab. Reload the page and try again.', true);
+      return;
+    }
+
+    setAnalyseCurrentBusy(true);
+    setStatus('Capturing current chat...');
+
+    try {
+      const result = await apiClient.triggerAnalysis();
+      if (!result?.ok) {
+        setStatus(friendlyError(result, 'Could not capture this chat.'), true);
+        return;
+      }
+      setStatus('Chat captured. Loading score status...');
+      await loadChats({ silent: true });
+      startPolling();
+    } catch (error) {
+      setStatus(friendlyError(error, 'Could not capture this chat.'), true);
+    } finally {
+      setAnalyseCurrentBusy(false);
+    }
   }
 
   async function loadChats({ silent = false } = {}) {
@@ -323,20 +406,22 @@ export function initChatsView(shadowRoot) {
 
       const result = await apiClient.getChatList(userRef);
       if (!result?.ok) {
-        throw new Error(result?.detail || result?.error || 'Could not load chats.');
+        throw new Error(friendlyError(result, 'Could not load chats.'));
       }
 
       const data = result.data || {};
       state.chats = Array.isArray(data.chats) ? data.chats : [];
       state.summary = data.summary || { total: state.chats.length, scored: 0, pending: 0, failed: 0 };
-      setStatus(state.chats.length ? '' : 'No chats captured yet.');
+      const warning = await readinessWarning(apiClient, state.summary);
+      setStatus(warning || (state.chats.length ? '' : 'No chats captured yet.'), Boolean(warning));
       render();
       if (!hasPendingWork()) state.pollAttempts = 0;
       startPolling();
     } catch (error) {
       if (els.retry) els.retry.hidden = false;
-      setStatus(error.message || 'Could not load chats.', true);
-      renderEmpty(els.list, 'Could not load chats.');
+      const message = friendlyError(error, 'Could not load chats.');
+      setStatus(message, true);
+      renderEmpty(els.list, message);
     } finally {
       state.loading = false;
     }
@@ -347,15 +432,27 @@ export function initChatsView(shadowRoot) {
     render();
   }
 
+  function handleAnalyseCurrentClick() {
+    void analyseCurrentChat();
+  }
+
+  function handleSettingsUpdated() {
+    void loadChats();
+  }
+
   els.search?.addEventListener('input', handleSearchInput);
+  els.analyseCurrent?.addEventListener('click', handleAnalyseCurrentClick);
   els.retry?.addEventListener('click', () => {
     void loadChats();
   });
+  shadowRoot.addEventListener?.('saf-settings-updated', handleSettingsUpdated);
 
   void loadChats();
 
   return () => {
     stopPolling();
     els.search?.removeEventListener('input', handleSearchInput);
+    els.analyseCurrent?.removeEventListener('click', handleAnalyseCurrentClick);
+    shadowRoot.removeEventListener?.('saf-settings-updated', handleSettingsUpdated);
   };
 }

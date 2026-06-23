@@ -1021,6 +1021,18 @@
       return null;
     }
 
+    function isExpectedInterceptionUrl(value) {
+      const expected = backendConversationEndpoint();
+      if (!expected) return false;
+      try {
+        const actual = new URL(String(value || ""), ownOrigin());
+        const target = new URL(expected);
+        return actual.origin === target.origin && actual.pathname === target.pathname;
+      } catch (_) {
+        return false;
+      }
+    }
+
     // The short-lived access token the ChatGPT web app itself obtains from its own
     // cookie-authed /api/auth/session endpoint. ChatGPT's /backend-api authorizes
     // with `Authorization: Bearer <token>`, not the cookie alone, so a cookie-only
@@ -1099,6 +1111,7 @@
       if (!data || typeof data !== "object") return;
       // §1 source/kind guard — trust nothing that fails this.
       if (data.source !== INTERCEPT_SOURCE || data.kind !== INTERCEPT_KIND) return;
+      if (!isExpectedInterceptionUrl(data.url)) return;
       try {
         syncConversation();
         ingestInterception(data.convo, data.url);

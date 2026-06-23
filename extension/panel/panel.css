@@ -327,6 +327,12 @@
   cursor: pointer;
 }
 
+.saf-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .saf-text-button:hover,
 .saf-text-button:focus-visible {
   color: var(--saf-text-primary);
@@ -340,6 +346,12 @@
 
 .saf-text-button--danger {
   color: var(--saf-red);
+}
+
+.saf-text-button--primary {
+  color: var(--saf-text-primary);
+  background: var(--saf-accent-light);
+  border-color: var(--saf-accent);
 }
 
 .saf-inline-status {
@@ -989,6 +1001,29 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.saf-connection-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--saf-bg-elevated);
+  border: 1px solid var(--saf-border);
+  border-radius: var(--saf-radius-md);
+}
+
+.saf-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.saf-field-label {
+  color: var(--saf-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .saf-toggle-row {

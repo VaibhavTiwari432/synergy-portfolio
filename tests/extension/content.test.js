@@ -5,6 +5,8 @@ const assert = require("node:assert/strict");
 
 const {
   SELECTORS,
+  INTERCEPT_KIND,
+  INTERCEPT_SOURCE,
   activePathFromMapping,
   conversationPayloadFromValue,
   conversationIdFromUrl,
@@ -1121,6 +1123,63 @@ test("manual capture backfills a share page from /backend-api/share/<id>", async
     ready.capture.turns.map(({ role, text }) => ({ role, text })),
     [{ role: "user", text: "shared q" }, { role: "assistant", text: "shared a" }],
   );
+});
+
+test("window bridge ignores conversation payloads for a different backend URL", () => {
+  const convo = {
+    current_node: "a1",
+    mapping: {
+      u1: { id: "u1", parent: null, children: ["a1"],
+        message: { id: "u1", author: { role: "user" }, create_time: 1,
+          content: { content_type: "text", parts: ["real q"] } } },
+      a1: { id: "a1", parent: "u1", children: [],
+        message: { id: "a1", author: { role: "assistant" }, create_time: 2,
+          content: { content_type: "text", parts: ["real a"] } } },
+    },
+  };
+  const messages = [];
+  const documentRef = {
+    title: "Chat | ChatGPT",
+    body: {},
+    documentElement: {},
+    querySelectorAll: () => [],
+    querySelector: () => null,
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  class FakeMutationObserver { observe() {} disconnect() {} }
+  const controller = createCaptureController({
+    document: documentRef,
+    location: { href: "https://chatgpt.com/c/current-chat", origin: "https://chatgpt.com" },
+    MutationObserver: FakeMutationObserver,
+    setTimeout: () => 1,
+    clearTimeout: () => {},
+    sendMessage: (message) => messages.push(message),
+    warn: () => {},
+  });
+
+  controller.start(true);
+  controller.handleWindowMessage({
+    origin: "https://chatgpt.com",
+    data: {
+      source: INTERCEPT_SOURCE,
+      kind: INTERCEPT_KIND,
+      url: "https://chatgpt.com/backend-api/conversation/other-chat",
+      convo,
+    },
+  });
+  assert.equal(messages.some((message) => message.type === "SAF_CAPTURE_READY"), false);
+
+  controller.handleWindowMessage({
+    origin: "https://chatgpt.com",
+    data: {
+      source: INTERCEPT_SOURCE,
+      kind: INTERCEPT_KIND,
+      url: "https://chatgpt.com/backend-api/conversation/current-chat",
+      convo,
+    },
+  });
+  assert.equal(messages.some((message) => message.type === "SAF_CAPTURE_READY"), true);
 });
 
 test("backend backfill retries with the page bearer token after a 401", async () => {

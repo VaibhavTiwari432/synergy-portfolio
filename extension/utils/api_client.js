@@ -19,21 +19,6 @@
   const DEFAULT_ENDPOINT = 'http://localhost:8000';
   const API_REQUEST_TIMEOUT_MS = 15000;
   const TRIGGER_ANALYSIS_TIMEOUT_MS = 30000;
-  // Default SAF_API_KEY the local dev server is started with. Used as a fallback
-  // for localhost endpoints when the user has not stored a key yet, so local dev
-  // works out of the box without first saving a connection. Must match the
-  // settings view's LOCAL_DEV_API_KEY and the server's SAF_API_KEY.
-  const LOCAL_DEV_API_KEY = 'dev-local';
-
-  function _isLocalEndpoint(endpoint) {
-    try {
-      const url = new URL(endpoint);
-      return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
-    } catch (_) {
-      return false;
-    }
-  }
-
   // The dev server binds IPv4 127.0.0.1 only, but on Windows `localhost` resolves
   // to IPv6 ::1 first — fetch can fail there before falling back. Force IPv4 for
   // the loopback host so the call always lands on the listening socket. Stored /
@@ -43,10 +28,10 @@
       const url = new URL(endpoint);
       if (url.hostname === 'localhost' || url.hostname === '[::1]' || url.hostname === '::1') {
         url.hostname = '127.0.0.1';
-        return url.toString().replace(/\/$/, '');
+        return url.toString().replace(/\/+$/, '');
       }
     } catch (_) { /* fall through to original */ }
-    return endpoint;
+    return String(endpoint || '').replace(/\/+$/, '');
   }
 
   async function _getConfig() {
@@ -54,12 +39,12 @@
     if (!storage) throw new Error('SAFStorage not loaded');
     const keys = storage.STORAGE_KEYS;
     const values = await storage.getMany([keys.API_ENDPOINT, keys.API_KEY]);
-    const rawEndpoint = values[keys.API_ENDPOINT] || DEFAULT_ENDPOINT;
+    const rawEndpoint = String(values[keys.API_ENDPOINT] || '').trim() || DEFAULT_ENDPOINT;
     const endpoint = _forceIpv4Local(rawEndpoint);
     const storedKey = values[keys.API_KEY] || '';
     return {
       endpoint,
-      key: storedKey || (_isLocalEndpoint(rawEndpoint) ? LOCAL_DEV_API_KEY : ''),
+      key: storedKey,
     };
   }
 
@@ -342,19 +327,31 @@
     return _request('DELETE', `/v1/users/${encodeURIComponent(ref)}`);
   }
 
-  async function checkHealth() {
+  async function getHealth() {
     let cfg;
     try {
       cfg = await _getConfig();
     } catch {
-      return false;
+      return { ok: false, error: 'storage_unavailable', status: 0 };
     }
     try {
       const res = await _fetchWithTimeout(`${cfg.endpoint}/v1/health`);
-      return res.ok;
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (_) {
+        data = null;
+      }
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}`, status: res.status, data };
+      return { ok: true, data, status: res.status };
     } catch {
-      return false;
+      return { ok: false, error: 'api_unreachable', status: 0 };
     }
+  }
+
+  async function checkHealth() {
+    const result = await getHealth();
+    return Boolean(result?.ok);
   }
 
   const api = Object.freeze({
@@ -378,6 +375,7 @@
     getSettings,
     updateSettings,
     deleteUser,
+    getHealth,
     checkHealth,
     DEFAULT_ENDPOINT,
   });

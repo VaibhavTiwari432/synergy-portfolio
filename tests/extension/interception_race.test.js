@@ -49,7 +49,10 @@ function makeBus() {
   const listeners = [];
   const messages = [];
   const bus = {
-    location: { origin: "https://chatgpt.com", href: "https://chatgpt.com/c/abc" },
+    location: {
+      origin: "https://chatgpt.com",
+      href: "https://chatgpt.com/c/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    },
     console: { warn() {} },
     addEventListener(type, fn) {
       if (type === "message") listeners.push(fn);

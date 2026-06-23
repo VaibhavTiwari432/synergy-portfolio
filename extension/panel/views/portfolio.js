@@ -34,6 +34,20 @@ export function initPortfolioView(shadowRoot) {
     els.status.classList.toggle('is-error', isError);
   }
 
+  function friendlyError(result, fallback = 'Could not load portfolio.') {
+    const message = result?.message || result?.detail || result?.error;
+    if (result?.status === 401 || /invalid or missing X-API-Key/i.test(String(message || ''))) {
+      return 'API key is missing or invalid. Open Settings and save the API key for this backend.';
+    }
+    if (message === 'api_unreachable') {
+      return 'SAF backend is not reachable. Start the backend or update the API endpoint in Settings.';
+    }
+    if (message === 'user_ref_required') {
+      return 'Set your user ID in Settings before loading portfolio.';
+    }
+    return message || fallback;
+  }
+
   function setVisible(node, visible) {
     if (node) node.hidden = !visible;
   }
@@ -182,14 +196,14 @@ export function initPortfolioView(shadowRoot) {
       const userRef = await storageApi.get(storageApi.STORAGE_KEYS.USER_REF, '');
       if (state.disposed) return;
       if (!userRef) {
-        setStatus('Set your user ID in Settings first.', true);
+        setStatus('Save your connection settings before loading portfolio.', true);
         return;
       }
 
       const result = await apiClient.getPortfolio(userRef);
       if (state.disposed) return;
       if (!result?.ok) {
-        throw new Error(result?.detail || result?.error || 'Could not load portfolio.');
+        throw new Error(friendlyError(result, 'Could not load portfolio.'));
       }
 
       const data = result.data || {};
@@ -200,7 +214,7 @@ export function initPortfolioView(shadowRoot) {
       if (els.retry) els.retry.hidden = false;
       setVisible(els.content, false);
       setVisible(els.history, false);
-      setStatus(error.message || 'Could not load portfolio.', true);
+      setStatus(friendlyError(error, 'Could not load portfolio.'), true);
     } finally {
       state.loading = false;
     }

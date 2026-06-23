@@ -84,6 +84,35 @@ test('requests use configured endpoint and API key without logging key on HTTP e
   assert.ok(!warnings.join('\n').includes('secret-never-log'));
 });
 
+test('requests strip trailing slashes from configured endpoints', async () => {
+  const api = loadClient({ endpoint: 'https://api.example.test///', key: 'secret-key' });
+  let request;
+  globalThis.fetch = async (url, options) => {
+    request = { url, options };
+    return { ok: true, status: 200, async json() { return {}; } };
+  };
+
+  const result = await api.getSettings('user-1');
+
+  assert.equal(result.ok, true);
+  assert.equal(request.url, 'https://api.example.test/v1/users/user-1/settings');
+});
+
+test('requests fall back to local endpoint without inventing a shared API key', async () => {
+  const api = loadClient({ endpoint: '   ', key: '' });
+  let request;
+  globalThis.fetch = async (url, options) => {
+    request = { url, options };
+    return { ok: true, status: 200, async json() { return {}; } };
+  };
+
+  const result = await api.getSettings('user-1');
+
+  assert.equal(result.ok, true);
+  assert.equal(request.url, 'http://127.0.0.1:8000/v1/users/user-1/settings');
+  assert.equal(request.options.headers['X-API-Key'], undefined);
+});
+
 test('network timeout resolves as api_unreachable instead of hanging', async () => {
   const api = loadClient();
   const realSetTimeout = globalThis.setTimeout;
@@ -101,6 +130,27 @@ test('network timeout resolves as api_unreachable instead of hanging', async () 
 
   assert.deepEqual(result, { ok: false, error: 'api_unreachable', status: 0 });
   globalThis.setTimeout = realSetTimeout;
+});
+
+test('getHealth returns readiness details while checkHealth stays boolean', async () => {
+  const api = loadClient({ endpoint: 'http://localhost:8000' });
+  globalThis.fetch = async (url) => {
+    assert.equal(url, 'http://127.0.0.1:8000/v1/health');
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return { status: 'ok', db: 'ok', scoring: 'missing_judge_key' };
+      },
+    };
+  };
+
+  const detail = await api.getHealth();
+  const ok = await api.checkHealth();
+
+  assert.equal(detail.ok, true);
+  assert.equal(detail.data.scoring, 'missing_judge_key');
+  assert.equal(ok, true);
 });
 
 test('triggerAnalysis resolves with analysis_timeout when background never replies', async () => {

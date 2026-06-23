@@ -24,10 +24,12 @@ endpoints return 503 — Scope A is unaffected (it uses SQLite only).
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from contracts.schemas import (
@@ -50,6 +52,15 @@ from src.sustainability.ewma import debt_ewma
 from src.trait.judge.prompt import JUDGE_PROMPT_VERSION
 
 log = logging.getLogger(__name__)
+
+
+def _csv_env(name: str) -> list[str]:
+    return [part.strip() for part in os.environ.get(name, "").split(",") if part.strip()]
+
+
+def _scoring_readiness() -> str:
+    has_judge_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    return "ok" if has_judge_key else "missing_judge_key"
 
 
 # ── lifespan (Postgres pool) ──────────────────────────────────────────────────
@@ -101,6 +112,22 @@ class CreateSessionResponse(BaseModel):
 def create_app(store: SessionStore | None = None) -> FastAPI:
     app = FastAPI(title="saf-brain", version=SCHEMA_VERSION, lifespan=lifespan)
     app.state.store = store or SessionStore("saf_brain.db")
+    extension_origin_regex = os.environ.get("SAF_EXTENSION_ORIGIN_REGEX") or None
+
+    # Extension UI runs in ChatGPT/Claude pages and sends X-API-Key, so browser
+    # preflight must be allowed or content-script fetch reports "api_unreachable".
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://chatgpt.com",
+            "https://chat.openai.com",
+            "https://claude.ai",
+            *_csv_env("SAF_CORS_ORIGINS"),
+        ],
+        allow_origin_regex=extension_origin_regex,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Track 2: request IDs + generic-500 / DB-down-503 handlers (no traceback leak)
     from src.api.observability import install_observability
@@ -130,7 +157,7 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
                 db = "ok"
             except Exception:
                 db = "unavailable"
-        return {"status": "ok", "db": db}
+        return {"status": "ok", "db": db, "scoring": _scoring_readiness()}
 
     @app.get("/v1/contracts")
     async def contracts() -> dict[str, str]:
