@@ -231,3 +231,53 @@ def test_dawid_skene_under_threshold_dimension_is_data_gated_not_raised():
     assert result["EC"]["status"] == "OK"
     assert result["PR"]["status"] == "DATA_GATED"
     assert result["PR"]["bias"] is None
+
+
+# ── Phase F — frozen-anchor judge-drift detection ────────────────────────────
+
+
+def _anchor_corpus(target: float = 0.5):
+    from calibration.drift_check import ANCHOR_CHAT_IDS
+
+    return [_gold(aid, target=target) for aid in ANCHOR_CHAT_IDS]
+
+
+def test_compute_drift_stable_when_predictor_beats_baseline():
+    from calibration.drift_check import compute_drift
+
+    # perfect predictor (MAE 0.0) well under a 0.25 baseline → no drift
+    out = compute_drift(
+        lambda s: {d: 0.5 for d in Dimension},
+        baseline_mae=0.25, judge_model_id="judge-x", prompt_version="v2.1",
+        corpus=_anchor_corpus(0.5),
+    )
+    assert out["mae_overall"] == 0.0
+    assert out["drift_detected"] is False
+    assert out["anchor_set"] and out["mae_per_dimension"]
+
+
+def test_compute_drift_flags_a_mae_rise_over_threshold():
+    from calibration.drift_check import compute_drift
+
+    # predictor off by 0.5 on every dim → MAE 0.5, baseline 0.25 → Δ=+0.25 > 0.05
+    out = compute_drift(
+        lambda s: {d: 0.0 for d in Dimension},
+        baseline_mae=0.25, judge_model_id="judge-x", prompt_version="v2.1",
+        corpus=_anchor_corpus(0.5),
+    )
+    assert out["mae_overall"] == pytest.approx(0.5)
+    assert out["drift_detected"] is True
+    assert "DRIFT" in out["drift_note"]
+
+
+def test_compute_drift_is_indeterminate_without_a_baseline():
+    from calibration.drift_check import compute_drift
+
+    # no baseline → never a false 'stable'; drift_detected is None (unknown, #12)
+    out = compute_drift(
+        lambda s: {d: 0.5 for d in Dimension},
+        baseline_mae=None, judge_model_id="judge-x", prompt_version="v2.1",
+        corpus=_anchor_corpus(0.5),
+    )
+    assert out["drift_detected"] is None
+    assert "indeterminate" in out["drift_note"]

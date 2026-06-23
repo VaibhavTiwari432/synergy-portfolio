@@ -655,6 +655,33 @@ async def upsert_score(
     )
 
 
+async def insert_drift_run(
+    conn: asyncpg.Connection,
+    *,
+    judge_model_id: str,
+    prompt_version: str,
+    anchor_set: list[str],
+    mae_overall: float | None,
+    mae_per_dimension: dict | None,
+    baseline_mae: float | None,
+    drift_detected: bool | None,
+    drift_note: str | None,
+) -> UUID:
+    """Append one frozen-anchor drift-check result (Phase F). Append-only history;
+    each scheduled run is a new row. Returns the new row id."""
+    return await conn.fetchval(
+        """
+        INSERT INTO drift_runs (
+            judge_model_id, prompt_version, anchor_set, mae_overall,
+            mae_per_dimension, baseline_mae, drift_detected, drift_note
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id
+        """,
+        judge_model_id, prompt_version, anchor_set, mae_overall,
+        mae_per_dimension, baseline_mae, drift_detected, drift_note,
+    )
+
+
 async def get_score_row(
     pool: asyncpg.Pool, chat_id: UUID
 ) -> asyncpg.Record | None:
