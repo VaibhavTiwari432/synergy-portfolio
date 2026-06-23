@@ -1,5 +1,12 @@
 # start_saf.ps1 - starts the SAF API server + scoring worker
-# Run from the project root: .\start_saf.ps1
+# Run from the project root: .\start_saf.ps1            (local testing: key = dev-local)
+#                            .\start_saf.ps1 -Prod      (rotated random key in .saf_api_key)
+param([switch]$Prod)
+
+# Stable, well-known key for local testing so the extension and server agree without
+# a per-machine paste. Production runs use -Prod (or set $env:SAF_API_KEY explicitly),
+# which rotates a random secret persisted to .saf_api_key and never ships a default.
+$LOCAL_DEV_API_KEY = "dev-local"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
@@ -10,13 +17,17 @@ function Escape-PSLiteral([string]$Value) {
 
 $keyFile = Join-Path $root ".saf_api_key"
 if (-not $env:SAF_API_KEY) {
-  if (Test-Path $keyFile) {
-    $env:SAF_API_KEY = (Get-Content -LiteralPath $keyFile -Raw).Trim()
+  if ($Prod) {
+    if (Test-Path $keyFile) {
+      $env:SAF_API_KEY = (Get-Content -LiteralPath $keyFile -Raw).Trim()
+    } else {
+      $bytes = New-Object byte[] 32
+      [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+      $env:SAF_API_KEY = [Convert]::ToBase64String($bytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
+      Set-Content -LiteralPath $keyFile -Value $env:SAF_API_KEY -NoNewline
+    }
   } else {
-    $bytes = New-Object byte[] 32
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-    $env:SAF_API_KEY = [Convert]::ToBase64String($bytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
-    Set-Content -LiteralPath $keyFile -Value $env:SAF_API_KEY -NoNewline
+    $env:SAF_API_KEY = $LOCAL_DEV_API_KEY
   }
 }
 
@@ -58,5 +69,7 @@ Write-Host ""
 Write-Host "Both processes launched." -ForegroundColor Green
 Write-Host "API  -> http://localhost:8000/v1/health"
 Write-Host "Database -> $env:DATABASE_URL"
+$keyMode = if ($Prod) { "rotated (.saf_api_key)" } elseif ($env:SAF_API_KEY -eq $LOCAL_DEV_API_KEY) { "local-testing default" } else { "from `$env:SAF_API_KEY" }
 Write-Host "Extension settings: endpoint=http://localhost:8000"
-Write-Host "Extension API key: $env:SAF_API_KEY"
+Write-Host "Extension API key:  $env:SAF_API_KEY   [$keyMode]"
+Write-Host "  -> paste this exact value into the extension Settings -> API key, then reload."
