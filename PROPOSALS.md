@@ -5,7 +5,16 @@ A proposal is the audit trail for a non-trivial change; nothing in a red-line
 class (ontology, score multipliers, the Wall, contract edits, pilot fitting) is
 self-adopted — it is written here, classified, and surfaced to the project lead.
 
-Status values: `PROPOSED` → `APPROVED` / `REJECTED` / `LANDED` / `MOOT`.
+Status values: `PROPOSED` → `APPROVED` / `REJECTED` / `LANDED` / `MOOT` /
+`AUTO-PROPOSED` (raised by the discovery harness, awaiting CE triage).
+
+**Discovery harness (Phase G):** `.github/workflows/discovery.yml` runs the
+`scripts/discovery/*.py` probes nightly + on every PR (non-blocking — findings are
+`::warning::` lines, never a gate). A real hit prints a paste-ready
+`P-NNN [AUTO-PROPOSED]` stub; CE triages it into a numbered entry here. The probes
+are offline (deterministic fake judge, no DB/keys) and mirror the §3 discovery
+pass: D1 unwired evidence, D2 dropped signals, D3 determinism, D4 coverage,
+D6 forbidden words, D7 R2 audit.
 
 ---
 
