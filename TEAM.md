@@ -327,6 +327,7 @@ updated at the close of each CE session.
 
 | Commit | Author | Files | What |
 |---|---|---|---|
+| `993a958`+`ab13ec5` `[CE]` | CE | `extension/panel/panel.html`, `extension/panel/views/settings.js` | **S10 addition: one-click dev sentinel in Settings (localhost only).** "Use dev key" button writes `api_key="dev-local"` to `chrome.storage.local` on explicit click; localhost-only (two-layer guard), hidden for remote and after click. Ingress-only — the api_client "never invent a shared key" egress guarantee is untouched. `api_client.js` + tests deliberately out of scope (gated separately). |
 | `cd3d648` `[Codex]` | Codex | `extension/content.js`, `extension/utils/payload_builder.js` | DOM hardening (data-message-id selectors), scroll-progress notifications, location-change auto-capture, D-015 §7 snapshot fields, D-015 §8 payload pass-through |
 | `7f10fdf` `[CE]` | CE | `adr/0007-*`, `extension/interceptor.js`, `DISCREPANCY.md`, `TEAM.md` | ADR-0007 + D-015 spec + release-gate doc; interceptor.js shipped dormant |
 | `cc30e4e` `[CE]` | CE | all Scope B + recoverability files | Scope B Phases 1–4 + recoverability Tracks 0–2 (migrations 001–007, worker, API, extension, panel) |
