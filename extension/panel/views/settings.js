@@ -399,7 +399,11 @@ export function initSettingsView(shadowRoot) {
       setStatus('Local extension storage is unavailable.', true);
       return;
     }
-    // Guard again at click time: never write the dev key for a remote endpoint.
+    // Two-layer conditional guard. Layer 1 (renderDevKeyButton) hides the button
+    // for any non-localhost endpoint so it cannot normally be clicked. Layer 2 is
+    // this re-check at click time: even if the endpoint changed between render and
+    // click (or the element were forced visible), the dev key is never written for
+    // a remote backend.
     const endpoint = String(els.apiEndpoint?.value || state.apiEndpoint || '').trim();
     if (!isLocalEndpoint(endpoint)) return;
     try {
