@@ -415,3 +415,24 @@ and data-gated stubs. Do not rebuild the repo, do not add ontology, and do not
 fit on the pilot/gold chats.
 
 ---
+
+## Open Codex tasks — v3.21 (added 2026-06-23 by CE)
+
+### TASK C-001 — AI-psychology precision conditioners (grounding + vigilance)
+- **Status:** READY (contract landed). Spec: `PROPOSALS.md` P-002. Interfaces:
+  `INTERFACES.md` §1.4 `classify_grounding` + §1.5 `score_vigilance`.
+- **⚠ RE-READ REQUIRED:** `contracts/schemas.py` bumped **SCHEMA_VERSION → 1.2.0**
+  (D-027). New types `GroundingFunction` + `VigilanceResult`. Re-read the contract
+  before writing any code.
+- **Build (Codex-owned leaves):**
+  - `src/trait/grounding.py` → `classify_grounding(session, tags) -> list[GroundingFunction]`
+  - `src/trait/vigilance.py`  → `score_vigilance(session, tags) -> VigilanceResult`
+  - Unit tests beside each: {happy path, empty-session, absent-≠-zero}.
+- **Bounds (CLAUDE.md):** evidence for EC/CA **precision only** — never a score
+  value (#2); no new neuron/dimension/pillar/latent (#1); import only from
+  `contracts.*` + stdlib; deterministic; no judge, no event-log writes.
+- **Not in this task (CE follow-up):** the merge-side wiring (REPAIR-fraction /
+  vigilance-score → EC/CA CI-widening in `src/merge/precision.py`, R2-audited).
+  The leaves land first; CE wires precision after review.
+
+---

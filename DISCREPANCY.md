@@ -1127,6 +1127,33 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-027  [RESOLVED]  — Contract bump: GroundingFunction + VigilanceResult added for the AI-psychology precision conditioners (Phase E)
+- Raised by: Chief Engineer
+- Date: 2026-06-23
+- File(s): contracts/schemas.py (CE), INTERFACES.md (CE), PROPOSALS.md (P-002),
+  TEAM.md; future: src/trait/grounding.py (Codex), src/trait/vigilance.py (Codex)
+- Problem: v3.21 §3.1 specifies two unimplemented AI-psychology precision
+  conditioners — conversational grounding (Clark & Brennan) and epistemic
+  vigilance (Sperber & Mercier). Their leaf modules are Codex-owned, but they
+  produce types the frozen contract did not yet define. CE must add the types
+  (schema-first) before Codex can implement; that bumps SCHEMA_VERSION.
+- Decision (CE, 2026-06-23, project-lead approved at STOP C): added
+  `GroundingFunction` (enum: INITIATION/GROUNDING/REPAIR/NONE) and
+  `VigilanceResult` (score/n_signals/pattern_detected) to contracts/schemas.py;
+  bumped SCHEMA_VERSION 1.1.0 → 1.2.0; added both to __all__; added the leaf
+  signatures to INTERFACES.md §1.4/§1.5 with a 1.2.0 version-log entry. Additive
+  only — no existing type changed; adds NO neuron/dimension/pillar/latent (#1) and
+  NO score multiplier — these condition EC/CA evidence PRECISION only (#2). The
+  types have no consumer yet; the producing leaves + the merge-side precision
+  wiring (REPAIR-fraction / vigilance-score → EC/CA CI-widening, R2-audited) are
+  follow-ups. Full suite 574 passed after the bump; no test pinned the old version.
+- **Contract bumped: contracts/schemas.py + INTERFACES.md (SCHEMA_VERSION → 1.2.0)
+  — re-read required by: Codex** before implementing src/trait/grounding.py and
+  src/trait/vigilance.py (see TEAM.md task + PROPOSALS.md P-002 for the spec).
+- Status: RESOLVED (schema landed; Codex implementation pending — tracked in TEAM.md)
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |

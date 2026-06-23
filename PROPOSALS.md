@@ -86,4 +86,8 @@ STOP C DISCREPANCY entry; the merge-side precision wiring (the REPAIR-fraction /
 vigilance-score → EC/CA CI-widening) is a SEPARATE follow-up after the leaves
 land, and is itself precision-only (no value change, R2-audited).
 
-Status: PROPOSED — pending project-lead approval of the schema bump (STOP C).
+Status: SCHEMA LANDED (project lead approved STOP C, 2026-06-23 — D-027). The
+contract types (`GroundingFunction`, `VigilanceResult`) and the INTERFACES.md
+§1.4/§1.5 signatures are frozen at SCHEMA_VERSION 1.2.0. **Codex implementation of
+`src/trait/grounding.py` + `src/trait/vigilance.py` is now READY** (TEAM.md task
+C-001). The merge-side precision wiring remains a separate CE follow-up.

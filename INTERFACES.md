@@ -67,7 +67,31 @@ def extract(
     event exists in `events`; else return empty dicts (brief §3.6.6)."""
 ```
 
-### 1.4 `src/aggregate/normalize.py`
+### 1.4 `src/trait/grounding.py` — OWNER: Codex (v1.2.0; see PROPOSALS.md P-002)
+```python
+def classify_grounding(session: CanonicalSession, tags: list[TurnTags]) -> list[GroundingFunction]:
+    """One GroundingFunction per HUMAN turn, in turn order (length == n_human_turns).
+    GroundingFunction ∈ {INITIATION, GROUNDING, REPAIR, NONE}.
+      REPAIR     : the human turn corrects or requests clarification on AI content.
+      GROUNDING  : confirms/acknowledges without adding content.
+      INITIATION : introduces a new topic/constraint.
+    REPAIR turns are richer evidence for EC and CA — the precision merge uses the
+    REPAIR fraction as an UPWARD precision adjustment (never a score change, #2).
+    Reads session.turns + tags only. Deterministic; no judge, no event-log writes."""
+```
+
+### 1.5 `src/trait/vigilance.py` — OWNER: Codex (v1.2.0; see PROPOSALS.md P-002)
+```python
+def score_vigilance(session: CanonicalSession, tags: list[TurnTags]) -> VigilanceResult:
+    """Session-level vigilance pattern. Signals: justification requests, source
+    probing, expressing a prior before accepting AI output, challenge-then-accept.
+    Returns VigilanceResult{score ∈ [0,1], n_signals, pattern_detected}. A
+    DISTRIBUTED pattern — hard to fake across a whole session. The score CONDITIONS
+    EC/CA evidence PRECISION; the score value never changes (#2). Reads
+    session.turns + tags only. Deterministic."""
+```
+
+### 1.6 `src/aggregate/normalize.py`
 ```python
 def normalize_counts(
     firings: dict[Dimension, dict[str, float]],
@@ -212,3 +236,4 @@ The pipeline (CE) passes leaves their inputs; leaves never fetch.
 *Version log:*
 - *1.0.0 — initial freeze (Stage 0).*
 - *1.1.0 — `SourceFormat` widened with internal `"gold_json"` (the gold-corpus format; not API-exposed). No leaf signature changed; juniors: no action beyond noting the new literal.*
+- *1.2.0 — added `GroundingFunction` + `VigilanceResult` (contracts/schemas.py) for the AI-psychology precision conditioners (v3.21 §3.1 C2/C3; D-027). Two NEW Codex leaf signatures §1.4 `classify_grounding` + §1.5 `score_vigilance`. Evidence → EC/CA precision only (#2); no new ontology (#1). **Codex: re-read required** before implementing the two leaves (PROPOSALS.md P-002).*
