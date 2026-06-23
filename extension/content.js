@@ -58,8 +58,10 @@
   // A long chat's /backend-api/conversation/<id> response is larger and resolves
   // LATER than a short one's. Poll for the passively-intercepted tree before
   // demoting to the DOM scroll, so a late-arriving complete capture is preferred
-  // over a partial virtualized-DOM harvest (ADR-0007 / D-015 §1-§6). Kept short so
-  // poll + scroll budget stays under the background CONTENT_CAPTURE_TIMEOUT_MS.
+  // over a partial virtualized-DOM harvest (ADR-0007 / D-015 sections 1-6).
+  // Stall watchdog (30s, reset on progress) + absolute ceiling (300s).
+  // Long captures survive as long as they report progress; hung captures
+  // fail closed after 300s total. Panel shows retry prompt on timeout.
   const INTERCEPTION_POLL_MS = 300;
   const INTERCEPTION_QUICK_TICKS = 3;  // ~0.9 s: catch an already-cached/replayed tree
   const INTERCEPTION_POLL_TICKS = 12;  // ~3.6 s fallback poll after the backend fetch
