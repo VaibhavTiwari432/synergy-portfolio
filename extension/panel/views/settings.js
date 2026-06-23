@@ -1,4 +1,11 @@
 const SHOW_NOTIFICATION_DOT_KEY = 'saf_show_notification_dot';
+
+// Local-testing convenience: the well-known key that start_saf.ps1 serves by
+// default (no -Prod). The "Use dev key" button writes this to chrome.storage on
+// an explicit click — it is never invented/auto-sent, so the api_client egress
+// guarantee (extension never invents a shared key) is untouched.
+const LOCAL_DEV_API_KEY = 'dev-local';
+
 export function initSettingsView(shadowRoot) {
   const state = {
     userRef: '',
@@ -9,6 +16,7 @@ export function initSettingsView(shadowRoot) {
     apiEndpoint: '',
     consent: false,
     notificationDot: true,
+    devKeyApplied: false,
     loading: false,
     saving: false,
     deleting: false,
@@ -21,6 +29,7 @@ export function initSettingsView(shadowRoot) {
     userRef: shadowRoot.getElementById('saf-setting-user-ref'),
     apiEndpoint: shadowRoot.getElementById('saf-setting-api-endpoint'),
     apiKey: shadowRoot.getElementById('saf-setting-api-key'),
+    useDevKey: shadowRoot.getElementById('saf-settings-use-dev-key'),
     consent: shadowRoot.getElementById('saf-setting-consent'),
     saveConnection: shadowRoot.getElementById('saf-settings-save-connection'),
     autoAnalyse: shadowRoot.getElementById('saf-setting-auto-analyse'),
@@ -89,7 +98,27 @@ export function initSettingsView(shadowRoot) {
     if (els.autoAnalyse) els.autoAnalyse.checked = Boolean(state.settings.auto_analyse);
     if (els.calibrationOptIn) els.calibrationOptIn.checked = Boolean(state.settings.calibration_opt_in);
     if (els.notificationDot) els.notificationDot.checked = Boolean(state.notificationDot);
+    renderDevKeyButton();
     setRemoteDisabled(!state.userRef || state.loading || state.saving || state.deleting);
+  }
+
+  // The dev-key sentinel is a LOCAL-ONLY convenience: it is shown only when the
+  // configured endpoint is localhost, and only until it has been applied this
+  // session. It is never offered for a remote backend, so the dev key cannot be
+  // written against (and later sent to) a non-local server.
+  function isLocalEndpoint(value) {
+    try {
+      const host = new URL(value).hostname;
+      return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function renderDevKeyButton() {
+    if (!els.useDevKey) return;
+    const endpoint = String(els.apiEndpoint?.value || state.apiEndpoint || '').trim();
+    els.useDevKey.hidden = !(isLocalEndpoint(endpoint) && !state.devKeyApplied);
   }
 
   async function ensureUserRef() {
@@ -364,11 +393,44 @@ export function initSettingsView(shadowRoot) {
     void saveConnection();
   }
 
+  async function useDevKey() {
+    const storageApi = storage();
+    if (!storageApi) {
+      setStatus('Local extension storage is unavailable.', true);
+      return;
+    }
+    // Guard again at click time: never write the dev key for a remote endpoint.
+    const endpoint = String(els.apiEndpoint?.value || state.apiEndpoint || '').trim();
+    if (!isLocalEndpoint(endpoint)) return;
+    try {
+      await storageApi.set({ [storageApi.STORAGE_KEYS.API_KEY]: LOCAL_DEV_API_KEY });
+      state.devKeyApplied = true;
+      if (els.apiKey) els.apiKey.value = '';
+      renderDevKeyButton();
+      setStatus('Dev key set.');
+    } catch (error) {
+      setStatus(error.message || 'Could not set the dev key.', true);
+    }
+  }
+
+  function handleUseDevKey() {
+    void useDevKey();
+  }
+
+  function handleEndpointInput() {
+    // Re-evaluate dev-key visibility live as the endpoint is edited. Note: this
+    // does NOT call renderSettings(), which would overwrite the field the user
+    // is typing into; it only toggles the sentinel button.
+    renderDevKeyButton();
+  }
+
   function handleDelete() {
     void deleteData();
   }
 
   els.saveConnection?.addEventListener('click', handleSaveConnection);
+  els.useDevKey?.addEventListener('click', handleUseDevKey);
+  els.apiEndpoint?.addEventListener('input', handleEndpointInput);
   els.autoAnalyse?.addEventListener('change', handleAutoAnalyseChange);
   els.notificationDot?.addEventListener('change', handleNotificationDotChange);
   els.calibrationOptIn?.addEventListener('change', handleCalibrationChange);
@@ -380,6 +442,8 @@ export function initSettingsView(shadowRoot) {
   return () => {
     state.disposed = true;
     els.saveConnection?.removeEventListener('click', handleSaveConnection);
+    els.useDevKey?.removeEventListener('click', handleUseDevKey);
+    els.apiEndpoint?.removeEventListener('input', handleEndpointInput);
     els.autoAnalyse?.removeEventListener('change', handleAutoAnalyseChange);
     els.notificationDot?.removeEventListener('change', handleNotificationDotChange);
     els.calibrationOptIn?.removeEventListener('change', handleCalibrationChange);
