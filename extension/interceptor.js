@@ -397,3 +397,104 @@
     };
   }
 })(window);
+
+// ── Shared link capture (static conversations via /share/{id}) ────────────────
+// Runs only on share pages; the native interceptor is silent on those because
+// ChatGPT server-renders the full transcript and never fires a backend XHR.
+if (/\/share\//.test(window.location.href)) {
+  (function() {
+    'use strict';
+
+    const SHARED_LINK_RE = /\/share\/([a-zA-Z0-9_-]{20,})/;
+    const SHARED_ID = SHARED_LINK_RE.exec(window.location.href)?.[1];
+    if (!SHARED_ID) return;
+
+    const ORIGIN = window.location.origin;
+
+    function extractConversation() {
+      try {
+        const state = window.__INITIAL_STATE__;
+        if (state?.conversationData?.conversation) {
+          return {
+            mapping: state.conversationData.conversation.mapping,
+            current_node: state.conversationData.conversation.current_node,
+          };
+        }
+      } catch (_) {}
+
+      try {
+        for (const script of document.querySelectorAll('script[type="application/json"]')) {
+          const data = JSON.parse(script.textContent);
+          if (data.conversation?.mapping || data.mapping) {
+            return {
+              mapping: data.conversation?.mapping || data.mapping,
+              current_node: data.conversation?.current_node || data.current_node,
+            };
+          }
+        }
+      } catch (_) {}
+
+      try {
+        const root = document.getElementById('__next') || document.getElementById('root');
+        if (root?.dataset?.initialState) {
+          const data = JSON.parse(root.dataset.initialState);
+          return {
+            mapping: data.conversation?.mapping || data.mapping,
+            current_node: data.conversation?.current_node || data.current_node,
+          };
+        }
+      } catch (_) {}
+
+      return null;
+    }
+
+    function waitForConversation(maxAttempts = 10, delayMs = 500) {
+      let attempts = 0;
+      return new Promise((resolve) => {
+        const poll = () => {
+          const conv = extractConversation();
+          if (conv?.mapping) { resolve(conv); return; }
+          if (++attempts >= maxAttempts) { console.warn('[SAF] Shared link: timed out'); resolve(null); return; }
+          setTimeout(poll, delayMs);
+        };
+        poll();
+      });
+    }
+
+    function postConversation(conversationId, turns) {
+      const CHUNK = 50;
+      const totalChunks = Math.ceil(turns.length / CHUNK);
+      if (totalChunks <= 1) {
+        window.postMessage({ type: 'SAF_CONVERSATION_READY', convId: conversationId, turns }, ORIGIN);
+      } else {
+        for (let i = 0; i < totalChunks; i++) {
+          window.postMessage({ type: 'SAF_CONVERSATION_CHUNK', convId: conversationId, chunkIndex: i, totalChunks, turns: turns.slice(i * CHUNK, (i + 1) * CHUNK) }, ORIGIN);
+        }
+        window.postMessage({ type: 'SAF_CONVERSATION_CHUNK_END', convId: conversationId, totalChunks }, ORIGIN);
+      }
+    }
+
+    async function captureSharedLink() {
+      console.log('[SAF] Detected shared link:', SHARED_ID);
+      const conv = await waitForConversation();
+      if (!conv?.mapping) { console.warn('[SAF] Could not extract conversation from shared link'); return; }
+      // Linearize the mapping tree along the active path
+      const turns = [];
+      let id = conv.current_node;
+      const visited = new Set();
+      while (id && !visited.has(id)) {
+        visited.add(id);
+        const node = conv.mapping[id];
+        if (!node) break;
+        turns.push(node);
+        id = node.parent || null;
+      }
+      turns.reverse();
+      if (turns.length < 3) { console.warn('[SAF] Shared link conversation too short:', turns.length); return; }
+      console.log('[SAF] Extracted', turns.length, 'turns from shared link');
+      postConversation(SHARED_ID, turns);
+    }
+
+    captureSharedLink();
+  })();
+}
