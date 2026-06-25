@@ -1,0 +1,344 @@
+# baseline_capability_specs.yaml — Baseline Capability Specifications per user archetype
+# Item #12 Part 1: Foundation for fairness-safe population context
+
+archetypes:
+  - archetype_id: "SCHOOL_STUDENT_8_10"
+    name: "School Student (Class 8–10)"
+    education_stage: "Class 8–10"
+    domain: "mixed"
+    baseline_capabilities:
+      biological:
+        - id: "BIO-1"
+          capability: "Can read text at grade level (400-800 words/min)"
+          observable_task: "Read 200-word paragraph; retell key points"
+          confidence: "displayed"
+      educational:
+        - id: "EDU-1"
+          capability: "Can recall prerequisite concepts (previous year material)"
+          neurons: ["AL-1", "AL-2"]
+          observable_task: "Answer 3 basic factual recall questions"
+          confidence: "displayed"
+      cognitive:
+        - id: "COG-1"
+          capability: "Can follow multi-step reasoning (2-3 steps)"
+          neurons: ["PR-3", "PR-4"]
+          observable_task: "Solve 2-step math problem independently"
+          confidence: "displayed"
+      interaction:
+        - id: "INT-1"
+          capability: "Can ask clarifying questions"
+          neurons: ["CA-1"]
+          observable_task: "When given ambiguous prompt, ask >1 clarification"
+          confidence: "implied"
+    minimum_proof_tasks:
+      - task: "Solve moderately complex problem with 2+ steps"
+        expected_time: "< 5 min"
+      - task: "Explain own reasoning to another student"
+        expected_time: "< 3 min"
+    conformance_gate: "Must show ≥10/13 capabilities to be in expected range"
+
+  - archetype_id: "UNDERGRAD_STEM_Y2"
+    name: "Undergraduate, STEM, Year 2"
+    education_stage: "Undergrad Year 2"
+    domain: "STEM"
+    baseline_capabilities:
+      biological:
+        - capability: "Can sustain attention for 45-min task"
+          observable_task: "Complete coding task without breaks"
+      educational:
+        - capability: "Can perform algebra / calculus"
+          neurons: ["AL-3"]
+          observable_task: "Solve 3 algebra problems correctly (≥2/3)"
+      domain:
+        - capability: "Can write syntactically correct code"
+          neurons: ["PR-5"]
+          observable_task: "Write function with no syntax errors"
+        - capability: "Can trace code execution mentally"
+          neurons: ["PR-6"]
+          observable_task: "Predict output of 10-line code snippet"
+      cognitive:
+        - capability: "Can decompose moderate problems"
+          neurons: ["PR-2"]
+          observable_task: "Break down coding task into 3+ subtasks"
+      interaction:
+        - capability: "Can critique AI answer for missing edge cases"
+          neurons: ["CA-3"]
+          observable_task: "Given incomplete solution, identify 2+ gaps"
+    minimum_proof_tasks:
+      - task: "Solve 3-step coding problem independently"
+        expected_time: "< 20 min"
+      - task: "Debug code with specific error type"
+        expected_time: "< 10 min"
+      - task: "Verify solution satisfies all constraints"
+        expected_time: "< 5 min"
+    conformance_gate: "Must show ≥12/14 capabilities"
+
+  - archetype_id: "GRAD_HUMANITIES_Y1"
+    name: "Graduate, Humanities, Year 1"
+    education_stage: "Graduate Year 1"
+    domain: "Humanities"
+    baseline_capabilities:
+      biological:
+        - capability: "Can sustain focus on text-intensive work for 2+ hours"
+          observable_task: "Read and annotate 20-page academic paper"
+      educational:
+        - capability: "Can synthesize multiple sources"
+          neurons: ["CS-1", "CS-2"]
+          observable_task: "Integrate 3+ sources into coherent argument"
+      domain:
+        - capability: "Can write clear academic prose"
+          neurons: ["CD-1"]
+          observable_task: "Compose 500-word essay with thesis and support"
+        - capability: "Can identify gaps in literature"
+          neurons: ["PR-1"]
+          observable_task: "Propose 2+ novel research questions"
+      cognitive:
+        - capability: "Can engage in dialectical reasoning"
+          neurons: ["CA-1", "EC-1"]
+          observable_task: "Argue multiple sides of contested claim"
+      interaction:
+        - capability: "Can give and receive substantive feedback"
+          neurons: ["CA-2"]
+          observable_task: "Provide detailed critique of peer work"
+    minimum_proof_tasks:
+      - task: "Synthesize 5+ academic sources into lit review"
+        expected_time: "< 8 hours"
+      - task: "Develop and defend novel research argument"
+        expected_time: "< 4 hours"
+    conformance_gate: "Must show ≥11/13 capabilities"
+
+  - archetype_id: "PROFESSIONAL_DATA_2YREXPERIENCE"
+    name: "Professional, Data/Analytics, 2yr experience"
+    education_stage: "Post-secondary"
+    domain: "Data/Analytics"
+    baseline_capabilities:
+      biological:
+        - capability: "Can sustain attention on task switching (Slack, Slack)"
+          observable_task: "Complete 3-task sprint with context switches"
+      educational:
+        - capability: "Can perform statistical reasoning"
+          neurons: ["AL-2"]
+          observable_task: "Interpret p-value, confidence interval correctly"
+      domain:
+        - capability: "Can write production-ready SQL queries"
+          neurons: ["PR-5"]
+          observable_task: "Write optimized query on real dataset"
+        - capability: "Can build and evaluate models"
+          neurons: ["PR-6"]
+          observable_task: "Train model, report AUC/RMSE, evaluate"
+      cognitive:
+        - capability: "Can decompose analytics projects"
+          neurons: ["PR-2"]
+          observable_task: "Design 3+ step pipeline for analysis"
+      interaction:
+        - capability: "Can communicate technical findings to non-technical stakeholders"
+          neurons: ["CA-3"]
+          observable_task: "Explain model decision to business partner"
+    minimum_proof_tasks:
+      - task: "End-to-end analytics project (EDA → model → insights)"
+        expected_time: "< 3 days"
+      - task: "Optimize slow query on 1B+ row table"
+        expected_time: "< 4 hours"
+    conformance_gate: "Must show ≥12/13 capabilities"
+
+  - archetype_id: "K12_TEACHER_EXPERIENCED"
+    name: "K-12 Teacher, 5yr+ experience"
+    education_stage: "Post-secondary"
+    domain: "Education/Pedagogy"
+    baseline_capabilities:
+      biological:
+        - capability: "Can manage extended classroom engagement (6hr+/day)"
+          observable_task: "Lead full school day of live instruction"
+      educational:
+        - capability: "Can diagnose student misconceptions quickly"
+          neurons: ["AL-1"]
+          observable_task: "Identify root cause of student error in 2-3 turns"
+      domain:
+        - capability: "Can design developmentally appropriate curriculum"
+          neurons: ["PR-4"]
+          observable_task: "Adapt lesson for mixed-ability classroom"
+        - capability: "Can implement differentiation"
+          neurons: ["CS-1"]
+          observable_task: "Provide 3+ pathways for same content"
+      cognitive:
+        - capability: "Can reflect on and adapt teaching in real-time"
+          neurons: ["CA-1"]
+          observable_task: "Shift instructional strategy mid-lesson based on response"
+      interaction:
+        - capability: "Can facilitate peer learning"
+          neurons: ["CA-2"]
+          observable_task: "Structure productive student-student dialog"
+    minimum_proof_tasks:
+      - task: "Plan unit for heterogeneous class (mixed ability)"
+        expected_time: "< 6 hours"
+      - task: "Facilitate Socratic discussion on complex topic"
+        expected_time: "< 45 min"
+    conformance_gate: "Must show ≥11/13 capabilities"
+
+  - archetype_id: "CREATIVE_PROFESSIONAL_WRITER"
+    name: "Creative Professional (Writer/Artist)"
+    education_stage: "Post-secondary"
+    domain: "Creative"
+    baseline_capabilities:
+      biological:
+        - capability: "Can sustain creative flow (deep focus, 3+ hours)"
+          observable_task: "Write 2000+ words in single session"
+      educational:
+        - capability: "Can internalize genre conventions"
+          neurons: ["AL-2"]
+          observable_task: "Identify tropes and subversions in published work"
+      domain:
+        - capability: "Can generate original ideas and premises"
+          neurons: ["CD-1"]
+          observable_task: "Pitch 3 distinct story concepts"
+        - capability: "Can execute revision and structural refinement"
+          neurons: ["CA-1"]
+          observable_task: "Restructure piece based on feedback"
+      cognitive:
+        - capability: "Can think metaphorically and abstractly"
+          neurons: ["PR-3"]
+          observable_task: "Develop consistent symbolic system in piece"
+      interaction:
+        - capability: "Can give and integrate feedback on creative work"
+          neurons: ["CA-2"]
+          observable_task: "Critique peer work with specific suggestions"
+    minimum_proof_tasks:
+      - task: "Complete 5000+ word story/essay draft"
+        expected_time: "< 2 days"
+      - task: "Revise based on editorial feedback"
+        expected_time: "< 1 day"
+    conformance_gate: "Must show ≥10/13 capabilities"
+
+  - archetype_id: "STUDENT_ENGLISH_L2"
+    name: "Student, English as L2, intermediate level"
+    education_stage: "Post-secondary"
+    domain: "Language/ESL"
+    baseline_capabilities:
+      biological:
+        - capability: "Can process English text at intermediate pace (250-400 wpm)"
+          observable_task: "Read 300-word article; answer 3 comprehension Qs"
+      educational:
+        - capability: "Can produce grammatically accurate English"
+          neurons: ["AL-1"]
+          observable_task: "Write 200-word paragraph with <2 grammar errors"
+      domain:
+        - capability: "Can engage in conversational English"
+          neurons: ["CS-1"]
+          observable_task: "Discuss complex topic in English for 5+ min"
+        - capability: "Can recognize and apply collocations/idioms"
+          neurons: ["PR-2"]
+          observable_task: "Use 3+ native collocations correctly in context"
+      cognitive:
+        - capability: "Can infer word meaning from context"
+          neurons: ["EC-1"]
+          observable_task: "Read unfamiliar words; infer meaning; verify"
+      interaction:
+        - capability: "Can ask clarifying questions when confused"
+          neurons: ["CA-1"]
+          observable_task: "Ask 2+ substantive follow-up Qs on confusing concept"
+    minimum_proof_tasks:
+      - task: "Write 400-word essay on given prompt"
+        expected_time: "< 60 min"
+      - task: "Understand and respond to academic lecture (15 min)"
+        expected_time: "< 30 min"
+    conformance_gate: "Must show ≥10/13 capabilities"
+
+  - archetype_id: "RESEARCH_SCIENTIST"
+    name: "Research Scientist (PhD, active researcher)"
+    education_stage: "Post-secondary"
+    domain: "Research/Science"
+    baseline_capabilities:
+      biological:
+        - capability: "Can maintain focus on complex projects (weeks-months)"
+          observable_task: "Conduct multi-week experiment with detailed tracking"
+      educational:
+        - capability: "Can read and synthesize primary literature"
+          neurons: ["CS-1"]
+          observable_task: "Read 10+ papers; synthesize state-of-art"
+      domain:
+        - capability: "Can design and execute rigorous experiments"
+          neurons: ["PR-4"]
+          observable_task: "Design experiment with controls; execute; report"
+        - capability: "Can perform advanced statistical analysis"
+          neurons: ["PR-6"]
+          observable_task: "Run multivariate analysis; interpret results"
+      cognitive:
+        - capability: "Can think critically about methodology"
+          neurons: ["EC-1"]
+          observable_task: "Identify flaws in peer methodology; propose improvements"
+      interaction:
+        - capability: "Can present findings to research community"
+          neurons: ["CA-2"]
+          observable_task: "Give clear seminar talk (30 min) with Q&A"
+    minimum_proof_tasks:
+      - task: "Conduct pilot study; report results"
+        expected_time: "< 4 weeks"
+      - task: "Write paper manuscript (5K words)"
+        expected_time: "< 4 weeks"
+    conformance_gate: "Must show ≥12/13 capabilities"
+
+  - archetype_id: "AMATEUR_SELF_LEARNER"
+    name: "Amateur/Self-Learner (no formal domain training)"
+    education_stage: "Self-directed"
+    domain: "Mixed/General"
+    baseline_capabilities:
+      biological:
+        - capability: "Can sustain self-directed learning (1-2 hrs/session)"
+          observable_task: "Complete online course module independently"
+      educational:
+        - capability: "Can follow instructions and tutorials"
+          neurons: ["AL-1"]
+          observable_task: "Follow step-by-step tutorial; produce expected output"
+      domain:
+        - capability: "Can apply concepts to new problems"
+          neurons: ["PR-3"]
+          observable_task: "Solve problem not explicitly covered in tutorial"
+      cognitive:
+        - capability: "Can identify gaps in own understanding"
+          neurons: ["EC-1"]
+          observable_task: "Notice when explanation doesn't make sense; seek clarification"
+      interaction:
+        - capability: "Can ask good questions online (forums, etc)"
+          neurons: ["CA-1"]
+          observable_task: "Post forum question that gets helpful answers"
+    minimum_proof_tasks:
+      - task: "Complete tutorial/course on new topic"
+        expected_time: "< 2 weeks"
+      - task: "Build small project using learned skills"
+        expected_time: "< 1 week"
+    conformance_gate: "Must show ≥9/12 capabilities"
+
+  - archetype_id: "DOMAIN_EXPERT_ATYPICAL_CONTEXT"
+    name: "Domain Expert in atypical/adjacent context"
+    education_stage: "Post-secondary"
+    domain: "Mixed/Cross-domain"
+    baseline_capabilities:
+      biological:
+        - capability: "Can focus on intellectually demanding work"
+          observable_task: "Solve complex problem in 2+ hours"
+      educational:
+        - capability: "Can transfer domain expertise across contexts"
+          neurons: ["CS-2"]
+          observable_task: "Apply concepts from domain A to problem in domain B"
+      domain:
+        - capability: "Can quickly learn new domain-adjacent tools"
+          neurons: ["AL-2"]
+          observable_task: "Pick up new tool/framework; apply to real task"
+      cognitive:
+        - capability: "Can abstract and generalize patterns"
+          neurons: ["PR-1"]
+          observable_task: "Identify pattern across seemingly different domains"
+      interaction:
+        - capability: "Can explain domain expertise to non-specialists"
+          neurons: ["CS-1"]
+          observable_task: "Teach domain concept to novice in 15 min"
+    minimum_proof_tasks:
+      - task: "Solve cross-domain problem using domain expertise"
+        expected_time: "< 4 hours"
+      - task: "Mentor or teach adjacent domain concept"
+        expected_time: "< 2 hours"
+    conformance_gate: "Must show ≥10/12 capabilities"
+
+# Global settings
+minimum_proof_tasks_required: "All minimum proof tasks must be observable in session transcript"
+fairness_note: "BCS designed to capture stage/domain capabilities, not occupation labels or socioeconomic proxies."
