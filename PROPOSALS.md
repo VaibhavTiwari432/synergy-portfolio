@@ -139,3 +139,85 @@ pre-configured to. The two localhost guards on the extension side (localhost-onl
 rendering + click-time re-check, S10) already prevent accidental remote
 transmission. No api_client bypass logic; no backend auth weakening. Done.
 Status: REJECTED (unnecessary; would break localhost auth).
+
+---
+
+## P-004 [LANDED] — Read-only CSL route + descriptive contribution panel
+
+Found by: CE (panel design iteration 3, project-lead request to integrate the CSL
+layer into the per-chat results).
+Domain: API surface (new read-only endpoint) + panel UI.
+
+Finding/decision: the CSL (Cognitive Work Layer) ownership artifact is stored in
+`scores.csl` (migration 011) but no route served it — by design, CSL is never in
+the frozen `ScoreResponse`. Project lead approved surfacing it as a **separate
+read-only route** feeding a **descriptive** panel (2026-06-24).
+
+Implementation (all CE-owned files):
+  - `GET /v1/users/{ref}/chats/{id}/work` (`src/api/routers/users.py`) — reads the
+    stored `csl.ownership` via the existing `get_scored_score_row` (no new query),
+    returns the 7 ACF levels (C1–C7) in order, each with `status / human_pct /
+    ai_pct / ci / flags`, plus top-level `rung: DESIGNED`, `uncertified: true`,
+    `note`, `contract_version`. No new DB write; no schema/contract edit.
+  - `api_client.getChatWork` + `detail.js renderCSL` — 7 per-level human/AI bars;
+    thin-evidence levels show a status, never a fabricated 50/50.
+
+Freeze check:
+  - [x] adds NO neuron / dimension / pillar / latent variable (#1).
+  - [x] introduces NO score multiplier; CSL never modifies an ARI score (#2).
+  - [x] NOT in `ScoreResponse`; the frozen contract is untouched.
+  - [x] NEVER averaged into a whole-session scalar (`csl/ownership.py` Do-NOT #5) —
+        the route and panel are strictly per-level.
+  - [x] every value carries the DESIGNED rung + `uncertified_pending_icc` (#14);
+        displayed (not genuine) contribution — genuine ownership needs the probe.
+
+Verified: handler called against the live DB returns OK with per-level splits
+(e.g. C2 54%/46%, C3 100%/0%, C4 14%/86%, plus N/A + saturated rows). Live route
+needs a server restart to register (the running server predates it).
+Status: LANDED (pending project-lead screenshot review).
+
+---
+
+## P-005 [PROPOSED — gated on MAE] — Judge score-resolution instruction (v2.1 → v2.2)
+
+Found by: CE (panel iteration 3 follow-up). Project lead asked for finer-grained
+dimension values so scores stop clustering on round tenths (0.8/0.9/0.6).
+Domain: calibrated judge prompt (`src/trait/judge/prompt.py`, CE-owned).
+
+Context the request resolved to: literal display decimals like `87.34` require the
+judge to emit `0.8734` — sub-0.01 precision, below the LLM judge's noise floor and
+in tension with the per-row CI (`±9.5`); that is false precision (#14) and was
+declined. The project lead instead chose **more resolution at 0.01 granularity**:
+the judge uses the full two-decimal range so scores spread (0.83, 0.87, 0.91)
+instead of snapping to tenths. Values still read as whole numbers on the ×100
+display, but they vary meaningfully.
+
+Change (v2.2): added a SCORE RESOLUTION paragraph instructing two-decimal use and
+"do NOT default to round tenths", with an explicit "never an invented decimal"
+guard. **Anchor meanings are unchanged** — this is output resolution only, not a
+recalibration. Version bumped v2.1 → v2.2 (the prompt file's own traceability
+contract); `tests/unit/test_judge.py` pin updated + a v2.2 regression assertion.
+
+Freeze check:
+  - [x] adds NO neuron / dimension / pillar / latent variable (#1).
+  - [x] introduces NO score multiplier (#2).
+  - [x] does NOT change anchor values or scoring semantics — resolution only; not
+        prompt-tuned to fit the gold set (#19 / addendum #2 "no pilot fitting").
+  - [ ] **MAE ratchet (#18) — NOT YET VERIFIED.** This is the load-bearing gate.
+        A judge-prompt change is not release-eligible until the shadow-corpus MAE
+        stays ≤ 0.2994 over the 26 gold chats. Pending until run.
+
+How to clear the gate (needs `ANTHROPIC_API_KEY`; re-judges all 26 chats — billable):
+  1. Invalidate the stale cache (it keys on chat_id only, NOT prompt version, so a
+     plain re-run would silently reuse v2.1 predictions):
+     `rm calibration/results/stage2_predictions_cache.json`
+  2. `python -m calibration.run_stage2`  (re-judges all 26 under v2.2)
+  3. Read `shadow.overall_mae` in `calibration/results/stage2_initial.json`.
+     - ≤ 0.2994 → gate PASS, promote P-005 to LANDED.
+     - > 0.2994 → gate FAIL. Per #19/addendum #2 the prompt is NOT re-tuned to
+       recover MAE; the change is reverted (v2.2 → v2.1) and parked. Run ONCE.
+
+Observation (separate, minor): `run_stage2` cache has no prompt-version key — a
+latent stale-cache risk on any future prompt edit. Worth a follow-up to stamp the
+cache with `JUDGE_PROMPT_VERSION`; not blocking this change.
+Status: PROPOSED — code landed behind the MAE gate; awaiting the gold-set re-judge.

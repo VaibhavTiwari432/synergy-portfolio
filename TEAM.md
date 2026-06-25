@@ -399,11 +399,11 @@ passes. Covered by `tests/extension/interception_race.test.js` (2 tests). This t
 plan. Scope A is implemented, Scope B extension/DB/worker work exists, and the
 next framework update is driven by:
 
-- `SAF_ARI_v3_ClaudeCode_Upgrades.md`
-- `SAF_ARI_v3.1_ClaudeCode_Upgrades.md`
-- `SAF_ARI_v3_SpecDelta_over_v2.2.md`
-- `SAF_ARI_v3.1_SpecDelta_over_v3.md`
-- the new top section of `AGENT_REBUILD_BRIEF_v3.md`
+- `specs/v3/SAF_ARI_v3_ClaudeCode_Upgrades.md`
+- `specs/v3.1/SAF_ARI_v3.1_ClaudeCode_Upgrades.md`
+- `specs/v3/SAF_ARI_v3_SpecDelta_over_v2.2.md`
+- `specs/v3.1/SAF_ARI_v3.1_SpecDelta_over_v3.md`
+- the new top section of `specs/v3/AGENT_REBUILD_BRIEF_v3.md`
 
 Claude Code remains Chief Engineer and owns shared contracts, DB, worker, API,
 claims/reporting, migrations, cross-module integration, and all governance

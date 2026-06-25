@@ -149,6 +149,15 @@
     return _request('GET', `/v1/users/${encodeURIComponent(ref)}/portfolio`);
   }
 
+  // GET .../chats/{id}/work — read-only CSL (Cognitive Work Layer): the
+  // descriptive per-ACF-level human/AI contribution split. Never an ARI score;
+  // separate route so the frozen ScoreResponse stays untouched.
+  async function getChatWork(userRef, chatId) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('GET', `/v1/users/${encodeURIComponent(ref)}/chats/${encodeURIComponent(chatId)}/work`);
+  }
+
   async function acknowledgePortfolio(userRef, snapshotHash) {
     const ref = _requireUserRef(userRef);
     if (!ref) return _missingUserRef();
@@ -360,6 +369,7 @@
     getScore,
     postFeedback,
     getPortfolio,
+    getChatWork,
     acknowledgePortfolio,
     getChatList,
     getChatScore,

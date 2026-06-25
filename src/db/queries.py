@@ -88,11 +88,21 @@ def capture_validation_error(turns: list[dict]) -> str | None:
     This is intentionally small and mechanical: it only checks whether the DB
     has enough user/assistant structure to represent a real ChatGPT exchange.
     Semantic quality belongs in the scorer; missing turns must stop at ingest.
+
+    Assistant runs count once. A multi-part assistant response (tool call → tool
+    result → final answer, or a reasoning node before the answer) lands on
+    ChatGPT's active path as two or more CONSECUTIVE assistant nodes for a single
+    user turn. They are one logical assistant turn, so a run of them is counted
+    once — otherwise a long, tool-heavy chat (e.g. user=153, assistant=182) is
+    wrongly rejected as imbalanced. A human turn is never split this way, so
+    consecutive USER nodes are counted individually: a run of them is a genuine
+    imbalance (a lost assistant turn / truncated capture) that must still fail.
     """
     if not turns:
         return "capture has no turns"
 
     counts = {"user": 0, "assistant": 0}
+    prev_assistant = False
     for turn in turns:
         role = str(turn.get("role") or "").lower()
         text = str(turn.get("text") or "").strip()
@@ -100,8 +110,11 @@ def capture_validation_error(turns: list[dict]) -> str | None:
             continue
         if role in ("human", "user"):
             counts["user"] += 1
+            prev_assistant = False
         elif role in ("ai", "assistant"):
-            counts["assistant"] += 1
+            if not prev_assistant:  # first node of an assistant run
+                counts["assistant"] += 1
+            prev_assistant = True
         else:
             return f"unsupported turn role: {role or '<empty>'}"
 

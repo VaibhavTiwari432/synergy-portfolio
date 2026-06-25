@@ -30,6 +30,31 @@ def test_capture_validation_rejects_imbalanced_transcript():
     assert reason == "capture turn roles are imbalanced (user=8, assistant=1)"
 
 
+def test_capture_validation_accepts_multipart_assistant_turns():
+    # A tool-using / multi-part assistant response is several CONSECUTIVE
+    # assistant nodes for one user turn. Counting assistant runs once keeps a
+    # long, tool-heavy chat (the user=153/assistant=182 report) admissible: here
+    # 3 user turns each draw a 2-node assistant response → 3 user, 3 assistant.
+    turns = []
+    for i in range(3):
+        turns.append({"role": "user", "text": f"Question {i}"})
+        turns.append({"role": "assistant", "text": f"Let me look into {i}…"})
+        turns.append({"role": "assistant", "text": f"Answer {i}"})
+    assert capture_validation_error(turns) is None
+
+
+def test_capture_validation_run_merge_does_not_mask_missing_assistants():
+    # Consecutive USER nodes are NOT a platform artifact — a run of them means a
+    # lost assistant turn, so run-merging must not rescue this truncated capture.
+    turns = (
+        [{"role": "user", "text": f"Question {i}"} for i in range(8)]
+        + [{"role": "assistant", "text": "Answer"}]
+    )
+    assert capture_validation_error(turns) == (
+        "capture turn roles are imbalanced (user=8, assistant=1)"
+    )
+
+
 def test_capture_validation_rejects_unknown_roles():
     assert capture_validation_error([
         {"role": "system", "text": "hidden instruction"},

@@ -235,6 +235,69 @@ async def get_chat_score(
     return out
 
 
+_ACF_ORDER = ["C1", "C2", "C3", "C4", "C5", "C6", "C7"]
+
+_CSL_NOTE = (
+    "Displayed contribution per cognitive level — a descriptive view, never an "
+    "ARI score (#2). It shows who appeared to drive each level, not proven "
+    "ownership (genuine ownership needs a retention probe). DESIGNED rung; "
+    "uncertified pending per-level reliability."
+)
+
+
+@router.get("/v1/users/{user_ref}/chats/{chat_id}/work")
+async def get_chat_work(
+    user_ref: str,
+    chat_id: UUID,
+    pool: asyncpg.Pool = Depends(_require_pool),
+) -> dict[str, Any]:
+    """Read-only CSL (Cognitive Work Layer) view for one chat.
+
+    Serves the descriptive per-ACF-level ownership split (human vs AI displayed
+    contribution) stored in scores.csl (migration 011). DESCRIPTIVE ONLY: never an
+    ARI score (#2), never part of the frozen ScoreResponse, and never averaged into
+    a whole-session scalar (csl/ownership.py Do-NOT #5) — the response is strictly
+    per-level. Levels without resolvable evidence carry a status and no percentage
+    (absent ≠ zero; no fabricated 50-50, #12).
+    """
+    row = await get_scored_score_row(pool, chat_id=chat_id, user_ref=user_ref)
+    if row is None:
+        raise HTTPException(404, detail="Score not found — chat may still be pending or invalid")
+
+    csl = row["csl"] or {}
+    if isinstance(csl, str):  # defensive: pool normally JSONB-decodes to dict
+        try:
+            csl = json.loads(csl)
+        except (TypeError, ValueError):
+            csl = {}
+    status = csl.get("status", "absent") if isinstance(csl, dict) else "absent"
+    ownership = csl.get("ownership", {}) if isinstance(csl, dict) else {}
+
+    levels = []
+    for lvl in _ACF_ORDER:
+        r = ownership.get(lvl) or {}
+        levels.append(
+            {
+                "level": lvl,
+                "label": r.get("label", lvl),
+                "status": r.get("status", "N/A"),
+                "human_pct": r.get("human_pct"),
+                "ai_pct": r.get("ai_pct"),
+                "ci": r.get("ci"),
+                "flags": r.get("flags", []),
+            }
+        )
+
+    return {
+        "status": status,  # ok | error | absent
+        "rung": "DESIGNED",
+        "uncertified": True,
+        "levels": levels,
+        "note": _CSL_NOTE,
+        "contract_version": _CONTRACT_VERSION,
+    }
+
+
 @router.get("/v1/users/{user_ref}/sessions/{saf_session_id}")
 async def get_session_score(
     user_ref: str,

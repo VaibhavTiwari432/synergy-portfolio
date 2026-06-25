@@ -6,7 +6,7 @@ current update, data-gating, disclosure gates, and no-pilot-fitting constraints.
 
 ---
 
-# CLAUDE.md — Non-negotiables (AGENT_REBUILD_BRIEF_v3.md §8, verbatim; all agents bound)
+# CLAUDE.md — Non-negotiables (specs/v3/AGENT_REBUILD_BRIEF_v3.md §8, verbatim; all agents bound)
 
 1. **Ontology freeze:** exactly 107 neurons, 8 dims, 4 pillars. Fields may be added to the contract table; items may not.
 2. **No score multipliers for state.** State → evidence precision (CI width) only. (R2)

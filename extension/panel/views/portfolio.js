@@ -17,7 +17,12 @@ export function initPortfolioView(shadowRoot) {
     content: shadowRoot.getElementById('saf-portfolio-content'),
     sessions: shadowRoot.getElementById('saf-portfolio-sessions'),
     archetype: shadowRoot.getElementById('saf-portfolio-archetype'),
+    archetypeDesc: shadowRoot.getElementById('saf-portfolio-archetype-desc'),
     radar: shadowRoot.getElementById('saf-portfolio-radar'),
+    trajectory: shadowRoot.getElementById('saf-portfolio-trajectory'),
+    growth: shadowRoot.getElementById('saf-portfolio-growth'),
+    since: shadowRoot.getElementById('saf-portfolio-since'),
+    rung: shadowRoot.getElementById('saf-portfolio-rung'),
   };
 
   function api() {
@@ -147,6 +152,60 @@ export function initPortfolioView(shadowRoot) {
     clearRadar();
   }
 
+  const TREND_LABEL = {
+    improving: 'Improving',
+    declining: 'Declining',
+    stable: 'Stable',
+    baseline: 'Baseline',
+  };
+
+  function formatSince(iso) {
+    if (!iso) return '';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    return `Since ${date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`;
+  }
+
+  // Surface the descriptive fields the route already returns (archetype blurb,
+  // trajectory direction, growth focus, first-analysed, rung). Trajectory shows
+  // the DIRECTION only — never a composite/overall number (#6).
+  function renderDetail(data) {
+    if (els.archetypeDesc) {
+      const desc = data?.archetype_description || '';
+      els.archetypeDesc.textContent = desc;
+      els.archetypeDesc.hidden = !desc;
+    }
+
+    if (els.trajectory) {
+      const traj = data?.trajectory;
+      if (traj && typeof traj === 'object') {
+        const label = TREND_LABEL[traj.trend_direction] || 'Baseline';
+        const band = traj.uncertainty_band ? ` · uncertainty ${traj.uncertainty_band}` : '';
+        els.trajectory.textContent = `${label}${band}`;
+      } else {
+        els.trajectory.textContent = 'Not enough sessions yet';
+      }
+    }
+
+    if (els.growth) {
+      const g = data?.growth_summary || {};
+      const parts = [];
+      if (g.strongest_dim) parts.push(`Strongest ${g.strongest_dim}`);
+      if (g.growing_dim) parts.push(`Growing ${g.growing_dim}`);
+      if (g.watch_dim) parts.push(`Watch ${g.watch_dim}`);
+      els.growth.textContent = parts.length ? parts.join('  ·  ') : '—';
+    }
+
+    if (els.since) els.since.textContent = formatSince(data?.first_analysed_at);
+
+    if (els.rung) {
+      const rung = data?.rung;
+      els.rung.textContent = rung || '';
+      els.rung.title = 'Designed — portfolio aggregation is research-grade, not yet validated.';
+      els.rung.hidden = !rung;
+    }
+  }
+
   function renderPortfolio(data) {
     const sessions = Number(data?.sessions_analysed || 0);
     const insufficient = data?.status === 'INSUFFICIENT_HISTORY' || sessions < 3;
@@ -163,6 +222,7 @@ export function initPortfolioView(shadowRoot) {
     setVisible(els.history, false);
     setVisible(els.content, true);
     renderRadar(values);
+    renderDetail(data);
     setStatus(values.length ? '' : 'No profile dimensions available yet.');
   }
 

@@ -1125,6 +1125,112 @@ test("manual capture backfills a share page from /backend-api/share/<id>", async
   );
 });
 
+test("backend backfill fetched-but-incomplete does not fall through to DOM scroll", async () => {
+  const incompleteConvo = {
+    current_node: "missing-node",
+    mapping: {
+      u1: { id: "u1", parent: null, children: [],
+        message: { id: "u1", author: { role: "user" }, create_time: 1,
+          content: { content_type: "text", parts: ["backend q"] } } },
+    },
+  };
+  const messages = [];
+  const documentRef = {
+    title: "Incomplete backend | ChatGPT",
+    scrollingElement: { scrollTop: 0, scrollHeight: 1200, clientHeight: 400 },
+    body: {}, documentElement: {},
+    querySelectorAll(selector) {
+      if (selector === SELECTORS.userTurn[0]) {
+        return [{ innerText: "partial q", closest: () => ({ getAttribute: () => "u1" }) }];
+      }
+      if (selector === SELECTORS.aiTurn[0]) {
+        return [{ innerText: "partial a", closest: () => ({ getAttribute: () => "a1" }) }];
+      }
+      return [];
+    },
+    querySelector: () => null,
+    addEventListener() {}, removeEventListener() {},
+  };
+  class FakeMutationObserver { observe() {} disconnect() {} }
+  const controller = createCaptureController({
+    document: documentRef,
+    location: { href: "https://chatgpt.com/c/incomplete-chat", origin: "https://chatgpt.com" },
+    MutationObserver: FakeMutationObserver,
+    setTimeout: (fn) => { fn(); return 1; },
+    clearTimeout: () => {},
+    sendMessage: (message) => messages.push(message),
+    warn: () => {},
+    fetch: async () => ({ ok: true, json: async () => incompleteConvo }),
+  });
+
+  assert.equal(await controller.captureFullConversationForManual(), false);
+  assert.equal(messages.some((message) => message.type === "SAF_CAPTURE_READY"), false);
+  assert.ok(
+    messages.some(
+      (message) =>
+        message.type === "SAF_ANALYSE_PROGRESS" &&
+        message.progress.stage === "error" &&
+        /tree was incomplete/.test(message.progress.message),
+    ),
+  );
+});
+
+test("manual scroll fallback refuses to emit when it cannot prove end reached", async () => {
+  const turn = (role, order, text) => ({
+    innerText: text,
+    order,
+    closest: () => ({ getAttribute: () => `${role}-${order}` }),
+    compareDocumentPosition(other) {
+      return this.order < other.order ? 4 : 2;
+    },
+    contains() { return false; },
+    role,
+  });
+  const visible = [turn("user", 0, "partial q"), turn("assistant", 1, "partial a")];
+  const root = {
+    scrollTop: 0,
+    scrollHeight: 100000,
+    clientHeight: 400,
+    scrollTo({ top }) {
+      this.scrollTop = top;
+    },
+  };
+  const messages = [];
+  const warnings = [];
+  let fakeNow = 0;
+  const documentRef = {
+    title: "Budgeted long chat | ChatGPT",
+    scrollingElement: root,
+    body: {}, documentElement: root,
+    querySelectorAll(selector) {
+      if (selector === SELECTORS.userTurn[0]) return visible.filter((item) => item.role === "user");
+      if (selector === SELECTORS.aiTurn[0]) return visible.filter((item) => item.role === "assistant");
+      return [];
+    },
+    querySelector: () => null,
+    addEventListener() {}, removeEventListener() {},
+  };
+  class FakeMutationObserver { observe() {} disconnect() {} }
+  const controller = createCaptureController({
+    document: documentRef,
+    location: { href: "https://chatgpt.com/c/too-long", origin: "https://chatgpt.com" },
+    MutationObserver: FakeMutationObserver,
+    setTimeout: (fn) => { fn(); return 1; },
+    clearTimeout: () => {},
+    sendMessage: (message) => messages.push(message),
+    warn: (message) => warnings.push(message),
+    fetch: async () => ({ ok: false, status: 404 }),
+    now: () => {
+      fakeNow += 90000;
+      return fakeNow;
+    },
+  });
+
+  assert.equal(await controller.captureFullConversationForManual(), false);
+  assert.equal(messages.some((message) => message.type === "SAF_CAPTURE_READY"), false);
+  assert.ok(warnings.some((message) => /DOM scroll budget exhausted/.test(message)));
+});
+
 test("window bridge ignores conversation payloads for a different backend URL", () => {
   const convo = {
     current_node: "a1",

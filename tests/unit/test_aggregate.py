@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from contracts.schemas import (
+    Censored,
     ConfidenceInterval,
     Dimension,
     DimensionScore,
@@ -29,6 +30,15 @@ def _ok(dim: Dimension, value: float, n_eff: float = 5.0, width: float = 0.1) ->
 
 def _absent(dim: Dimension, status: ScoreStatus = ScoreStatus.NOT_APPLICABLE) -> DimensionScore:
     return DimensionScore(dim=dim, status=status, rung=Rung.MEASURABLE)
+
+
+def _saturated(dim: Dimension, bound: float = 0.95) -> DimensionScore:
+    """A topped-out dimension: status MEASUREMENT_SATURATED, value None, a high
+    censored bound (the form saturation.py emits for a ≥ tau strong score)."""
+    return DimensionScore(
+        dim=dim, status=ScoreStatus.MEASUREMENT_SATURATED, value=None,
+        censored=Censored(direction="high", bound=bound), n_eff=6.0, rung=Rung.MEASURABLE,
+    )
 
 
 def _profile(value: float = 0.6, **overrides: DimensionScore) -> dict[Dimension, DimensionScore]:
@@ -67,6 +77,30 @@ def test_scorability_gate_needs_four_valid_dims():
     for dim in dims[:5]:  # leave only 3 OK
         profile[dim] = _absent(dim, ScoreStatus.INSUFFICIENT_SAMPLE)
     assert scorability_gate(profile) is False
+
+
+def test_saturated_dims_count_toward_scorability():
+    # a topped-out strong session: 5 dims saturate, 3 stay OK. Saturated dims
+    # carry usable signal (a censored ceiling), so the gate must still pass —
+    # collapsing the strongest sessions to INSUFFICIENT_SAMPLE was the bug.
+    profile = _profile(0.9)
+    dims = list(Dimension)
+    for dim in dims[:5]:
+        profile[dim] = _saturated(dim)
+    assert scorability_gate(profile) is True
+
+
+def test_strong_topped_out_session_keeps_its_composite():
+    # the reported collapse: ≥95 across most dims drove the overall index to
+    # "—" (INSUFFICIENT_SAMPLE). It must now produce a real, high composite.
+    profile = _profile(0.92)
+    dims = list(Dimension)
+    for dim in dims[:5]:
+        profile[dim] = _saturated(dim, bound=0.95)
+    comp = compute_composite(profile, CLEAN)
+    assert comp.status == ScoreStatus.OK
+    assert comp.value is not None and comp.value >= 0.9
+    assert comp.ci is not None  # the 3 remaining OK dims still supply a CI
 
 
 def test_state_validity_gate():
