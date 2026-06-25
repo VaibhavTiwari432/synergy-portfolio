@@ -39,17 +39,122 @@
 
   const SOURCE = 'saf-capture';
   const ORIGIN = win.location.origin;
+  const CHUNK_SIZE_THRESHOLD = 1000 * 100; // 100KB threshold for chunking
 
   let warnedShape = false;
 
-  // The most recent valid conversation payload, kept so it can be replayed across
-  // the document_start → document_idle gap (D-016 / ADR-0008). The page may fetch
-  // the conversation at document_start — before content.js (isolated world,
-  // document_idle) has attached its listener — and postMessage is NOT buffered, so
-  // that first-load payload would otherwise be lost and capture would silently fall
-  // back to the DOM scroll probe. content.js sends one `ready-ping` once it is live;
-  // we replay the cache then.
-  let cachedConversationPayload = null;
+  class InPageAccumulator {
+    constructor() {
+      this.nodes = new Map(); // id → node
+      this.url = null;
+      this.lastUpdateAt = Date.now();
+    }
+
+    merge(node) {
+      if (!node || typeof node !== 'object' || !node.id) return;
+      const id = String(node.id);
+      const existing = this.nodes.get(id);
+      if (!existing) {
+        this.nodes.set(id, node);
+      } else {
+        this.nodes.set(id, { ...existing, ...node });
+      }
+      this.lastUpdateAt = Date.now();
+    }
+
+    _complete() {
+      if (this.nodes.size === 0) return false;
+      const nodeArray = Array.from(this.nodes.values());
+      const parents = new Set();
+      const children = new Set();
+      for (const node of nodeArray) {
+        if (node.parent) parents.add(String(node.parent));
+        if (Array.isArray(node.children)) {
+          for (const child of node.children) children.add(String(child));
+        }
+        if (Array.isArray(node.child_ids)) {
+          for (const child of node.child_ids) children.add(String(child));
+        }
+      }
+      const roots = nodeArray.filter((n) => !parents.has(String(n.id)));
+      if (roots.length === 0) return false;
+      for (const root of roots) {
+        const visited = new Set();
+        let current = root.id;
+        while (current && !visited.has(current)) {
+          visited.add(current);
+          const node = this.nodes.get(String(current));
+          if (!node) return false;
+          const children = Array.isArray(node.children) ? node.children : node.child_ids;
+          if (!Array.isArray(children) || children.length === 0) break;
+          current = children[0];
+        }
+        if (visited.size !== this.nodes.size) continue;
+        return true;
+      }
+      return false;
+    }
+
+    toConversation() {
+      const mapping = {};
+      for (const [id, node] of this.nodes) {
+        mapping[id] = node;
+      }
+      const nodeArray = Array.from(this.nodes.values());
+      const parents = new Set();
+      for (const node of nodeArray) {
+        if (node.parent) parents.add(String(node.parent));
+      }
+      const roots = nodeArray.filter((n) => !parents.has(String(n.id)));
+      let currentNode = null;
+      if (roots.length > 0) {
+        let best = roots[0];
+        let bestDepth = 0;
+        for (const root of roots) {
+          const visited = new Set();
+          let current = root.id;
+          let depth = 0;
+          while (current && !visited.has(current)) {
+            visited.add(current);
+            depth += 1;
+            const node = this.nodes.get(String(current));
+            if (!node) break;
+            const children = Array.isArray(node.children) ? node.children : node.child_ids;
+            current = (Array.isArray(children) && children.length > 0) ? children[0] : null;
+          }
+          if (depth > bestDepth) {
+            best = root;
+            bestDepth = depth;
+            currentNode = current ? this.nodes.get(String(current))?.id : null;
+          }
+        }
+        if (!currentNode) {
+          const queue = [best.id];
+          let last = best.id;
+          const seen = new Set([best.id]);
+          while (queue.length > 0) {
+            last = queue.shift();
+            const node = this.nodes.get(String(last));
+            if (!node) break;
+            const children = Array.isArray(node.children) ? node.children : node.child_ids;
+            if (Array.isArray(children) && children.length > 0) {
+              for (const child of children) {
+                if (!seen.has(child)) {
+                  seen.add(child);
+                  queue.push(child);
+                }
+              }
+            }
+          }
+          currentNode = last;
+        }
+      }
+      return { mapping, current_node: currentNode };
+    }
+  }
+
+  // Global accumulator keyed by conversation URL
+  const accumulators = new Map();
 
   function inferCurrentNode(mapping) {
     if (!mapping || typeof mapping !== 'object') return null;
@@ -157,48 +262,88 @@
     }
   }
 
-  function postCapture(convo, url, replay) {
-    const message = {
-      source: SOURCE,
-      kind: 'conversation_json',
-      url: String(url || ''),
-      convo,
-      capturedAt: Date.now(),
-    };
-    // Label replays so the race-fix's effectiveness (how often the first-load
-    // capture was rescued from the cache vs. arrived live) is measurable downstream.
-    if (replay) message.source_ = 'cache_replay';
+  function extractConversationId(url) {
     try {
-      win.postMessage(message, ORIGIN);
+      const match = String(url || '').match(/\/backend-api\/(?:conversation|share)\/([^/?#]+)/i);
+      return match ? match[1] : null;
     } catch (_) {
-      // postMessage can throw on un-cloneable payloads; never break the page.
+      return null;
     }
   }
 
-  function publish(convo, url) {
-    convo = conversationPayloadFromValue(convo);
+  function postChunk(convId, turns, chunkIndex, totalChunks) {
+    try {
+      win.postMessage({
+        type: 'SAF_CONVERSATION_CHUNK',
+        convId,
+        chunkIndex,
+        totalChunks,
+        turns,
+      }, ORIGIN);
+    } catch (_) {}
+  }
+
+  function postChunkEnd(convId, totalChunks) {
+    try {
+      win.postMessage({
+        type: 'SAF_CONVERSATION_CHUNK_END',
+        convId,
+        totalChunks,
+      }, ORIGIN);
+    } catch (_) {}
+  }
+
+  function postReady(convo, convId) {
+    try {
+      win.postMessage({
+        type: 'SAF_CONVERSATION_READY',
+        convId,
+        turns: Array.from(Object.values(convo.mapping || {})),
+      }, ORIGIN);
+    } catch (_) {}
+  }
+
+  function publish(payload, url) {
+    const convo = conversationPayloadFromValue(payload);
     if (!convo) return;
     assertShapeOnce(convo, url);
-    // Cache the latest valid payload, then post immediately — the normal SPA-nav
-    // path where content.js is already listening and does not race.
-    cachedConversationPayload = { convo, url };
-    postCapture(convo, url, false);
+    const convId = extractConversationId(url);
+    if (!convId) return;
+
+    const acc = accumulators.get(convId) || new InPageAccumulator();
+    acc.url = url;
+    for (const [id, node] of Object.entries(convo.mapping || {})) {
+      acc.merge(node);
+    }
+    accumulators.set(convId, acc);
+
+    if (acc._complete()) {
+      const turns = Array.from(acc.nodes.values());
+      const payloadStr = JSON.stringify(turns);
+      const payloadSize = new Blob([payloadStr]).size;
+
+      if (payloadSize > CHUNK_SIZE_THRESHOLD) {
+        const chunkSize = Math.max(1, Math.floor(turns.length / Math.ceil(payloadSize / CHUNK_SIZE_THRESHOLD)));
+        let chunkIndex = 0;
+        for (let i = 0; i < turns.length; i += chunkSize) {
+          postChunk(convId, turns.slice(i, i + chunkSize), chunkIndex, Math.ceil(turns.length / chunkSize));
+          chunkIndex += 1;
+        }
+        postChunkEnd(convId, chunkIndex);
+      } else {
+        postReady(convo, convId);
+      }
+    }
   }
 
   // content.js → interceptor handshake (D-016 / ADR-0008): when the bridge signals
-  // it is live (`ready-ping`), replay the cached conversation ONCE so a first-load
-  // fetch that beat the listener is not lost, then clear the cache so a later ping
-  // never replays a stale tree.
+  // it is live (`ready-ping`), we can ensure the accumulator is sent.
   if (typeof win.addEventListener === 'function') {
     win.addEventListener('message', function onReadyPing(event) {
       if (event.origin !== ORIGIN) return;
       const data = event.data;
       if (!data || typeof data !== 'object') return;
       if (data.source !== SOURCE || data.kind !== 'ready-ping') return;
-      if (!cachedConversationPayload) return;
-      const { convo, url } = cachedConversationPayload;
-      cachedConversationPayload = null;
-      postCapture(convo, url, true);
     });
   }
 
@@ -216,7 +361,6 @@
       try {
         const url = urlOf(args[0]);
         if (CONVERSATION_URL_RE.test(url)) {
-          // clone() so the page's own consumer still reads the body intact.
           res.clone().json().then((convo) => publish(convo, url)).catch(() => {});
         }
       } catch (_) { /* never interfere with the page's fetch result */ }
@@ -242,7 +386,6 @@
       if (this.__saf_watch) {
         this.addEventListener('load', function onLoad() {
           try {
-            // responseType '' or 'text' → parse responseText; 'json' → response.
             const raw = this.responseType === 'json'
               ? this.response
               : (this.responseText ? JSON.parse(this.responseText) : null);
