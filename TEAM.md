@@ -437,3 +437,16 @@ fit on the pilot/gold chats.
   The leaves land first; CE wires precision after review.
 
 ---
+
+## Long-chat capture fix — 2026-06-26
+
+CE applied 3-file patch (D-015 ADR-0007 revision):
+- extension/interceptor.js: replaced with accumulator-based capture (union merge, both XHR+fetch, gap-free chain detection)
+- extension/content.js: added chunk reassembly handler (SAF_CONVERSATION_READY for small/medium, SAF_CONVERSATION_CHUNK + SAF_CONVERSATION_CHUNK_END for large payloads)
+- extension/background.js: added SAF_CAPTURE handler + storage sweep on SW activate
+
+Fixes root causes A (pagination gap), B (partial overwrite guard removed), C (large payload via chunked postMessage + storage fallback).
+
+Tests: node long-chat-fix/extension/test_accumulator.js → 14/14 passed (pending ref file setup).
+
+---
