@@ -429,13 +429,23 @@ const HEALTH_POLL_ALARM = 'saf_health_poll';
 const COLLECTOR_BAG_KEY = 'saf_collector_bag';
 const MAX_BAG_SIZE = 50;
 const AUTO_CAPTURE_DEBOUNCE_MS = 1200;
-const CONTENT_CAPTURE_TIMEOUT_MS = 45000;
+// Capture can legitimately run for minutes on a long chat — content.js's DOM-scroll
+// fallback budget alone is 240s. A fixed wall would guillotine a healthy long
+// capture (the old 45s ceiling did exactly that), so the capture is governed by a
+// progress-aware watchdog: the STALL timer resets on every SAF_ANALYSE_PROGRESS
+// event and only fires when the capture goes quiet; the ABSOLUTE ceiling (> content's
+// own budget) is the final backstop for a content script that hung or crashed.
+const CAPTURE_STALL_TIMEOUT_MS = 30000; // no progress for this long → fail
+const CAPTURE_ABSOLUTE_TIMEOUT_MS = 300000; // hard ceiling, > content's 240s scroll budget
 
 // In-memory: tabId → most recent capture snapshot sent by content.js
 const _latestCapture = new Map();
 const _latestReadyCapture = new Map();
 const _analyseProgress = new Map();
 const _pendingAutomaticCaptures = new Map();
+// tabId → resetStall(): a live capture's stall-watchdog reset, called on each
+// SAF_ANALYSE_PROGRESS event so a long-but-healthy capture is never killed mid-scan.
+const _captureWatchdogs = new Map();
 
 // In-memory: conversation_id → last content hash we forwarded to the API.
 // Best-effort only — MV3 workers sleep and lose this; the DB content_hash is
@@ -516,16 +526,33 @@ function _scheduleAutomaticCapture(capture) {
 function _sendAnalyseNowToTab(tabId) {
   return new Promise((resolve, reject) => {
     let settled = false;
-    const timer = setTimeout(() => {
+    let stallTimer = null;
+    const absoluteTimer = setTimeout(() => fail('capture_timeout'), CAPTURE_ABSOLUTE_TIMEOUT_MS);
+
+    const cleanup = () => {
+      if (stallTimer) clearTimeout(stallTimer);
+      clearTimeout(absoluteTimer);
+      if (tabId != null) _captureWatchdogs.delete(tabId);
+    };
+    function fail(reason) {
       if (settled) return;
       settled = true;
-      reject(new Error('capture_timeout'));
-    }, CONTENT_CAPTURE_TIMEOUT_MS);
+      cleanup();
+      reject(new Error(reason));
+    }
+    // Reset the stall window; called on each progress event (see SAF_ANALYSE_PROGRESS).
+    function armStall() {
+      if (settled) return;
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => fail('capture_timeout'), CAPTURE_STALL_TIMEOUT_MS);
+    }
+    armStall();
+    if (tabId != null) _captureWatchdogs.set(tabId, armStall);
 
     self.chrome.tabs.sendMessage(tabId, { type: 'SAF_ANALYSE_NOW' }, (res) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      cleanup();
       const err = self.chrome.runtime.lastError;
       if (err) reject(new Error(err.message || 'send_failed'));
       else resolve(res);
@@ -606,6 +633,41 @@ async function _updateHealth() {
 self.chrome.alarms.create(HEALTH_POLL_ALARM, { periodInMinutes: 1 });
 self.chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === HEALTH_POLL_ALARM) _updateHealth().catch(console.warn);
+});
+
+// Sweep pending captures from storage on SW activate (e.g. after extension update)
+self.addEventListener('activate', () => {
+  (async () => {
+    try {
+      const items = await SAFStorage.getMany(null);
+      for (const [key, value] of Object.entries(items || {})) {
+        if (key.startsWith('saf_pending_') && value?.transcript) {
+          const convId = value.convId;
+          const transcript = value.transcript;
+          if (convId && Array.isArray(transcript)) {
+            const capture = {
+              conversation_id: convId,
+              turns: transcript.map((turn) => ({
+                role: turn.role,
+                text: turn.content,
+                timestamp_ms: turn.timestamp,
+              })),
+              source: 'chatgpt_live',
+              capture_method: 'interception',
+              capture_complete: true,
+              captured_turn_count: transcript.length,
+              expected_turn_count: transcript.length,
+              partner_model: { family: 'openai', model_id: 'unknown', era_key: new Date().toISOString().slice(0, 7) },
+            };
+            await _handleCaptureReady(capture);
+            await SAFStorage.remove(key);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[SAF] Storage sweep failed:', e);
+    }
+  })().catch(() => {});
 });
 
 // ── collector bag ─────────────────────────────────────────────────────────────
@@ -726,14 +788,29 @@ function _captureValidationError(capture) {
   const turns = Array.isArray(capture?.turns) ? capture.turns : [];
   if (!turns.length) return 'capture has no turns';
 
+  // Assistant runs count once: a multi-part assistant response (tool call →
+  // result → answer, or a reasoning node before the answer) lands on ChatGPT's
+  // active path as several CONSECUTIVE assistant nodes for ONE user turn. They
+  // are one logical turn, so a run counts once — otherwise a long, tool-heavy
+  // chat is wrongly rejected as imbalanced. A human turn is never split this way,
+  // so consecutive USER nodes count individually: a run of them is a genuine
+  // imbalance (a lost assistant turn) that must still fail. Mirrors the server
+  // gate in src/db/queries.py::capture_validation_error.
   const counts = { user: 0, assistant: 0 };
+  let prevAssistant = false;
   for (const turn of turns) {
     const role = String(turn?.role || '').toLowerCase();
     const text = String(turn?.text || '').trim();
     if (!text) continue;
-    if (role === 'user' || role === 'human') counts.user += 1;
-    else if (role === 'assistant' || role === 'ai') counts.assistant += 1;
-    else return `unsupported turn role: ${role || '<empty>'}`;
+    if (role === 'user' || role === 'human') {
+      counts.user += 1;
+      prevAssistant = false;
+    } else if (role === 'assistant' || role === 'ai') {
+      if (!prevAssistant) counts.assistant += 1;
+      prevAssistant = true;
+    } else {
+      return `unsupported turn role: ${role || '<empty>'}`;
+    }
   }
 
   if (counts.user === 0) return 'capture has no user turns';
@@ -909,6 +986,36 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== 'string') return undefined;
   if (!_isTrustedSafMessageSender(sender)) return undefined;
 
+  // ── network interception capture (chunked reassembly from interceptor.js) ──
+  if (message.type === 'SAF_CAPTURE') {
+    const { payload } = message;
+    if (!payload) return undefined;
+    (async () => {
+      const convId = payload.conversation_id;
+      const turns = payload.turns || [];
+      if (!convId || turns.length < 3) return;
+      const capture = {
+        conversation_id: convId,
+        turns: turns.map((turn) => ({
+          role: turn.role,
+          text: turn.content,
+          timestamp_ms: turn.timestamp,
+        })),
+        source: 'chatgpt_live',
+        capture_method: 'interception',
+        capture_complete: true,
+        captured_turn_count: turns.length,
+        expected_turn_count: turns.length,
+        partner_model: { family: 'openai', model_id: 'unknown', era_key: new Date().toISOString().slice(0, 7) },
+      };
+      const claim = _claimAutomaticCapture(capture);
+      if (claim.accepted) {
+        _scheduleAutomaticCapture(capture);
+      }
+    })().catch(console.warn);
+    return undefined;
+  }
+
   // ── content.js push messages ──────────────────────────────────────────────
   if (message.type === 'SAF_CAPTURE_UPDATED') {
     if (sender.tab?.id != null) {
@@ -938,6 +1045,10 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         capturedTurns: progress.captured_turns || progress.capture?.turns?.length || 0,
         conversationId: progress.capture?.conversation_id || null,
       });
+      // The capture is alive — reset the stall watchdog so a long-but-healthy
+      // capture runs to completion instead of being killed at a fixed wall.
+      const resetStall = _captureWatchdogs.get(tabId);
+      if (resetStall) resetStall();
     }
     return undefined;
   }
