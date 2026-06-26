@@ -10,14 +10,18 @@ session still gets scored, but JudgeOutput.judge_family_conflict=True
 (ADR-0002 / D-001) and the flag propagates to the ScoreResponse.
 
 Tests inject `generate` — a (system_prompt, user_prompt) -> str callable — so
-no network or SDK is touched in CI. The real transports are lazy imports.
+no network or SDK is touched in CI. The real transports are lazy imports (google.genai
+primary, OpenRouter fallback via httpx).
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from typing import Callable, Protocol
+
+log = logging.getLogger(__name__)
 
 from contracts.schemas import CanonicalSession, JudgeOutput, PartnerFamily
 from src.trait.judge.parser import parse_judge_response, unavailable_output
@@ -45,19 +49,32 @@ class Transport(Protocol):  # pragma: no cover - typing only
     def __call__(self, system_prompt: str, user_prompt: str) -> str: ...
 
 
-def _gemini_generate(system_prompt: str, user_prompt: str) -> str:
-    import google.generativeai as genai  # lazy: never imported in CI tests
+def _gemini_generate(system_prompt: str, user_prompt: str, timeout: int = 60) -> str:
+    """Direct REST call to Gemini. Surfaces 429/quota errors immediately (no SDK retry loop)."""
+    import httpx  # lazy
 
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY / GOOGLE_API_KEY not set")
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(JUDGE_MODEL, system_instruction=system_prompt)
-    response = model.generate_content(
-        user_prompt,
-        generation_config={"temperature": TEMPERATURE},
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{JUDGE_MODEL}"
+        f":generateContent?key={api_key}"
     )
-    return response.text
+    body = {
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"parts": [{"text": user_prompt}]}],
+        "generationConfig": {"temperature": TEMPERATURE},
+    }
+    resp = httpx.post(url, json=body, timeout=timeout)
+    if resp.status_code == 429:
+        raise RuntimeError(f"Gemini quota exhausted (429): {resp.json().get('error', {}).get('message', '')[:120]}")
+    resp.raise_for_status()
+    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+
+
+def _gemini_generate_fast(system_prompt: str, user_prompt: str) -> str:
+    """15s timeout variant for per-neuron calls: errors are safe (skipped), so fail fast."""
+    return _gemini_generate(system_prompt, user_prompt, timeout=15)
 
 
 def _openrouter_transport(model: str) -> GenerateFn:
@@ -136,10 +153,19 @@ class JudgeClient:
                     partner_family=partner_family,
                     prompt_version=JUDGE_PROMPT_VERSION,
                 )
-            except Exception:  # noqa: BLE001 — transport + parse errors both retry
+            except Exception as exc:  # noqa: BLE001 — transport + parse errors both retry
+                log.warning(
+                    "[JUDGE] transport %d/%d failed (%s): %s",
+                    i + 1, len(plan), type(exc).__name__, exc,
+                )
                 if i < len(plan) - 1:
                     self._sleep(self._backoff_s * (i + 1))
 
+        log.error(
+            "[JUDGE] all %d transport(s) exhausted — returning unavailable_output; "
+            "chat will be deferred, not stored as scored",
+            len(plan),
+        )
         return unavailable_output(
             judge_model=self._judge_model,
             judge_family=self._judge_family,
@@ -150,21 +176,23 @@ class JudgeClient:
     def neuron_fn(self) -> Callable[[str], str]:
         """Return a (prompt) -> str callable for per-criterion neuron scoring.
 
-        The per-criterion prompt is self-contained; this wraps the transport
-        with the same retry/fallback plan as score_session.
+        Single attempt, no retry: error results are safe (skipped by
+        _add_judge_neuron_firings). Retrying 107 neurons × 2 extra attempts when
+        Gemini is slow would blow the scoring timeout; fail fast instead.
         """
-        plan: list[GenerateFn] = [self._generate] * self._max_attempts
-        if self._fallback is not None and self._max_attempts >= 2:
-            plan[-1] = self._fallback
+        # Use the fast-timeout variant so a single unreachable Gemini call takes
+        # ≤15s, keeping ceil(107/8) × 15s ≈ 210s well within SCORING_TIMEOUT.
+        generate = (
+            _gemini_generate_fast
+            if self._generate is _gemini_generate
+            else self._generate
+        )
 
         def _call(prompt: str) -> str:
-            for i, transport in enumerate(plan):
-                try:
-                    return transport(_NEURON_SYSTEM_PROMPT, prompt)
-                except Exception:
-                    if i < len(plan) - 1:
-                        self._sleep(self._backoff_s * (i + 1))
-            raise RuntimeError("neuron judge call exhausted all attempts")
+            try:
+                return generate(_NEURON_SYSTEM_PROMPT, prompt)
+            except Exception:
+                raise RuntimeError("neuron judge call failed")
 
         return _call
 

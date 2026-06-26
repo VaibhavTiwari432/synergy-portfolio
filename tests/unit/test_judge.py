@@ -275,3 +275,55 @@ def test_default_client_regression_pin_gemini_google():
     assert out.judge_model == JUDGE_MODEL == "gemini-2.5-flash"
     assert out.judge_family == "google"
     assert out.judge_family_conflict is False
+
+
+# ── _gemini_generate HTTP transport ──────────────────────────────────────────
+# These test the actual REST transport function, not the JudgeClient wrapper.
+# Each case covers a failure mode that caused silent N/A scoring in production.
+
+from src.trait.judge.client import _gemini_generate  # noqa: E402
+from unittest.mock import MagicMock, patch
+
+
+def _fake_response(status: int, body: dict) -> MagicMock:
+    resp = MagicMock()
+    resp.status_code = status
+    resp.json.return_value = body
+    if status >= 400:
+        import httpx
+        resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+            f"{status}", request=MagicMock(), response=resp
+        )
+    else:
+        resp.raise_for_status.return_value = None
+    return resp
+
+
+def test_gemini_generate_missing_key_raises(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
+        _gemini_generate("sys", "usr")
+
+
+def test_gemini_generate_429_raises_quota_error(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    body = {"error": {"message": "RESOURCE_EXHAUSTED: quota exceeded"}}
+    with patch("httpx.post", return_value=_fake_response(429, body)):
+        with pytest.raises(RuntimeError, match="quota exhausted"):
+            _gemini_generate("sys", "usr")
+
+
+def test_gemini_generate_402_raises_http_error(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    with patch("httpx.post", return_value=_fake_response(402, {})):
+        with pytest.raises(Exception):  # httpx.HTTPStatusError
+            _gemini_generate("sys", "usr")
+
+
+def test_gemini_generate_success_returns_text(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    body = {"candidates": [{"content": {"parts": [{"text": "hello"}]}}]}
+    with patch("httpx.post", return_value=_fake_response(200, body)):
+        result = _gemini_generate("sys", "usr")
+    assert result == "hello"

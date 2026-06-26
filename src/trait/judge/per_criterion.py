@@ -168,43 +168,40 @@ def score_all_neurons(
     judge_fn,
     transcript: str,
     neuron_ids: Optional[List[str]] = None,
+    max_workers: int = 8,
 ) -> Dict[str, Dict[str, Any]]:
     """
-    Score all neurons with per-criterion calls.
+    Score all neurons with per-criterion calls, running up to max_workers in parallel.
 
-    Args:
-        judge_fn: Callable for judge
-        transcript: Session transcript
-        neuron_ids: List of neuron IDs. If None, uses all in rubric bank.
-
-    Returns:
-        dict[neuron_id] -> judge response
+    Sequential scoring of 107 neurons sends the full transcript once per neuron;
+    for large chats that can exceed 30+ minutes. Bounded thread parallelism reduces
+    wall time to roughly ceil(107 / max_workers) × per_call_time while staying
+    within typical Gemini rate limits (default 8 concurrent calls).
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     if neuron_ids is None:
         from src.trait.judge.rubric_bank import list_all_neurons
         neuron_ids = list_all_neurons()
 
-    results = {}
+    results: Dict[str, Dict[str, Any]] = {}
     error_count = 0
 
-    for neuron_id in neuron_ids:
+    def _score_one(nid: str) -> tuple[str, Dict[str, Any]]:
         try:
-            result = call_judge_for_neuron(judge_fn, neuron_id, transcript)
-            results[neuron_id] = result
+            return nid, call_judge_for_neuron(judge_fn, nid, transcript)
+        except Exception as e:  # noqa: BLE001
+            return nid, {'neuron_id': nid, 'error': True, 'error_message': str(e)}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        for nid, result in (f.result() for f in as_completed(
+            pool.submit(_score_one, nid) for nid in neuron_ids
+        )):
+            results[nid] = result
             if result.get('error'):
                 error_count += 1
-        except Exception as e:
-            results[neuron_id] = {
-                'neuron_id': neuron_id,
-                'error': True,
-                'error_message': str(e),
-            }
-            error_count += 1
 
-    # Summary
     successful = len([r for r in results.values() if not r.get('error')])
-
     return {
         'results': results,
         'summary': {
