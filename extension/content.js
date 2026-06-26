@@ -1121,6 +1121,24 @@
             ? { accept: "application/json", authorization: authHeader }
             : { accept: "application/json" },
         });
+
+      // A large chat's backend response can take >30s. Without periodic progress
+      // events the background's stall watchdog (30s) kills the capture. Send a
+      // heartbeat every 8s so the watchdog stays alive while the fetch runs.
+      let heartbeatTimer = null;
+      let heartbeatPct = 42;
+      const stopHeartbeat = () => {
+        if (heartbeatTimer !== null) { clearTimeoutRef(heartbeatTimer); heartbeatTimer = null; }
+      };
+      const armHeartbeat = () => {
+        heartbeatTimer = setTimeoutRef(() => {
+          notifyAnalyseProgress("capturing", Math.min(heartbeatPct, 65), "Fetching the full chat…");
+          heartbeatPct += 3;
+          armHeartbeat();
+        }, 8000);
+      };
+      armHeartbeat();
+
       try {
         let res = await attempt(null);
         // Cookie alone rejected → retry once with the page's own bearer token.
@@ -1148,6 +1166,8 @@
         state.backendFetchStatus = "error";
         warnOnce("backend_fetch_error", `backend conversation fetch failed: ${error.message}`);
         return null;
+      } finally {
+        stopHeartbeat();
       }
     }
 
