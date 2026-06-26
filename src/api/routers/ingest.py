@@ -26,6 +26,7 @@ from src.db.queries import (
     get_chats_for_user,
     replace_capture_artifacts,
     reconcile_captured_count,
+    requeue_failed_chat,
     upsert_chat,
     upsert_telemetry,
 )
@@ -195,6 +196,37 @@ async def ingest_chat(
         status=row["status"],
         message="queued for scoring",
     )
+
+
+@router.post("/v1/users/{user_ref}/chats/{chat_id}/requeue")
+async def requeue_chat(
+    user_ref: str,
+    chat_id: str,
+    pool: asyncpg.Pool = Depends(_require_pool),
+) -> dict[str, Any]:
+    """Re-queue a failed chat for scoring without re-ingesting its transcript.
+
+    Returns {chat_id, status: 'pending'} on success.
+    Returns 409 if the chat exists but is not in 'failed' state (already
+    pending/scoring/scored — the caller should poll rather than re-queue).
+    Returns 404 if the chat does not exist or is not owned by this user."""
+    from uuid import UUID
+    try:
+        uid = UUID(chat_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid chat_id")
+
+    async with pool.acquire() as conn:
+        result = await requeue_failed_chat(conn, chat_id=uid, user_ref=user_ref)
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="chat not found")
+    if result != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail={"status": result, "message": f"chat is '{result}', not 'failed'"},
+        )
+    return {"chat_id": chat_id, "status": "pending"}
 
 
 @router.get("/v1/users/{user_ref}/chats")

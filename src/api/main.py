@@ -23,8 +23,10 @@ endpoints return 503 — Scope A is unaffected (it uses SQLite only).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import time as _time
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -58,9 +60,30 @@ def _csv_env(name: str) -> list[str]:
     return [part.strip() for part in os.environ.get(name, "").split(",") if part.strip()]
 
 
-def _scoring_readiness() -> str:
-    has_judge_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    return "ok" if has_judge_key else "missing_judge_key"
+_judge_probe_cache: tuple[float, str] = (0.0, "unknown")
+_JUDGE_PROBE_TTL = 60.0  # re-probe at most once per minute
+
+
+def _probe_judge_sync() -> str:
+    """Blocking live probe — run via asyncio.to_thread in the health handler."""
+    from src.trait.judge.client import _gemini_generate
+    try:
+        _gemini_generate("health probe", "ok?", timeout=5)
+        return "ok"
+    except Exception:
+        return "degraded"
+
+
+async def _scoring_readiness() -> str:
+    global _judge_probe_cache
+    if not (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")):
+        return "missing_judge_key"
+    now = _time.monotonic()
+    if now - _judge_probe_cache[0] < _JUDGE_PROBE_TTL:
+        return _judge_probe_cache[1]
+    status = await asyncio.to_thread(_probe_judge_sync)
+    _judge_probe_cache = (now, status)
+    return status
 
 
 # ── lifespan (Postgres pool) ──────────────────────────────────────────────────
@@ -157,7 +180,7 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
                 db = "ok"
             except Exception:
                 db = "unavailable"
-        return {"status": "ok", "db": db, "scoring": _scoring_readiness()}
+        return {"status": "ok", "db": db, "scoring": await _scoring_readiness()}
 
     @app.get("/v1/contracts")
     async def contracts() -> dict[str, str]:

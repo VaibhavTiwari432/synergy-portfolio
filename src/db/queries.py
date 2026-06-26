@@ -483,25 +483,27 @@ async def get_chats_for_user(pool: asyncpg.Pool, user_ref: str) -> list[asyncpg.
     )
 
 
-_SCORING_LEASE = "5 minutes"
-
-
 async def claim_pending_batch(
-    conn: asyncpg.Connection, batch_size: int = 5
+    conn: asyncpg.Connection,
+    batch_size: int = 5,
+    lease_timeout_seconds: int = 600,
 ) -> list[asyncpg.Record]:
     """Atomically claim up to batch_size chats for scoring.
 
     Picks up genuine 'pending' rows AND reclaims 'scoring' rows whose lease has
     expired — a worker that died mid-scoring (e.g. dev restart) no longer wedges
-    a chat forever. FOR UPDATE SKIP LOCKED keeps concurrent workers disjoint."""
+    a chat forever. FOR UPDATE SKIP LOCKED keeps concurrent workers disjoint.
+
+    lease_timeout_seconds must match the watchdog's LEASE_TIMEOUT_SECONDS so the
+    poll-loop reclaim window and the watchdog audit window are consistent."""
     return await conn.fetch(
-        f"""
+        """
         UPDATE raw_chats SET status = 'scoring', scoring_started_at = NOW()
         WHERE id IN (
             SELECT id FROM raw_chats
             WHERE status = 'pending'
                OR (status = 'scoring'
-                   AND scoring_started_at < NOW() - INTERVAL '{_SCORING_LEASE}')
+                   AND scoring_started_at < NOW() - make_interval(secs => $2::double precision))
             ORDER BY captured_at ASC
             LIMIT $1
             FOR UPDATE SKIP LOCKED
@@ -509,6 +511,7 @@ async def claim_pending_batch(
         RETURNING *
         """,
         batch_size,
+        float(lease_timeout_seconds),
     )
 
 
@@ -543,6 +546,29 @@ async def set_chat_status(
         "UPDATE raw_chats SET status = $1, scoring_started_at = NULL WHERE id = $2",
         status, chat_id,
     )
+
+
+async def requeue_failed_chat(
+    conn: asyncpg.Connection, *, chat_id: UUID, user_ref: str
+) -> str | None:
+    """Reset a failed chat to pending without re-ingesting the transcript.
+
+    Returns 'pending' on success, the current status string if the chat exists
+    but is not 'failed' (caller can decide whether to 409 or treat as ok), or
+    None when the chat does not exist / is not owned by user_ref."""
+    row = await conn.fetchrow(
+        "SELECT status FROM raw_chats WHERE id = $1 AND user_ref = $2",
+        chat_id, user_ref,
+    )
+    if row is None:
+        return None
+    if row["status"] != "failed":
+        return row["status"]
+    await conn.execute(
+        "UPDATE raw_chats SET status = 'pending', scoring_started_at = NULL WHERE id = $1",
+        chat_id,
+    )
+    return "pending"
 
 
 async def reset_expired_scoring_leases(

@@ -58,6 +58,11 @@ HEARTBEAT_FILE: str | None = os.environ.get("WORKER_HEARTBEAT_FILE") or None
 # default (600 s) must exceed the longest legitimate single-chat scoring time so a
 # slow-but-live score is never reset out from under itself.
 LEASE_TIMEOUT_SECONDS: int = int(os.environ.get("LEASE_TIMEOUT_SECONDS", "600"))
+# Maximum wall-clock seconds for a single chat's scoring call. Must be less than
+# LEASE_TIMEOUT_SECONDS so a timed-out chat is marked 'failed' before the watchdog
+# would reset it — prevents the watchdog from re-queuing a chat whose scoring
+# thread is still alive but whose lease has already expired.
+SCORING_TIMEOUT_SECONDS: int = int(os.environ.get("SCORING_TIMEOUT_SECONDS", "540"))
 # How often the watchdog checks. Default = a quarter of the lease, clamped to
 # [30 s, 300 s] so a check always lands well within the lease window.
 LEASE_WATCHDOG_INTERVAL: int = int(
@@ -178,7 +183,16 @@ async def _score_one(pool: asyncpg.Pool, chat: asyncpg.Record) -> None:
 
         # Direct import — NOT via HTTP (EXTENSION_BUILD_PROMPT.md §2)
         from src.api.pipeline import score_session_with_artifacts
-        run = await asyncio.to_thread(score_session_with_artifacts, session)
+        try:
+            run = await asyncio.wait_for(
+                asyncio.to_thread(score_session_with_artifacts, session),
+                timeout=float(SCORING_TIMEOUT_SECONDS),
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError(
+                f"scoring timed out after {SCORING_TIMEOUT_SECONDS}s — "
+                "chat marked failed; background thread may still be running"
+            )
         result = run.response
 
         full: dict = json.loads(result.model_dump_json(by_alias=True))
@@ -308,7 +322,7 @@ async def _poll_loop(pool: asyncpg.Pool) -> None:
     while True:
         try:
             async with pool.acquire() as conn:
-                batch = await claim_pending_batch(conn)
+                batch = await claim_pending_batch(conn, lease_timeout_seconds=LEASE_TIMEOUT_SECONDS)
 
             if batch:
                 log.info("[WORKER] claimed %d chat(s)", len(batch))
