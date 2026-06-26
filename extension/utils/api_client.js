@@ -377,6 +377,17 @@
     return Boolean(result?.ok);
   }
 
+  function getAnalysisProgress() {
+    const runtime = globalScope.chrome?.runtime;
+    if (!runtime?.sendMessage) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      runtime.sendMessage({ type: 'SAF_PANEL_GET_STATUS' }, (res) => {
+        void runtime.lastError;
+        resolve(res?.ok ? (res.data?.analysisProgress ?? null) : null);
+      });
+    });
+  }
+
   const api = Object.freeze({
     ingestChat,
     listChats,
@@ -390,6 +401,7 @@
     submitFeedback,
     requeueChat,
     triggerAnalysis,
+    getAnalysisProgress,
     createProject,
     listProjects,
     getProject,

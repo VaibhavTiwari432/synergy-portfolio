@@ -1,5 +1,10 @@
 const POLL_MS = 4000;
 const MAX_POLL_ATTEMPTS = 30;
+// After MAX_POLL_ATTEMPTS the UI reloads from the server. If the server still
+// shows pending/scoring work, we reset the counter and keep polling for another
+// full cycle rather than fake-failing — Gemini scoring a large chat can take
+// 10+ minutes, far beyond the original 120 s hard cutoff.
+const MAX_POLL_CYCLES = 3;
 
 export function initChatsView(shadowRoot) {
   const state = {
@@ -9,6 +14,7 @@ export function initChatsView(shadowRoot) {
     searchTerm: '',
     pollTimer: null,
     pollAttempts: 0,
+    pollCycles: 0,
     analysingChatIds: new Set(),
     analysingCurrent: false,
     loading: false,
@@ -284,19 +290,28 @@ export function initChatsView(shadowRoot) {
     });
   }
 
-  function markPendingTimedOut() {
-    state.chats = state.chats.map((chat) => {
-      const status = normaliseStatus(chat.status);
-      return status === 'pending' || status === 'scoring'
-        ? { ...chat, status: 'failed' }
-        : chat;
-    });
-    state.summary = {
-      ...state.summary,
-      pending: 0,
-      failed: state.chats.filter((chat) => normaliseStatus(chat.status) === 'failed').length,
-    };
-    setStatus('Analysis is taking longer than expected. Retry from the chat row.', true);
+  async function markPendingTimedOut() {
+    // Reload from the server before fake-failing. Scoring a large chat via Gemini
+    // can legitimately take 10+ minutes — the 120 s poll window is too short.
+    // If the server still has pending/scoring work, reset the counter and continue
+    // polling for another cycle rather than lying to the user.
+    await loadChats({ silent: true });
+    if (hasPendingWork()) {
+      state.pollAttempts = 0;
+      state.pollCycles += 1;
+      if (state.pollCycles < MAX_POLL_CYCLES) {
+        setStatus('Analysis is taking longer than expected — still waiting...', false);
+        startPolling();
+        return;
+      }
+    }
+    // Either no pending work remains (all done or genuinely failed) or we have
+    // exhausted MAX_POLL_CYCLES — show the sticky error banner now.
+    state.pollCycles = 0;
+    const hasFailed = state.chats.some((c) => normaliseStatus(c.status) === 'failed');
+    if (hasFailed) {
+      setStatus('Analysis is taking longer than expected. Retry from the chat row.', true);
+    }
     render();
   }
 
@@ -307,7 +322,7 @@ export function initChatsView(shadowRoot) {
       state.pollAttempts += 1;
       if (state.pollAttempts > MAX_POLL_ATTEMPTS) {
         stopPolling();
-        markPendingTimedOut();
+        void markPendingTimedOut();
         return;
       }
       void loadChats({ silent: true });
@@ -317,7 +332,10 @@ export function initChatsView(shadowRoot) {
   function stopPolling() {
     if (state.pollTimer) globalThis.clearInterval(state.pollTimer);
     state.pollTimer = null;
-    if (!hasPendingWork()) state.pollAttempts = 0;
+    if (!hasPendingWork()) {
+      state.pollAttempts = 0;
+      state.pollCycles = 0;
+    }
   }
 
   async function analyseChat(chat = {}) {
@@ -334,7 +352,26 @@ export function initChatsView(shadowRoot) {
     setStatus('Starting analysis...');
     startPolling();
 
-    const result = await apiClient.triggerAnalysis(chat.chat_id);
+    // For an already-ingested failed chat, requeue it directly rather than
+    // re-capturing the active tab (which may be a different conversation).
+    const isFailed = normaliseStatus(chat.status) === 'failed';
+    let result;
+    if (isFailed && chat.chat_id && apiClient.requeueChat) {
+      const storageApi = storage();
+      const userRef = storageApi ? await storageApi.get(storageApi.STORAGE_KEYS.USER_REF, '') : '';
+      if (userRef) {
+        result = await apiClient.requeueChat(userRef, chat.chat_id);
+        // 409 = chat is already pending/scoring — treat as success (already in queue)
+        if (!result?.ok && result?.status === 409) {
+          result = { ok: true, data: { status: result.detail?.status || 'pending' } };
+        }
+      }
+    }
+    // Fall back to full capture for unsubmitted chats or if requeue unavailable.
+    if (!result) {
+      result = await apiClient.triggerAnalysis(chat.chat_id);
+    }
+
     if (!result?.ok) {
       if (chat.chat_id) {
         state.analysingChatIds.delete(chat.chat_id);
@@ -362,6 +399,14 @@ export function initChatsView(shadowRoot) {
     setAnalyseCurrentBusy(true);
     setStatus('Capturing current chat...');
 
+    let progressPoll = null;
+    if (apiClient.getAnalysisProgress) {
+      progressPoll = globalThis.setInterval(async () => {
+        const progress = await apiClient.getAnalysisProgress();
+        if (progress?.message) setStatus(progress.message);
+      }, 2000);
+    }
+
     try {
       const result = await apiClient.triggerAnalysis();
       if (!result?.ok) {
@@ -374,6 +419,7 @@ export function initChatsView(shadowRoot) {
     } catch (error) {
       setStatus(friendlyError(error, 'Could not capture this chat.'), true);
     } finally {
+      if (progressPoll) globalThis.clearInterval(progressPoll);
       setAnalyseCurrentBusy(false);
     }
   }
