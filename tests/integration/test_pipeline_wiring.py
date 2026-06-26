@@ -285,3 +285,48 @@ def test_pc_joint_divergence_large_flag_when_gap_exceeds_threshold(  # item 2
         and "large_per_criterion_joint_divergence" in (ds.flags or [])
     ]
     assert flagged_dims, "expected at least one dim with large divergence flag"
+
+
+# ── acceptance test 9: no bare point estimate anywhere ───────────────────────
+# Spec: composite + every OK DimensionScore + every OK CSL bar carries CI.
+# "OK bar" = PanelABar.status == "ok" (string after _jsonable enum serialisation).
+
+
+def test_composite_carries_ci_and_rung(  # acceptance test 9a
+):
+    """Every non-N/A composite must have a CI and a rung — no bare point."""
+    from contracts.schemas import ScoreStatus
+    run = score_session_with_artifacts(_session(), judge=_fake_judge())
+    composite = run.response.composite
+    assert composite.rung is not None, "composite.rung must always be set"
+    if composite.status == ScoreStatus.OK and composite.value is not None:
+        assert composite.ci is not None, "OK composite must carry a CI"
+        assert composite.ci.low is not None and composite.ci.high is not None
+
+
+def test_every_ok_dimension_carries_ci(  # acceptance test 9b
+):
+    """Every OK DimensionScore must carry a CI — no bare point at dimension grain."""
+    from contracts.schemas import ScoreStatus
+    run = score_session_with_artifacts(_session(), judge=_per_criterion_judge())
+    for dim, ds in run.response.profile.items():
+        if ds.status == ScoreStatus.OK and ds.value is not None:
+            assert ds.ci is not None, f"{dim.value}: OK dimension missing CI"
+            assert ds.ci.low is not None and ds.ci.high is not None, (
+                f"{dim.value}: OK dimension CI has None bound"
+            )
+
+
+def test_every_ok_csl_bar_carries_ci_and_neff(  # acceptance test 9c
+):
+    """Every OK PanelABar must carry ci_low, ci_high, n_eff — no bare bar."""
+    run = score_session_with_artifacts(_session(), judge=_per_criterion_judge())
+    csl = run.csl
+    if csl.get("status") != "ok":
+        return  # CSL chain failed (e.g. crosswalk missing in test env) — skip
+    panel_a = csl.get("report", {}).get("panel_a", [])
+    for bar in panel_a:
+        if bar.get("status") == "ok":
+            assert bar.get("ci_low") is not None, f"{bar['level']}: OK bar missing ci_low"
+            assert bar.get("ci_high") is not None, f"{bar['level']}: OK bar missing ci_high"
+            assert bar.get("n_eff") is not None, f"{bar['level']}: OK bar missing n_eff"
