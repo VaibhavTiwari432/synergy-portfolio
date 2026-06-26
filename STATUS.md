@@ -140,10 +140,10 @@ Legend: `[ ]` TODO · `[~]` In progress · `[x]` Done · `[!]` Blocked · `⛔` 
 | 3 | **Discrimination:** mean pairwise dim correlation on diverse fixture drops below threshold | `[ ]` needs live run |
 | 4 | **CSL density:** every ACF level with judge-neuron evidence emits OK, `n_eff > 2`, real CI | `[ ]` needs live run |
 | 5 | **Twin-pair:** Delegating-Manager → high human%; Compressed-Expert → low | `[!]` blocked on B1/C1 (D-028, D-029) |
-| 6 | **Fluent gate:** Chat4 fires `fluent_incompetence=True`, composite penalized; independent profile untouched | `[~]` D2 wired; needs Chat4 live run to verify gate fires |
+| 6 | **Fluent gate:** Chat4 fires `fluent_incompetence=True`, composite penalized; independent profile untouched | `[~]` D2 wired; G_K unit tests added (2026-06-27); Chat4 live run still needed |
 | 7 | **Non-compensation:** {one dim 0.55, rest 0.92} → composite ≤ 0.86 (adjusted; 0.83 requires D-study P calibration) | `[x]` 2026-06-26 |
 | 8 | **Determinism:** deterministic layers bit-identical across runs | `[x]` 2026-06-26 |
-| 9 | **Honesty:** no bare point estimate anywhere — composite + every CSL level carry CI + rung | `[~]` C3 adds n_eff to PanelABar; CI already present; needs integration test |
+| 9 | **Honesty:** no bare point estimate anywhere — composite + every CSL level carry CI + rung | `[x]` 2026-06-27 (9a/9b/9c integration tests in test_pipeline_wiring.py) |
 | 10 | **Absent≠zero:** untagged transcript → metacog all-None, epistemic mean over assessable turns, ES structural-N/A with reason | `[~]` B2/B3 done; ES (C4) blocked D-030 |
 
 ---

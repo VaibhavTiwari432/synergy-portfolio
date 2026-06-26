@@ -181,3 +181,24 @@ def test_within_pillar_non_compensation_d1():
     assert comp.value is not None
     # old arithmetic within-pillar gave ~0.875; power-mean-within gives ~0.848 — material drop
     assert comp.value <= 0.86
+
+
+# ── D2: G_K fluent-incompetence penalty ─────────────────────────────────────
+
+
+def test_fluent_incompetence_applies_gk_penalty():
+    """D2: G_K=0.85 applied when fluent_incompetence=True; gate records failure."""
+    baseline = compute_composite(_profile(0.6), CLEAN)
+    penalized = compute_composite(_profile(0.6), CLEAN, fluent_incompetence=True)
+    assert penalized.gates_passed["fluent_incompetence"] is False
+    assert penalized.value == pytest.approx(baseline.value * 0.85, abs=1e-6)
+    assert penalized.ci is not None
+    assert penalized.ci.low == pytest.approx(baseline.ci.low * 0.85, abs=1e-6)
+    assert penalized.ci.high == pytest.approx(baseline.ci.high * 0.85, abs=1e-6)
+
+
+def test_clean_profile_not_penalized_by_fluent_gate():
+    """D2: A session without fluent_incompetence gets gate_passed=True and full value."""
+    clean = compute_composite(_profile(0.6), CLEAN)
+    assert clean.gates_passed["fluent_incompetence"] is True
+    assert clean.value == pytest.approx(0.6, abs=1e-6)
