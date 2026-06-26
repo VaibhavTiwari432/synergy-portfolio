@@ -18,7 +18,9 @@
 (function initApiClient(globalScope) {
   const DEFAULT_ENDPOINT = 'http://localhost:8000';
   const API_REQUEST_TIMEOUT_MS = 15000;
-  const TRIGGER_ANALYSIS_TIMEOUT_MS = 30000;
+  // Must exceed CAPTURE_ABSOLUTE_TIMEOUT_MS (300s) + API_REQUEST_TIMEOUT_MS (15s) + margin.
+  // The heartbeat fix extends capture past the old 30s stall; this must match.
+  const TRIGGER_ANALYSIS_TIMEOUT_MS = 330000;
   // The dev server binds IPv4 127.0.0.1 only, but on Windows `localhost` resolves
   // to IPv6 ::1 first — fetch can fail there before falling back. Force IPv4 for
   // the loopback host so the call always lands on the listening socket. Stored /
@@ -190,6 +192,18 @@
       body.comment = text;
     }
     return postFeedback(userRef, chatId, body);
+  }
+
+  // requeueChat — re-queue an already-ingested failed chat for scoring without
+  // re-capturing from the page. Use this for the Retry CTA on a known chat_id
+  // instead of triggerAnalysis, which re-captures whatever tab is active.
+  async function requeueChat(userRef, chatId) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request(
+      'POST',
+      `/v1/users/${encodeURIComponent(ref)}/chats/${encodeURIComponent(chatId)}/requeue`,
+    );
   }
 
   // triggerAnalysis — the "Analyse" CTA does NOT hit the API directly. Analysis
@@ -374,6 +388,7 @@
     getChatList,
     getChatScore,
     submitFeedback,
+    requeueChat,
     triggerAnalysis,
     createProject,
     listProjects,
