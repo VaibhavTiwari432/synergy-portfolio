@@ -287,6 +287,27 @@ def test_pc_joint_divergence_large_flag_when_gap_exceeds_threshold(  # item 2
     assert flagged_dims, "expected at least one dim with large divergence flag"
 
 
+# ── acceptance test 10: absent ≠ zero (integration) ─────────────────────────
+
+
+def test_untagged_session_metacog_all_none_through_pipeline():
+    """Test 10a (B2/B3): session of untagged turns → state_strip metacog all-None;
+    pipeline must not crash or fabricate values."""
+    turns: list[Turn] = []
+    for text in ("interesting", "let me consider that", "perhaps", "I see"):
+        turns.append(Turn(index=len(turns), role="human", text=text))
+        turns.append(Turn(index=len(turns), role="ai", text="response"))
+    session = CanonicalSession(
+        session_id="untagged-1", source="plaintext",
+        partner_model=PartnerModel(family="openai"), turns=turns,
+    )
+    response = score_session(session, judge=_fake_judge())
+    # Every state strip entry must have metacog=None (not PASSIVE or any label)
+    assert all(v.metacog is None for v in response.state_strip), (
+        "untagged session must not fabricate metacog labels"
+    )
+
+
 # ── acceptance test 9: no bare point estimate anywhere ───────────────────────
 # Spec: composite + every OK DimensionScore + every OK CSL bar carries CI.
 # "OK bar" = PanelABar.status == "ok" (string after _jsonable enum serialisation).

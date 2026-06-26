@@ -144,7 +144,7 @@ Legend: `[ ]` TODO · `[~]` In progress · `[x]` Done · `[!]` Blocked · `⛔` 
 | 7 | **Non-compensation:** {one dim 0.55, rest 0.92} → composite ≤ 0.86 (adjusted; 0.83 requires D-study P calibration) | `[x]` 2026-06-26 |
 | 8 | **Determinism:** deterministic layers bit-identical across runs | `[x]` 2026-06-26 |
 | 9 | **Honesty:** no bare point estimate anywhere — composite + every CSL level carry CI + rung | `[x]` 2026-06-27 (9a/9b/9c integration tests in test_pipeline_wiring.py) |
-| 10 | **Absent≠zero:** untagged transcript → metacog all-None, epistemic mean over assessable turns, ES structural-N/A with reason | `[~]` B2/B3 done; ES (C4) blocked D-030 |
+| 10 | **Absent≠zero:** untagged transcript → metacog all-None, epistemic mean over assessable turns, ES structural-N/A with reason | `[~]` B2/B3 + integration test done (2026-06-27); ES (C4) still blocked D-030 |
 
 ---
 
