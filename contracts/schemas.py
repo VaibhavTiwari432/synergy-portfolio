@@ -595,7 +595,7 @@ class MetacogResult(_Frozen):
     """Metacog classifier output (Antigravity: src/state/metacog_classifier.py).
     surrender = accept-run >= 3 consecutive flat accepts (brief §3.5)."""
 
-    labels: list[MetacogLabel]  # one per human turn, in turn order
+    labels: list[MetacogLabel | None]  # one per human turn; None = untagged (absent ≠ PASSIVE)
     surrender_detected: bool
     surrender_onset_turn: int | None = None
 

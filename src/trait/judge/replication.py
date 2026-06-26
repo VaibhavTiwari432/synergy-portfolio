@@ -174,6 +174,26 @@ def _judge_config(output: JudgeOutput, temperature: float) -> dict[str, object]:
     }
 
 
+def summarize(result: "ReplicatedJudgeResult") -> "dict[Dimension, dict]":
+    """E2: one median estimate + dispersion CI per dim — never N raw composites.
+
+    Callers receive this summary, not `result.runs`, so raw per-replication scores
+    cannot leak into user-facing output. The dispersion CI is 95% normal around the
+    within-replications mean; it is None when only one run was made (no spread info).
+    """
+    out: dict[Dimension, dict] = {}
+    for d, agg in result.aggregates.items():
+        half = (agg.sd * 1.96) if agg.sd is not None else None
+        out[d] = {
+            "median": round(agg.mean, 6),
+            "ci_lo": round(max(0.0, agg.mean - half), 6) if half is not None else None,
+            "ci_hi": round(min(1.0, agg.mean + half), 6) if half is not None else None,
+            "n": agg.n,
+            "dispersion_sd": round(agg.sd, 6) if agg.sd is not None else None,
+        }
+    return out
+
+
 def replicate_judge(
     score_fn: ScoreFn,
     session,

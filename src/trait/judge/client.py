@@ -33,6 +33,11 @@ RETRY_BACKOFF_S = 2.0
 REJUDGE_MODEL_ENV = "SAF_REJUDGE_MODEL"
 DEFAULT_OPENAI_JUDGE_MODEL = "openai/gpt-4o-mini"
 
+_NEURON_SYSTEM_PROMPT = (
+    "Behavioral psychometrician scoring human-AI interaction transcripts. "
+    "Respond only with valid JSON as specified in the prompt."
+)
+
 GenerateFn = Callable[[str, str], str]
 
 
@@ -141,6 +146,27 @@ class JudgeClient:
             partner_family=partner_family,
             prompt_version=JUDGE_PROMPT_VERSION,
         )
+
+    def neuron_fn(self) -> Callable[[str], str]:
+        """Return a (prompt) -> str callable for per-criterion neuron scoring.
+
+        The per-criterion prompt is self-contained; this wraps the transport
+        with the same retry/fallback plan as score_session.
+        """
+        plan: list[GenerateFn] = [self._generate] * self._max_attempts
+        if self._fallback is not None and self._max_attempts >= 2:
+            plan[-1] = self._fallback
+
+        def _call(prompt: str) -> str:
+            for i, transport in enumerate(plan):
+                try:
+                    return transport(_NEURON_SYSTEM_PROMPT, prompt)
+                except Exception:
+                    if i < len(plan) - 1:
+                        self._sleep(self._backoff_s * (i + 1))
+            raise RuntimeError("neuron judge call exhausted all attempts")
+
+        return _call
 
 
 def openai_family_judge(model: str | None = None, **kwargs) -> JudgeClient:

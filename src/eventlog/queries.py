@@ -65,3 +65,16 @@ def events_after_turn(source: Iterable[Event], turn_index: int) -> tuple[Event, 
     return tuple(
         e for e in source if (t := turn_of(e)) is not None and t > turn_index
     )
+
+
+def split_log(
+    source: Iterable[Event],
+) -> tuple[tuple[Event, ...], tuple[Event, ...]]:
+    """D4: split into (human_control_signals, ai_action_firings).
+
+    Human control-signals = the six trigger event types (reaction-window openers).
+    AI action firings = N-FIRE events (deterministic + judge neuron activations).
+    The two tuples partition the full log: len(a) + len(b) == len(all_events).
+    """
+    all_ev = _events(source)
+    return trigger_events(all_ev), neuron_firings(all_ev)

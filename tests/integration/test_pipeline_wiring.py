@@ -62,7 +62,7 @@ def test_every_leaf_contributes_to_the_response():
     assert response.state_validity.surrender_detected is True
 
     # extractors: deterministic firings became raw_counts evidence (PR fired)
-    assert response.profile[Dimension.PR].raw_counts.get("extractor_opportunities", 0) > 0
+    assert response.profile[Dimension.PR].raw_counts.get("neuron_opportunities", 0) > 0
 
 
 def test_extractor_firings_are_logged_as_nfire_events():
@@ -161,3 +161,17 @@ def test_surrendered_turns_have_lower_precision_than_active_turns():
     assert surrendered and active, "fixture must produce both modes"
     assert "surrender" in surrendered[0]["cascade_flags"]
     assert max(r["precision"] for r in surrendered) < min(r["precision"] for r in active)
+
+
+# ── E1: determinism — same input → identical output ──────────────────────────
+
+
+def test_deterministic_layers_are_bit_identical():
+    """E1: tag/phase/extractor/normalize/state layers produce identical output
+    across two calls with the same session and same (fake) judge."""
+    s = _session()
+    run1 = score_session_with_artifacts(s, judge=_fake_judge())
+    run2 = score_session_with_artifacts(s, judge=_fake_judge())
+    assert run1.response.profile == run2.response.profile
+    assert run1.response.composite == run2.response.composite
+    assert run1.turn_state == run2.turn_state

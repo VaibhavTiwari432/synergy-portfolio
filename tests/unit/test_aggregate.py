@@ -116,7 +116,7 @@ def test_uniform_profile_composite_near_value_with_ci():
     assert comp.status == ScoreStatus.OK
     assert comp.value == pytest.approx(0.6, abs=1e-6)
     assert comp.ci is not None and comp.ci.low < comp.value < comp.ci.high
-    assert comp.gates_passed == {"scorability": True, "state_validity": True}
+    assert comp.gates_passed == {"scorability": True, "state_validity": True, "fluent_incompetence": True}
     assert comp.state_compromised_caveat is False
 
 
@@ -170,3 +170,14 @@ def test_ec_cs_weighting_inside_pillars():
 def test_pillar_map_covers_all_eight_dimensions_once():
     seen = [d for dims in PILLARS.values() for d in dims]
     assert sorted(d.value for d in seen) == sorted(d.value for d in Dimension)
+
+
+def test_within_pillar_non_compensation_d1():
+    """D1: a hollow dim cannot hide behind a strong pillar-mate (within-pillar power mean)."""
+    # create pillar: CD=0.55, CS=0.92 (CS is 1.5× weighted)
+    profile = _profile(0.92)
+    profile[Dimension.CD] = _ok(Dimension.CD, 0.55)
+    comp = compute_composite(profile, CLEAN)
+    assert comp.value is not None
+    # old arithmetic within-pillar gave ~0.875; power-mean-within gives ~0.848 — material drop
+    assert comp.value <= 0.86

@@ -1154,6 +1154,55 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-028  [OPEN]  — B1 🧊 Tagger rebalance blocked: frozen surface requires CE ownership
+- Raised by: Chief Engineer
+- Date: 2026-06-26
+- File(s): src/trait/tagger.py
+- Problem: STATUS.md item B1 (rebalance tagger: narrow EXTRACT patterns, broaden generative
+  tags, add hybrid judge-confirm on ambiguous turns) is marked 🧊 (frozen surface).
+  The CLAUDE.md non-negotiable #21 says never edit a file you don't own without CE approval.
+  The tagger regex patterns are a calibration surface — narrowing EXTRACT incorrectly would
+  suppress passive-engagement detection and break B2's metacog untagged-turns logic.
+- Proposed fix: CE to review the proposed EXTRACT pattern narrowing before execution.
+  Candidate narrowing: remove the broad `^\s*(what|who|...)` opener from EXTRACT and
+  require at least one of {explain, describe, tell me, show me} alongside a domain noun.
+  Broaden SCAFFOLD to catch "given that" / "assuming" / "context:" prefixes.
+- Decision: <CE ONLY>
+- Status: OPEN
+
+## D-029  [OPEN]  — C1 🧊 AI-ownership discount blocked: depends on B1 + frozen surface
+- Raised by: Chief Engineer
+- Date: 2026-06-26
+- File(s): csl/ai_side_extractor.py
+- Problem: STATUS.md item C1 (AI ownership = AI provision discounted by human control
+  fraction via REACTION_WINDOW_K tags) is marked 🧊 and depends on B1. Without reliable
+  control tags (B1), the human-control discount fraction will be noisy and inverted
+  for Delegating-Manager sessions. Implementing C1 before B1 ships would make the
+  Twin-pair Gate B acceptance test unobtainable.
+- Proposed fix: Block on B1. Once B1 is merged and human tag recall verified, implement
+  C1 as: ai_displayed[level] *= (1 - human_control_fraction[level]) where
+  human_control_fraction = REACTION_WINDOW_K hits (OVERRIDE/VERIFY/INJECT) / total_ai_turns.
+- Decision: <CE ONLY>
+- Status: OPEN
+
+## D-030  [OPEN]  — C4 🧊 ES split blocked: frozen surface + ES is structurally absent
+- Raised by: Chief Engineer
+- Date: 2026-06-26
+- File(s): src/trait/extractors/per_dimension/es.py, contracts/contract_table.yaml
+- Problem: STATUS.md item C4 (split ES: ES-01 stays deterministic; other ES neurons →
+  judge-typed rubrics) is marked 🧊 (frozen surface). The ES extractor is event-gated
+  (only fires when ethics events exist). Adding judge-typed ES neurons would require
+  new entries in contract_table.yaml (CE-only contract change) and new rubrics in
+  rubric_bank.py for the additional neurons. Without a contract bump the DETERMINISTIC_NEURONS
+  freeze in rubric_bank.py would conflict with any new judge-typed ES neuron.
+- Proposed fix: CE to approve which ES neurons become judge-typed (candidates: ES-02 through
+  ES-07 based on the ethical-reasoning-without-overreach use case), bump the contract table,
+  then proceed with rubric authoring + es.py split.
+- Decision: <CE ONLY>
+- Status: OPEN
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |

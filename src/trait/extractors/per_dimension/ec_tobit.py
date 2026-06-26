@@ -125,6 +125,14 @@ def fit_tobit_ec(
         options={'maxiter': 2000, 'ftol': 1e-6}
     )
 
+    # D3: convergence gate — raise on failure rather than silently emit biased params
+    if not result.success:
+        raise RuntimeError(
+            f"Tobit EC fit did not converge (message: {result.message!r}). "
+            "Check that n_uncensored > n_features and data has sufficient variation. "
+            "Use apply_tobit_to_ec_scores for single-observation CI without fitting."
+        )
+
     # Extract parameters
     beta = result.x[:-1]
     sigma = np.abs(result.x[-1])
@@ -190,26 +198,29 @@ def apply_tobit_to_ec_scores(
     score = scores_dict.get('ec_score', 0.0)
 
     # For a single observation, Tobit is not identifiable.
-    # Instead, use population-level estimates and apply Tobit CIs.
-    # (In practice, fit on a batch of observations first, then apply to individual.)
+    # Use population-level sigma (generic until n≥30 corpus fit is available).
+    # D3: a score of 0.0 is LEFT-CENSORED — the true value is ≥ 0.0 but unknown.
+    # Do NOT present a deceptively precise 0.0; present a censored bound + CI.
+    GENERIC_SIGMA = 0.15  # Estimated from v3.21 gold set; replace post n≥30 fit
 
-    # Placeholder: use a generic sigma based on observed variation in gold set
-    # This should be replaced with actual fitted population sigma after fitting on n≥30
-    GENERIC_SIGMA = 0.15  # Estimated from v3.21 gold set
-
-    # Credible interval
     z_crit = 1.96
-    ci_lo = max(0.0, score - z_crit * GENERIC_SIGMA)
-    ci_hi = min(1.0, score + z_crit * GENERIC_SIGMA)
-
-    # Flag censored observations
     censored = (score == 0.0)
+
+    if censored:
+        # Left-censored: score is 0 (instrument floor hit). True latent EC is ≥ 0.
+        # The CI upper bound is the tobit-derived "plausible true value" range.
+        ci_lo = 0.0
+        ci_hi = min(1.0, z_crit * GENERIC_SIGMA)  # one-sided; can only go up
+    else:
+        ci_lo = max(0.0, score - z_crit * GENERIC_SIGMA)
+        ci_hi = min(1.0, score + z_crit * GENERIC_SIGMA)
 
     return {
         'ec_score': score,
         'ci_lo': ci_lo,
         'ci_hi': ci_hi,
         'censored': censored,
+        'censored_bound_direction': 'low' if censored else None,
         'sigma': GENERIC_SIGMA,
         'chat_id': chat_id,
     }

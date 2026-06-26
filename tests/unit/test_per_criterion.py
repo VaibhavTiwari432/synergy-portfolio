@@ -224,7 +224,7 @@ class TestRubricIntegration:
         """Each rubric should have required fields."""
         rubric = get_rubric('EC-01')
 
-        required = ['dimension', 'scale_type', 'scale_levels', 'anchors', 'negative_criteria']
+        required = ['dimension', 'scale_levels', 'anchors', 'negative_criteria', 'strength_map']
         for field in required:
             assert field in rubric, f"Missing field: {field}"
 

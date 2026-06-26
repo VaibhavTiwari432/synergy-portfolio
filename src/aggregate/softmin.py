@@ -44,13 +44,19 @@ SOFTMIN_P = -2.0
 #: outputs below this floor are indistinguishable from it (documented behavior)
 _EPS = 1e-3
 
+#: D2: multiplicative G_k penalty when fluent_incompetence fires
+#: (NOT a state gate — state stays caveat-only per rule #2; this is behavioral)
+_G_K = 0.85
+
 
 def _pillar_value(values: dict[Dimension, float], dims: tuple[Dimension, ...]) -> float | None:
     present = [(d, values[d]) for d in dims if d in values]
     if not present:
         return None
-    weight_sum = sum(DIMENSION_WEIGHTS[d] for d, _ in present)
-    return sum(DIMENSION_WEIGHTS[d] * v for d, v in present) / weight_sum
+    ws = sum(DIMENSION_WEIGHTS[d] for d, _ in present)
+    # ponytail: within-pillar weighted power mean (same p as across-pillar) so a
+    # hollow dim cannot hide behind a strong pillar-mate (D1 fix; p calibrated post corpus)
+    return (sum(DIMENSION_WEIGHTS[d] * max(v, _EPS) ** SOFTMIN_P for d, v in present) / ws) ** (1.0 / SOFTMIN_P)
 
 
 def _power_mean(values: list[float], p: float = SOFTMIN_P) -> float:
@@ -70,10 +76,13 @@ def _aggregate(values: dict[Dimension, float]) -> float | None:
 def compute_composite(
     profile: dict[Dimension, DimensionScore],
     state_validity: StateValidity,
+    *,
+    fluent_incompetence: bool = False,
 ) -> Composite:
     gates = {
         "scorability": scorability_gate(profile),
         "state_validity": state_validity_gate(state_validity),
+        "fluent_incompetence": not fluent_incompetence,
     }
     caveat = not gates["state_validity"]
 
@@ -113,6 +122,16 @@ def compute_composite(
         low, high = _aggregate(lows), _aggregate(highs)
         if low is not None and high is not None:
             ci = ConfidenceInterval(low=min(low, value), high=max(high, value))
+
+    # D2: apply multiplicative G_k penalty when fluent_incompetence fires.
+    # This is a behavioral gate, NOT a state gate — state stays caveat-only (#2).
+    if fluent_incompetence and value is not None:
+        value = round(value * _G_K, 6)
+        if ci is not None:
+            ci = ConfidenceInterval(
+                low=max(0.0, ci.low * _G_K),
+                high=min(1.0, ci.high * _G_K),
+            )
 
     return Composite(
         value=value,
