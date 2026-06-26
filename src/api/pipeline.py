@@ -19,9 +19,12 @@ a time).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
 from typing import Callable
+
+log = logging.getLogger(__name__)
 
 from src.provenance import EXTRACTOR_VERSION, provenance_stamp
 
@@ -375,6 +378,26 @@ def _add_judge_neuron_firings(
         opportunities.setdefault(dim, {})[nid] = 1
 
 
+def _per_dim_neuron_stats(results: dict[str, dict]) -> dict[Dimension, dict[str, int]]:
+    """Per-dimension attempted/succeeded/failed counts from per_neuron_out results."""
+    stats: dict[Dimension, dict[str, int]] = {}
+    for nid, result in results.items():
+        dim_key = _JUDGE_DIM_OF.get(nid)
+        if dim_key is None:
+            continue
+        try:
+            dim = Dimension(dim_key)
+        except ValueError:
+            continue
+        entry = stats.setdefault(dim, {"attempted": 0, "succeeded": 0, "failed": 0})
+        entry["attempted"] += 1
+        if result.get("error"):
+            entry["failed"] += 1
+        else:
+            entry["succeeded"] += 1
+    return stats
+
+
 def _judge_run_record(judge_output: JudgeOutput) -> dict:
     """The judge_runs row: literal output + model identity + per-dim confidence."""
     return {
@@ -397,6 +420,7 @@ def _profile_from_judge(
     tags: list[TurnTags],
     extractor_firings: dict[Dimension, dict[str, float]] | None = None,
     extractor_opportunities: dict[Dimension, dict[str, int]] | None = None,
+    neuron_stats: dict[Dimension, dict[str, int]] | None = None,
 ) -> dict[Dimension, DimensionScore]:
     ec_evidence = assess_ec_evidence(session, tags)
     profile: dict[Dimension, DimensionScore] = {}
@@ -445,9 +469,11 @@ def _profile_from_judge(
             half = _CI_FLOOR + _CI_SPAN * disagreement
             if js.confidence < 0.5:
                 flags.append("low_judge_confidence")
+            flags.append("ci_from_disagreement")  # item 3: CI source is observable variance
         else:
             # fallback: use joint confidence (per-criterion unavailable for this dim)
             half = _CI_FLOOR + _CI_SPAN * (1.0 - js.confidence)
+            flags.append("ci_from_self_confidence")  # item 3: CI source is LLM self-report
         if dim == Dimension.EC:
             half *= 1.0 + _THEATER_WIDENING_STEP * ec_evidence.theater_counter
         if norm is not None and norm.status == ScoreStatus.OK:
@@ -457,6 +483,15 @@ def _profile_from_judge(
                 "joint_judge_pct": int(round(100 * js.score)) if js.score is not None else 0,
             }
 
+        # item 4: neuron success rate per dimension
+        dim_stats = (neuron_stats or {}).get(dim)
+        if dim_stats is not None:
+            raw_counts["neurons_attempted"] = dim_stats["attempted"]
+            raw_counts["neurons_succeeded"] = dim_stats["succeeded"]
+            raw_counts["neurons_failed"] = dim_stats["failed"]
+            if dim_stats["failed"] > 0:
+                flags.append("partial_neuron_coverage")
+
         if (norm is not None and norm.status == ScoreStatus.OK
                 and norm.normalized is not None and has_judge_neurons):
             value = norm.normalized
@@ -464,6 +499,19 @@ def _profile_from_judge(
         else:
             value = js.score
             n_eff_val = float(n_human)
+
+        # item 2: per-criterion vs joint divergence (only when per-criterion was used)
+        if (has_judge_neurons and norm is not None and norm.normalized is not None
+                and js.score is not None):
+            divergence = abs(norm.normalized - js.score)
+            raw_counts["pc_joint_divergence"] = int(round(100 * divergence))  # percentage points
+            if divergence > 0.25:
+                flags.append("large_per_criterion_joint_divergence")
+                log.warning(
+                    "[PIPELINE] %s: per-criterion/joint divergence=%.3f — "
+                    "evidence_turns may not match score",
+                    dim.value, divergence,
+                )
 
         # instrument saturation: a confident, well-sampled, unflagged ceiling-hit
         # becomes a censored "≥ tau" rather than a point value (v3 P1 / ADR-0010).
@@ -579,10 +627,19 @@ def score_session_with_artifacts(
     # A2: per-neuron scoring (neuron-grain, replaces joint call as value source)
     per_neuron_out = _score_all_neurons(judge.neuron_fn(), _build_transcript_text(session))
     _add_judge_neuron_firings(per_neuron_out["results"], firings, opportunities)
+    neuron_stats = _per_dim_neuron_stats(per_neuron_out["results"])
     # joint call retained for provenance metadata (flags, raw_response, family check)
     judge_output = judge.score_session(session)
+    if judge_output.judge_unavailable:
+        # All transports failed — storing all-N/A as "scored" is a false positive.
+        # Raise so the worker marks this chat "failed" and it stays re-scoreable.
+        raise RuntimeError(
+            "judge all-transport failure: every dimension N/A — "
+            "chat deferred for re-scoring when the judge is restored"
+        )
     raw_profile = _profile_from_judge(
-        judge_output, session, tags, firings, opportunities
+        judge_output, session, tags, firings, opportunities,
+        neuron_stats=neuron_stats,
     )
 
     # ── state channel (sibling, same inputs) ──

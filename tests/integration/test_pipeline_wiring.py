@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from contracts.schemas import (
     CanonicalSession,
     Dimension,
@@ -149,6 +151,23 @@ def test_score_run_carries_per_turn_state_with_precision():
         assert 0.0 < r["precision"] <= 1.0
 
 
+# ── Judge-unavailability guard ────────────────────────────────────────────────
+
+def test_judge_all_transport_failure_raises_not_stored_as_scored():
+    """Judge-unavailable must not produce a silently-scored N/A row.
+
+    When every transport fails, score_session_with_artifacts must raise so the
+    worker marks the chat 'failed' rather than persisting an all-N/A ScoreRun
+    that the UI would present as a completed calculation.
+    """
+    def _dead(_sys: str, _usr: str) -> str:
+        raise RuntimeError("transport down")
+
+    dead_judge = JudgeClient(generate=_dead, fallback=_dead, sleep=lambda _: None)
+    with pytest.raises(RuntimeError, match="judge all-transport failure"):
+        score_session_with_artifacts(_session(), judge=dead_judge)
+
+
 def test_surrendered_turns_have_lower_precision_than_active_turns():
     # _session ends in a 3-accept run → SURRENDER on the later turns. A turn whose
     # own state is degraded must carry strictly lower precision than an undegraded
@@ -175,3 +194,94 @@ def test_deterministic_layers_are_bit_identical():
     assert run1.response.profile == run2.response.profile
     assert run1.response.composite == run2.response.composite
     assert run1.turn_state == run2.turn_state
+
+
+# ── items 2/3/4: observability flags ─────────────────────────────────────────
+
+
+def _per_criterion_judge() -> JudgeClient:
+    """Fake judge where per-criterion calls succeed (high score) and joint returns 0.5.
+
+    Differentiates via system prompt: neuron_fn() uses _NEURON_SYSTEM_PROMPT
+    ("psychometrician"); score_session() uses SYSTEM_PROMPT.
+    """
+    import json
+
+    entry = {"score": 0.5, "confidence": 0.8, "evidence_turns": [0], "tom_tag": None}
+    data = {d.value: dict(entry) for d in Dimension}
+    data["ES"]["score"] = None
+    joint_payload = json.dumps(data)
+
+    neuron_payload = json.dumps({
+        "score": 0.9,
+        "reasoning": "strong",
+        "negative_criteria_present": False,
+        "confidence": 0.9,
+        "final_score_after_leniency_penalty": 0.9,
+    })
+
+    def _generate(system: str, user: str) -> str:
+        # _NEURON_SYSTEM_PROMPT ends with "Respond only with valid JSON as specified in the prompt."
+        # SYSTEM_PROMPT (joint) is a long multi-section prompt and does not contain that phrase.
+        return neuron_payload if "Respond only with valid JSON" in system else joint_payload
+
+    return JudgeClient(generate=_generate, fallback=None, sleep=lambda _: None)
+
+
+def test_ci_self_confidence_flag_when_per_criterion_fails(  # item 3a
+):
+    """With fake judge returning wrong format for per-criterion, all OK dims get ci_from_self_confidence."""
+    from contracts.schemas import ScoreStatus
+    run = score_session_with_artifacts(_session(), judge=_fake_judge())
+    for dim, ds in run.response.profile.items():
+        if ds.status == ScoreStatus.OK:
+            flags = ds.flags or []
+            assert "ci_from_self_confidence" in flags, f"{dim.value}: missing ci flag"
+            assert "ci_from_disagreement" not in flags, f"{dim.value}: wrong ci flag"
+
+
+def test_ci_disagreement_flag_when_per_criterion_succeeds(  # item 3b
+):
+    """When per-criterion calls succeed and ≥2 neurons exist, at least one dim has ci_from_disagreement."""
+    from contracts.schemas import ScoreStatus
+    run = score_session_with_artifacts(_session(), judge=_per_criterion_judge())
+    dims_with_disagreement = [
+        dim for dim, ds in run.response.profile.items()
+        if ds.status == ScoreStatus.OK and "ci_from_disagreement" in (ds.flags or [])
+    ]
+    assert dims_with_disagreement, "expected at least one dim with ci_from_disagreement"
+
+
+def test_neuron_stats_in_raw_counts_partial_coverage_flag(  # item 4
+):
+    """6-of-11 neuron failures via _per_dim_neuron_stats → partial_neuron_coverage."""
+    from src.api.pipeline import _per_dim_neuron_stats
+    from src.trait.judge.rubric_bank import DIM_OF
+
+    al_neurons = [nid for nid, dim in DIM_OF.items() if dim == "AL"][:11]
+    assert len(al_neurons) >= 11, "need ≥11 AL judge neurons for this test"
+
+    results = {nid: {"error": i >= 5} for i, nid in enumerate(al_neurons)}
+    stats = _per_dim_neuron_stats(results)
+
+    from contracts.schemas import Dimension
+    s = stats[Dimension.AL]
+    assert s["attempted"] == 11
+    assert s["succeeded"] == 5
+    assert s["failed"] == 6
+
+
+def test_pc_joint_divergence_large_flag_when_gap_exceeds_threshold(  # item 2
+):
+    """per-criterion/joint divergence > 0.25 → large_per_criterion_joint_divergence in flags."""
+    from contracts.schemas import ScoreStatus
+
+    # per-criterion returns 0.9 for all judge neurons; joint returns 0.5
+    # → divergence ≈ 0.4 for dims where per-criterion succeeds and ≥1 judge neuron exists
+    run = score_session_with_artifacts(_session(), judge=_per_criterion_judge())
+    flagged_dims = [
+        dim for dim, ds in run.response.profile.items()
+        if ds.status == ScoreStatus.OK
+        and "large_per_criterion_joint_divergence" in (ds.flags or [])
+    ]
+    assert flagged_dims, "expected at least one dim with large divergence flag"

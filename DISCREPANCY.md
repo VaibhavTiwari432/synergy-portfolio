@@ -1203,6 +1203,28 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
+## D-031  [OPEN]  — Fluent gate thresholds uncalibrated: no gold data backing
+**Filed:** 2026-06-27
+**Filed by:** CE
+**Status:** OPEN
+**Component:** src/api/pipeline.py — `_compute_fluent_incompetence` thresholds
+**Finding:** `_TAU_PR_HIGH=0.70`, `_TAU_V=0.10`, `_TAU_A=0.50`, `_TAU_GEN=0.30` were set
+without gold data on this specific construct. If miscalibrated, the D2 gate fires
+incorrectly and propagates to composite via G_K. No tests verify correct verdicts on
+known-truth cases.
+**Risk:** MEDIUM — gate affects composite value; false positives penalise genuinely
+skilled users; false negatives miss fluent-incompetence cases.
+**Rung:** DESIGNED
+**Reinstatement trigger:** n≥50 gold chats with annotated fluent-incompetence ground truth
+(CE + Sathwik agreement); then calibrate thresholds via ROC and update with a D-study.
+**Proposed fix when unblocked:** Fit logistic threshold on gold labels; add 5 known-truth
+fixtures (2 true-positive, 2 true-negative, 1 boundary) to
+`tests/integration/test_gates_calibration.py`.
+**Non-negotiable reference:** #19 (calibration before claims) — do not tighten thresholds
+without gold data.
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |
