@@ -983,10 +983,11 @@ async function _handleCaptureReady(capture, { force = false } = {}) {
 // ── message router ────────────────────────────────────────────────────────────
 
 self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || typeof message.type !== 'string') return undefined;
-  if (!_isTrustedSafMessageSender(sender)) return undefined;
+  try {
+    if (!message || typeof message.type !== 'string') return undefined;
+    if (!_isTrustedSafMessageSender(sender)) return undefined;
 
-  // ── network interception capture (chunked reassembly from interceptor.js) ──
+    // ── network interception capture (chunked reassembly from interceptor.js) ──
   if (message.type === 'SAF_CAPTURE') {
     const { payload } = message;
     if (!payload) return undefined;
@@ -1304,6 +1305,11 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     default:
       return undefined;
+  }
+  } catch (err) {
+    console.error('[SAF] Message handler crashed:', err);
+    sendResponse({ ok: false, error: 'handler_crash', message: 'Extension error. Reload the page and try again.' });
+    return true;
   }
 });
 

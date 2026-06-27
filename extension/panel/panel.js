@@ -174,10 +174,32 @@
   // ── BACKGROUND BRIDGE ─────────────────────────────────────────────────────
   function _sendBg(message) {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage(message, (response) => {
-        void chrome.runtime.lastError; // suppress "no listener" console error
-        resolve(response || { ok: false, error: 'no_response' });
-      });
+      const timeout = setTimeout(() => {
+        resolve({
+          ok: false,
+          error: 'bg_timeout',
+          message: 'Extension background service lost connection. Try reloading the page.',
+        });
+      }, 10000); // 10s timeout
+
+      try {
+        chrome.runtime.sendMessage(message, (response) => {
+          clearTimeout(timeout);
+          void chrome.runtime.lastError; // suppress "no listener" console error
+          if (!response) {
+            resolve({ ok: false, error: 'no_response', message: 'No response from extension.' });
+          } else {
+            resolve(response);
+          }
+        });
+      } catch (err) {
+        clearTimeout(timeout);
+        resolve({
+          ok: false,
+          error: 'sendMessage_error',
+          message: 'Cannot communicate with extension. Try reloading the page.',
+        });
+      }
     });
   }
 
