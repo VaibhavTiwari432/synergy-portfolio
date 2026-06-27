@@ -34,3 +34,6 @@ apps/logs/
 .mcp.json
 .opencode.json
 .qoder/
+
+# Local SQLite database (development only, never commit)
+saf_brain.db

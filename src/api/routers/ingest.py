@@ -119,28 +119,14 @@ async def ingest_chat(
             },
         ) from exc
 
-    # Completeness gate: a PROVEN-incomplete interception is quarantined here — it
-    # never becomes pending work. The structured 422 body lets the extension say
-    # "captured M of N", not "API unreachable" (cf. D-009).
-    incomplete_reason = capture_completeness_error(
+    # Phase 0: completeness is informational, not a hard reject. Incomplete chats
+    # are stored and the scoring layer flags them as INSUFFICIENT_SAMPLE or similar.
+    # This unlocks the "absent ≠ zero" invariant: sparse is not malformed (#12).
+    _incomplete_reason = capture_completeness_error(
         expected_turn_count=body.expected_turn_count,
         captured_turn_count=captured,
         capture_complete=body.capture_complete,
     )
-    if incomplete_reason is not None:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "reason": "capture_incomplete",
-                "capture_complete": False,
-                "expected_turn_count": body.expected_turn_count,
-                "captured_turn_count": captured,
-                "message": (
-                    f"Capture incomplete — {incomplete_reason}. "
-                    "Reload ChatGPT and try Analyse now again."
-                ),
-            },
-        )
 
     try:
         row = await upsert_chat(

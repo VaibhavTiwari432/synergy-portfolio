@@ -267,22 +267,24 @@ async def upsert_chat(
     requiring the user to edit the chat, while identical successful re-ingests
     (panel reopen, telemetry-only snapshot) remain no-ops.
 
-    Two-layer capture gate (D-015 / ADR-0007): the structural role-balance gate
-    (capture_validation_error) AND the completeness gate (capture_completeness_error)
-    both raise ValueError → HTTP 422 at the router → never enters 'pending'. The
-    completeness columns are persisted on accepted rows; the migration-007 CHECK
+    Two-layer capture gate (Phase 0 / D-015 / ADR-0007): the structural role-balance
+    gate (capture_validation_error) rejects genuinely malformed transcripts with
+    ValueError → HTTP 422. The completeness gate (capture_completeness_error) is
+    informational and does NOT reject: sparse or incomplete chats are stored with
+    flags so the scoring layer can emit missingness labels (absent ≠ zero, #12).
+    The completeness columns are persisted on accepted rows; the migration-007 CHECK
     constraint backstops the invariant at rest."""
     invalid_reason = capture_validation_error(turns)
     if invalid_reason is not None:
         raise ValueError(f"invalid capture: {invalid_reason}")
 
-    incomplete_reason = capture_completeness_error(
+    # Phase 0: collect completeness info but don't reject. The scoring layer will
+    # emit INSUFFICIENT_SAMPLE or other flags as appropriate.
+    _incomplete_reason = capture_completeness_error(
         expected_turn_count=expected_turn_count,
         captured_turn_count=captured_turn_count,
         capture_complete=capture_complete,
     )
-    if incomplete_reason is not None:
-        raise ValueError(f"invalid capture: {incomplete_reason}")
 
     content_hash = hash_turns(turns)
     # Resolve (or mint) the opaque subject_id for this user_ref in the same
@@ -512,6 +514,27 @@ async def claim_pending_batch(
         """,
         batch_size,
         float(lease_timeout_seconds),
+    )
+
+
+async def upsert_worker_heartbeat(conn: asyncpg.Connection, worker_id: str) -> None:
+    """Record that worker `worker_id` is alive as of now (liveness signal)."""
+    await conn.execute(
+        """
+        INSERT INTO worker_heartbeat (worker_id, beat_at) VALUES ($1, now())
+        ON CONFLICT (worker_id) DO UPDATE SET beat_at = now()
+        """,
+        worker_id,
+    )
+
+
+async def worker_heartbeat_age_seconds(conn: asyncpg.Connection) -> float | None:
+    """Seconds since the freshest worker heartbeat, or None if none recorded.
+
+    MAX(beat_at) = "is ANY worker alive" — a dead worker's stale row is ignored as
+    long as a live one is still beating."""
+    return await conn.fetchval(
+        "SELECT EXTRACT(EPOCH FROM (now() - MAX(beat_at))) FROM worker_heartbeat"
     )
 
 
@@ -850,6 +873,23 @@ async def replace_neuron_firings(
         ],
     )
     return len(rows)
+
+
+async def get_neuron_firings(pool: asyncpg.Pool, *, chat_id: UUID) -> list[asyncpg.Record]:
+    """Per-neuron firing rows for one chat — the deduction log behind a score.
+
+    Read-only view over the same rows `replace_neuron_firings` persisted. Ordered
+    by dimension then neuron so the UI table is stable. Empty list = none stored
+    (absent ≠ zero, #12): the caller shows an explicit empty state, never a fake row."""
+    return await pool.fetch(
+        """
+        SELECT neuron_code, dimension, value, applicable_opportunities,
+               n_eff, evidence_turn_indices, extractor_version
+        FROM neuron_firings WHERE chat_id = $1
+        ORDER BY dimension, neuron_code
+        """,
+        chat_id,
+    )
 
 
 # ── turn_state (per-turn state strip + per-turn precision, Track 2) ──────────────

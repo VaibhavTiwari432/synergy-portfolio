@@ -1,7 +1,7 @@
-# saf-brain — SAF/ARI v2.2 Chat Analyser
+# saf-brain — SAF/ARI v3.21 Chat Analyser
 
 Python API that ingests a human↔AI chat transcript (Claude / ChatGPT export, or
-plaintext) and computes the full SAF/ARI v2.2 measurement framework: universal event
+plaintext) and computes the full SAF/ARI v3 measurement framework: universal event
 log → parallel STATE (CSPC proxies) + TRAIT (ARI 8-dim) channels → precision merge →
 aggregation → interaction dynamics → sustainability layer → claims-gated response.
 Part of the **Sangillence Insight System (SIS)**.
@@ -13,7 +13,7 @@ the full rung-tagged `ScoreResponse`, calibrated on the gold corpus
 ## Read first (in order)
 
 1. [AGENT_REBUILD_BRIEF_v3.md](AGENT_REBUILD_BRIEF_v3.md) — the mission file (scope, architecture, build plan)
-2. [SAF_ARI_Final_Master_Compilation_v2.2.md](SAF_ARI_Final_Master_Compilation_v2.2.md) — the authoritative spec
+2. [specs/v3/SAF_ARI_Master_Spec.md](specs/v3/SAF_ARI_Master_Spec.md) — the authoritative spec
 3. [CLAUDE.md](CLAUDE.md) — the 21 non-negotiables (all agents bound)
 4. [TEAM.md](TEAM.md) — multi-agent build order + file ownership map
 5. [DISCREPANCY.md](DISCREPANCY.md) — conflict log (check OPEN items)
