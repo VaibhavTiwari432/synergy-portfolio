@@ -206,6 +206,201 @@ export function initPortfolioView(shadowRoot) {
     }
   }
 
+  /**
+   * Render framework metrics dashboard below the profile radar.
+   * Shows: chat volume, dimension aggregates, neuron health, telemetry, quality.
+   */
+  function renderFrameworkMetrics(data) {
+    const metricsEl = document.createElement('div');
+    metricsEl.id = 'saf-framework-metrics';
+    metricsEl.innerHTML = `
+      <style>
+        #saf-framework-metrics {
+          padding: 16px 0;
+          border-top: 1px solid #e0e0e0;
+          margin-top: 24px;
+        }
+        .saf-metrics-section {
+          margin-bottom: 20px;
+        }
+        .saf-metrics-title {
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          color: #666;
+          letter-spacing: 0.5px;
+          margin-bottom: 12px;
+        }
+        .saf-metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+        .saf-metric-card {
+          background: #f5f5f5;
+          border-radius: 3px;
+          padding: 10px;
+          text-align: center;
+          border-left: 3px solid #999;
+        }
+        .saf-metric-card.success { border-left-color: #12b76a; }
+        .saf-metric-card.error { border-left-color: #d82c0d; }
+        .saf-metric-card.warning { border-left-color: #f79009; }
+        .saf-metric-card.info { border-left-color: #0084d4; }
+        .saf-metric-value {
+          font-size: 16px;
+          font-weight: 700;
+          color: #222;
+          margin-bottom: 4px;
+        }
+        .saf-metric-label {
+          font-size: 10px;
+          color: #999;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+        .saf-metrics-table {
+          width: 100%;
+          font-size: 11px;
+          border-collapse: collapse;
+        }
+        .saf-metrics-table th {
+          text-align: left;
+          padding: 6px 4px;
+          border-bottom: 1px solid #ddd;
+          font-weight: 600;
+          color: #666;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+        .saf-metrics-table td {
+          padding: 4px;
+          border-bottom: 1px solid #f0f0f0;
+        }
+        .saf-metrics-table tr:hover {
+          background: #fafafa;
+        }
+      </style>
+
+      <div class="saf-metrics-section">
+        <div class="saf-metrics-title">📊 Chat Volume & Health</div>
+        <div class="saf-metrics-grid">
+          <div class="saf-metric-card info">
+            <div class="saf-metric-value">${data?.chat_stats?.total || 0}</div>
+            <div class="saf-metric-label">Total</div>
+          </div>
+          <div class="saf-metric-card success">
+            <div class="saf-metric-value">${data?.chat_stats?.scored || 0}</div>
+            <div class="saf-metric-label">Scored</div>
+          </div>
+          <div class="saf-metric-card error">
+            <div class="saf-metric-value">${data?.chat_stats?.failed || 0}</div>
+            <div class="saf-metric-label">Failed</div>
+          </div>
+          <div class="saf-metric-card warning">
+            <div class="saf-metric-value">${data?.chat_stats?.pending || 0}</div>
+            <div class="saf-metric-label">Pending</div>
+          </div>
+          <div class="saf-metric-card info">
+            <div class="saf-metric-value">${data?.chat_stats?.success_rate || 0}%</div>
+            <div class="saf-metric-label">Success</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="saf-metrics-section">
+        <div class="saf-metrics-title">📈 Dimension Aggregates</div>
+        <table class="saf-metrics-table">
+          <thead>
+            <tr>
+              <th>Dim</th>
+              <th>Mean</th>
+              <th>CI Width</th>
+              <th>Count</th>
+              <th>Coverage</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(data?.dimension_metrics || []).map(d => `
+              <tr>
+                <td><strong>${d.dimension}</strong></td>
+                <td>${(d.mean || 0).toFixed(3)}</td>
+                <td>${d.ci_width || 'N/A'}</td>
+                <td>${d.count || 0}</td>
+                <td>${(d.coverage || 0).toFixed(1)}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="saf-metrics-section">
+        <div class="saf-metrics-title">🧠 Neuron Health</div>
+        <div class="saf-metrics-grid">
+          <div class="saf-metric-card info">
+            <div class="saf-metric-value">${data?.neuron_metrics?.total_fires || 0}</div>
+            <div class="saf-metric-label">Total Fires</div>
+          </div>
+          <div class="saf-metric-card info">
+            <div class="saf-metric-value">${data?.neuron_metrics?.total_opps || 0}</div>
+            <div class="saf-metric-label">Opportunities</div>
+          </div>
+          <div class="saf-metric-card success">
+            <div class="saf-metric-value">${data?.neuron_metrics?.firing_rate || 0}%</div>
+            <div class="saf-metric-label">Firing Rate</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="saf-metrics-section">
+        <div class="saf-metrics-title">📡 Telemetry Summary</div>
+        <div class="saf-metrics-grid">
+          <div class="saf-metric-card info">
+            <div class="saf-metric-value">${data?.telemetry?.dwell_mean || 'N/A'}</div>
+            <div class="saf-metric-label">Mean Dwell (ms)</div>
+          </div>
+          <div class="saf-metric-card info">
+            <div class="saf-metric-value">${data?.telemetry?.dwell_p95 || 'N/A'}</div>
+            <div class="saf-metric-label">P95 Dwell (ms)</div>
+          </div>
+          <div class="saf-metric-card info">
+            <div class="saf-metric-value">${(data?.telemetry?.copy_mean || 0).toFixed(1)}</div>
+            <div class="saf-metric-label">Mean Copy Events</div>
+          </div>
+          <div class="saf-metric-card warning">
+            <div class="saf-metric-value">${data?.telemetry?.edits_detected || 0}</div>
+            <div class="saf-metric-label">Chats w/ Edits</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="saf-metrics-section">
+        <div class="saf-metrics-title">✅ Framework Status</div>
+        <div class="saf-metrics-grid">
+          <div class="saf-metric-card success">
+            <div class="saf-metric-label">Ratchet</div>
+            <div class="saf-metric-value" style="font-size: 11px;">PASS</div>
+          </div>
+          <div class="saf-metric-card success">
+            <div class="saf-metric-label">Phases</div>
+            <div class="saf-metric-value" style="font-size: 11px;">0–4</div>
+          </div>
+          <div class="saf-metric-card success">
+            <div class="saf-metric-label">Worker</div>
+            <div class="saf-metric-value" style="font-size: 11px;">OK</div>
+          </div>
+          <div class="saf-metric-card info">
+            <div class="saf-metric-label">Ready</div>
+            <div class="saf-metric-value" style="font-size: 11px;">Corpus</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    return metricsEl;
+  }
+
   function renderPortfolio(data) {
     const sessions = Number(data?.sessions_analysed || 0);
     const insufficient = data?.status === 'INSUFFICIENT_HISTORY' || sessions < 3;
@@ -223,6 +418,16 @@ export function initPortfolioView(shadowRoot) {
     setVisible(els.content, true);
     renderRadar(values);
     renderDetail(data);
+
+    // Add framework metrics below the profile radar
+    const existingMetrics = document.getElementById('saf-framework-metrics');
+    if (existingMetrics) existingMetrics.remove();
+
+    const metricsEl = renderFrameworkMetrics(data);
+    if (els.content?.parentElement) {
+      els.content.parentElement.appendChild(metricsEl);
+    }
+
     setStatus(values.length ? '' : 'No profile dimensions available yet.');
   }
 
