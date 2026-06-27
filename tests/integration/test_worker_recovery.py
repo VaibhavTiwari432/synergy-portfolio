@@ -3,8 +3,9 @@
   - A chat stuck in 'scoring' past LEASE_TIMEOUT is reclaimed to 'pending' by the
     watchdog (reset_expired_scoring_leases) — a crashed/hung worker never wedges
     a chat forever.
-  - An incomplete capture (capture_complete=false) is REJECTED at ingest
-    (ValueError → 422 at the router), never entering 'pending' to be scored.
+  - An incomplete capture (capture_complete=false) is ACCEPTED at ingest (Phase 0),
+    stored with status='pending' so the scoring layer can emit INSUFFICIENT_SAMPLE
+    flags per non-negotiable #12 (absent ≠ zero).
 
 Run:  PHASE1_GATE=1 pytest tests/integration/test_worker_recovery.py -v
 """
@@ -109,23 +110,29 @@ async def test_fresh_scoring_lease_is_NOT_reclaimed(pool, clean_user):
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_incomplete_capture_is_rejected_not_scored(pool, clean_user):
+async def test_incomplete_capture_is_accepted_and_flagged(pool, clean_user):
     from src.db.queries import upsert_chat
 
-    # capture_complete=false with a captured<expected mismatch must be refused at
-    # ingest (ValueError → 422 at the router), never queued as 'pending'.
-    with pytest.raises(ValueError):
-        await upsert_chat(
-            pool, user_ref=clean_user, conversation_id="conv_incomplete", source="chatgpt_live",
-            partner_model=_PARTNER, turns=_turns(3), turn_count=6,
-            expected_turn_count=20, captured_turn_count=6, capture_complete=False,
-        )
-    # nothing landed for that conversation
-    n = await pool.fetchval(
-        "SELECT COUNT(*) FROM raw_chats WHERE user_ref=$1 AND conversation_id='conv_incomplete'",
-        clean_user,
+    # Phase 0: incomplete captures (capture_complete=false, captured<expected) are
+    # ACCEPTED and stored with status='pending' so the scoring layer can flag them
+    # with INSUFFICIENT_SAMPLE per non-negotiable #12 (absent ≠ zero).
+    row = await upsert_chat(
+        pool, user_ref=clean_user, conversation_id="conv_incomplete", source="chatgpt_live",
+        partner_model=_PARTNER, turns=_turns(3), turn_count=6,
+        expected_turn_count=20, captured_turn_count=6, capture_complete=False,
     )
-    assert n == 0
+    # Chat was stored with completeness metadata
+    assert row["id"] is not None
+    assert row["status"] == "pending"
+    # Completeness info is persisted on the row (visible to scoring layer)
+    persisted = await pool.fetchrow(
+        "SELECT capture_complete, expected_turn_count, captured_turn_count "
+        "FROM raw_chats WHERE id=$1",
+        row["id"],
+    )
+    assert persisted["capture_complete"] is False
+    assert persisted["expected_turn_count"] == 20
+    assert persisted["captured_turn_count"] == 6
 
 
 @pytest.mark.asyncio(loop_scope="module")
