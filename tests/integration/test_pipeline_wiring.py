@@ -394,3 +394,30 @@ def test_score_all_neurons_sync_compatibility():
     # Second parameter must accept transcript
     assert "transcript" in params, \
         f"score_all_neurons_sync missing transcript parameter. Has: {params}"
+
+
+def test_score_all_neurons_sync_prompt_adaptation():
+    """Verify sync wrapper adapts neuron_fn's single-prompt format to JudgeClient's (system, user) format.
+
+    This validates the fix for: neuron_fn takes (prompt) -> str,
+    but JudgeClient._generate expects (system_prompt, user_prompt) -> str.
+    The wrapper must seamlessly convert between these signatures.
+    """
+    from src.trait.judge.per_criterion import score_all_neurons_sync
+
+    captured_calls = []
+
+    def mock_neuron_fn(combined_prompt: str) -> str:
+        """Mock neuron_fn tracks what prompts it receives."""
+        captured_calls.append(combined_prompt)
+        # Return valid JSON so the async dimension scoring succeeds
+        return json.dumps({"AL-01": "met", "AL-02": "not_met"})
+
+    # Call as the pipeline does: (neuron_fn, transcript)
+    result = score_all_neurons_sync(mock_neuron_fn, "sample chat")
+
+    # Should succeed with a dict result
+    assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+    assert "results" in result
+    # neuron_fn should have been called with combined prompts
+    assert len(captured_calls) > 0, "neuron_fn wrapper not invoked"

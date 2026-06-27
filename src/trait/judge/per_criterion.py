@@ -280,12 +280,32 @@ def score_all_neurons_sync(
     """
     Backward-compatibility wrapper: sync version of dimension-batching.
 
+    Accepts the old call signature: (judge_fn, transcript, neuron_ids)
+    Converts to async signature: (transcript, neuron_ids, judge_client)
+
     Uses asyncio.run to execute the async version.
     (This is a temporary shim; callers should migrate to the async version.)
     """
     from src.trait.judge.client import JudgeClient
 
-    client = JudgeClient(generate=judge_fn)
+    # The judge_fn passed here is judge.neuron_fn(), which is a callable
+    # that takes (prompt: str) -> str. But we need a JudgeClient for the
+    # async version. The async version will call judge_client._generate()
+    # with (system_prompt, user_prompt) arguments.
+    #
+    # Solution: Don't try to wrap judge_fn into a new JudgeClient.
+    # Instead, create a minimal JudgeClient that can call neuron_fn.
+    # We'll use the judge_fn directly as a custom generator.
+
+    # Create a wrapper function that adapts neuron_fn (single prompt)
+    # to JudgeClient's expected signature (system_prompt, user_prompt)
+    def combined_prompt(system_prompt: str, user_prompt: str) -> str:
+        """Combine system and user prompts, then call neuron_fn."""
+        # Neuron scoring wants full context in one prompt
+        combined = f"{system_prompt}\n{user_prompt}"
+        return judge_fn(combined)
+
+    client = JudgeClient(generate=combined_prompt)
     return asyncio.run(score_all_neurons(transcript, neuron_ids, client))
 
 
