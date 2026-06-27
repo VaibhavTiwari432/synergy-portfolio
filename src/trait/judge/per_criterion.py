@@ -26,6 +26,91 @@ from src.trait.judge.rubric_bank import get_rubric, list_all_neurons, neurons_by
 
 log = logging.getLogger(__name__)
 
+_DIMENSION_LABELS = {
+    "AL": "Actualization",
+    "PR": "Prompt Responsibility",
+    "EC": "Epistemic Calibration",
+    "ES": "Ethical Safeguards",
+    "CS": "Cognitive Structuring",
+    "CD": "Conceptual Depth",
+    "AUI": "AI Use Integration",
+    "CA": "Calibration Awareness",
+}
+
+
+def build_per_criterion_prompt(neuron_id: str, transcript: str) -> str:
+    """Legacy single-neuron prompt builder kept for older tests/callers."""
+    try:
+        rubric = get_rubric(neuron_id)
+    except KeyError:
+        rubric = {}
+    if not rubric:
+        return f"NEURON: {neuron_id}\n\nTRANSCRIPT:\n{transcript}"
+
+    title = rubric.get("title", "")
+    anchors = rubric.get("anchors", {})
+    scale_levels = rubric.get("scale_levels", [])
+    scale_str = " | ".join([f"[{i}] {level}" for i, level in enumerate(scale_levels)])
+    anchors_str = "\n  ".join(
+        [f"{level.upper()}: \"{anchors.get(level, '')}\"" for level in scale_levels]
+    )
+    negative = rubric.get("negative_criteria", [])
+    negative_str = "\n  ".join([f"- {item}" for item in negative]) or "- None"
+
+    return f"""You are a behavioral psychometrician specializing in human-AI interaction analysis.
+
+NEURON: {neuron_id} ({rubric.get('dimension', 'unknown')})
+TITLE: {title}
+
+SCALE: {scale_str}
+
+BEHAVIORAL ANCHORS:
+  {anchors_str}
+
+NEGATIVE CRITERIA:
+  {negative_str}
+
+TRANSCRIPT:
+{transcript}
+
+Respond with a single JSON object: {{"score": <level_name>}} where level_name is one of: {', '.join(scale_levels)}"""
+
+
+def _coerce_level_to_score(neuron_id: str, value: Any) -> float | None:
+    """Map judge output to a [0, 1] score, accepting new and legacy shapes."""
+    if isinstance(value, (int, float)):
+        return max(0.0, min(1.0, float(value)))
+
+    try:
+        rubric = get_rubric(neuron_id)
+    except KeyError:
+        rubric = {}
+    scale_levels = rubric.get("scale_levels", [])
+    strength_map = rubric.get("strength_map", [])
+    aliases = {
+        "not_met": scale_levels[0] if scale_levels else None,
+        "unmet": scale_levels[0] if scale_levels else None,
+        "met": scale_levels[-2] if len(scale_levels) >= 2 else None,
+        "exceeded": scale_levels[-1] if scale_levels else None,
+    }
+    if isinstance(value, str) and value in aliases:
+        value = aliases[value]
+    if isinstance(value, str) and value in scale_levels:
+        idx = scale_levels.index(value)
+        if idx < len(strength_map):
+            return float(strength_map[idx])
+        return idx / (len(scale_levels) - 1) if len(scale_levels) > 1 else 0.5
+    return None
+
+
+def _legacy_response_score(neuron_id: str, response_json: Dict[str, Any]) -> float | None:
+    """Extract a score from old single-neuron judge JSON."""
+    for key in ("final_score_after_leniency_penalty", "score"):
+        if key in response_json:
+            return _coerce_level_to_score(neuron_id, response_json[key])
+    return None
+
+
 # For backward compatibility: keep the old per-neuron function
 def call_judge_for_neuron(
     judge_fn: Callable, neuron_id: str, transcript: str
@@ -40,46 +125,35 @@ def call_judge_for_neuron(
     if not rubric:
         return {"neuron_id": neuron_id, "error": True, "error_message": "Neuron not found"}
 
-    title = rubric.get("title", "")
-    anchors = rubric.get("anchors", {})
-    scale_levels = rubric.get("scale_levels", [])
-
-    # Format scale levels
-    scale_str = " | ".join([f"[{i}] {level}" for i, level in enumerate(scale_levels)])
-
-    # Format anchors
-    anchors_str = "\n  ".join([f"{level.upper()}: \"{anchors.get(level, '')}\"" for level in scale_levels])
-
-    prompt = f"""You are a behavioral psychometrician specializing in human-AI interaction analysis.
-
-NEURON: {neuron_id} ({rubric.get('dimension', 'unknown')})
-TITLE: {title}
-
-SCALE: {scale_str}
-
-BEHAVIORAL ANCHORS:
-  {anchors_str}
-
-TRANSCRIPT:
-{transcript}
-
-Respond with a single JSON object: {{"score": <level_name>}} where level_name is one of: {', '.join(scale_levels)}"""
+    prompt = build_per_criterion_prompt(neuron_id, transcript)
 
     try:
         response = judge_fn(prompt)
+        if isinstance(response, str) and response.strip().startswith("```"):
+            response = response.strip()
+            response = response.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         response_json = json.loads(response)
         response_json["neuron_id"] = neuron_id
         return response_json
     except Exception as e:
-        return {"neuron_id": neuron_id, "error": True, "error_message": str(e)}
+        return {
+            "neuron_id": neuron_id,
+            "error": True,
+            "error_message": str(e),
+            "reasoning": f"Parse error: {e}",
+        }
 
 
 def group_by_dimension(neuron_ids: List[str]) -> Dict[str, List[str]]:
     """Group neuron IDs by their dimension."""
     by_dim: Dict[str, List[str]] = {}
     for nid in neuron_ids:
-        rubric = get_rubric(nid)
-        dim = rubric.get("dimension", "unknown")
+        try:
+            rubric = get_rubric(nid)
+            dim_code = rubric.get("dimension", "unknown")
+        except KeyError:
+            dim_code = "unknown"
+        dim = _DIMENSION_LABELS.get(dim_code, dim_code)
         if dim not in by_dim:
             by_dim[dim] = []
         by_dim[dim].append(nid)
@@ -96,7 +170,10 @@ def format_dimension_rubric(dimension_name: str, neuron_ids: List[str]) -> str:
     lines.append("")
 
     for nid in neuron_ids:
-        rubric = get_rubric(nid)
+        try:
+            rubric = get_rubric(nid)
+        except KeyError:
+            rubric = {"title": nid, "anchors": {}, "scale_levels": []}
         title = rubric.get("title", nid)
         lines.append(f"Neuron {nid}: {title}")
 
@@ -118,7 +195,10 @@ def build_dimension_schema(neuron_ids: List[str]) -> Dict[str, Any]:
     """
     properties = {}
     for nid in neuron_ids:
-        rubric = get_rubric(nid)
+        try:
+            rubric = get_rubric(nid)
+        except KeyError:
+            rubric = {"scale_levels": []}
         scale_levels = rubric.get("scale_levels", [])
         properties[nid] = {
             "type": "string",
@@ -175,6 +255,27 @@ async def score_dimension(
             log.error(f"Failed to parse dimension response as JSON: {raw_response}")
             raise ValueError(f"Invalid JSON in dimension response: {e}")
 
+        # Preferred Phase 1b shape: one field per neuron in this dimension.
+        # Compatibility shape: legacy single-neuron JSON such as
+        # {"score": 0.9, "final_score_after_leniency_penalty": 0.9}. In that
+        # case, apply the score to each neuron in this dimension batch.
+        explicit_neuron_fields = any(nid in response_json for nid in neuron_ids)
+        scores = {}
+        for nid in neuron_ids:
+            if explicit_neuron_fields and nid in response_json:
+                scores[nid] = _coerce_level_to_score(nid, response_json[nid])
+            elif explicit_neuron_fields:
+                scores[nid] = None
+            else:
+                scores[nid] = _legacy_response_score(nid, response_json)
+
+            if scores[nid] is None:
+                log.warning(
+                    f"Invalid or missing response for neuron {nid} in dimension {dimension_name}"
+                )
+
+        return scores
+
         # Validate all neurons are present
         scores = {}
         for nid in neuron_ids:
@@ -203,7 +304,7 @@ async def score_dimension(
         return {nid: None for nid in neuron_ids}
 
 
-async def score_all_neurons(
+async def _score_all_neurons_async(
     transcript: str,
     neuron_ids: Optional[List[str]] = None,
     judge_client: Any = None,
@@ -271,6 +372,23 @@ async def score_all_neurons(
     }
 
 
+def score_all_neurons(
+    *args,
+    **kwargs,
+) -> Dict[str, Any] | Any:
+    """Public compatibility entry point.
+
+    Old sync shape: score_all_neurons(judge_fn, transcript, neuron_ids=None) -> dict.
+    New async shape: await score_all_neurons(transcript=..., neuron_ids=..., judge_client=...).
+    """
+    if args and callable(args[0]):
+        judge_fn = args[0]
+        transcript = args[1] if len(args) > 1 else kwargs.get("transcript", "")
+        neuron_ids = args[2] if len(args) > 2 else kwargs.get("neuron_ids")
+        return score_all_neurons_sync(judge_fn, transcript, neuron_ids)
+    return _score_all_neurons_async(*args, **kwargs)
+
+
 def score_all_neurons_sync(
     judge_fn: Callable,
     transcript: str,
@@ -306,7 +424,7 @@ def score_all_neurons_sync(
         return judge_fn(combined)
 
     client = JudgeClient(generate=combined_prompt)
-    return asyncio.run(score_all_neurons(transcript, neuron_ids, client))
+    return asyncio.run(_score_all_neurons_async(transcript, neuron_ids, client))
 
 
 if __name__ == "__main__":

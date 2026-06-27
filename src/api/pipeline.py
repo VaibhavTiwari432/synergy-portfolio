@@ -362,8 +362,6 @@ def _add_judge_neuron_firings(
         if result.get("error"):
             continue
         level = result.get("final_score_after_leniency_penalty")
-        if level is None:
-            continue
         dim_key = _JUDGE_DIM_OF.get(nid)
         if dim_key is None:
             continue
@@ -371,10 +369,17 @@ def _add_judge_neuron_firings(
             dim = Dimension(dim_key)
         except ValueError:
             continue
-        rb = _get_judge_rubric(nid)
-        sm = rb["strength_map"]
-        idx = max(0, min(len(sm) - 1, int(level)))
-        firings.setdefault(dim, {})[nid] = sm[idx]
+        if level is not None:
+            rb = _get_judge_rubric(nid)
+            sm = rb["strength_map"]
+            idx = max(0, min(len(sm) - 1, int(level)))
+            value = sm[idx]
+        else:
+            score = result.get("score")
+            if not isinstance(score, (int, float)):
+                continue
+            value = max(0.0, min(1.0, float(score)))
+        firings.setdefault(dim, {})[nid] = value
         opportunities.setdefault(dim, {})[nid] = 1
 
 

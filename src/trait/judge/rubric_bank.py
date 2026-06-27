@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, FrozenSet, List
 
+from contracts.schemas import Dimension
+
 # ── contract constants ─────────────────────────────────────────────────────────
 
 #: Neurons handled by deterministic extractors — no rubric, no judge call.

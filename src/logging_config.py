@@ -63,4 +63,8 @@ def configure_logging(level: str | None = None) -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(lvl)
+    # httpx INFO request lines include full URLs; Gemini keys are query params.
+    # Keep provider failures in our own judge logs, but never emit secret-bearing URLs.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     _configured = True
