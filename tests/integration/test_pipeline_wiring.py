@@ -351,3 +351,46 @@ def test_every_ok_csl_bar_carries_ci_and_neff(  # acceptance test 9c
             assert bar.get("ci_low") is not None, f"{bar['level']}: OK bar missing ci_low"
             assert bar.get("ci_high") is not None, f"{bar['level']}: OK bar missing ci_high"
             assert bar.get("n_eff") is not None, f"{bar['level']}: OK bar missing n_eff"
+
+
+# ── Regression: Phase 1b async/sync boundary (coroutine mismatch fix) ──
+
+def test_pipeline_neuron_scoring_returns_dict_not_coroutine():
+    """Regression: pipeline._score_all_neurons(...) must return dict, not awaitable coroutine.
+
+    This guards against the bug where Phase 1b refactored score_all_neurons to async,
+    but pipeline.py still called it synchronously, receiving a coroutine instead of
+    a dict. The coroutine was then subscripted with ["results"], causing:
+    TypeError: 'coroutine' object is not subscriptable
+
+    Fix: pipeline imports score_all_neurons_sync (not the async version).
+    """
+    from src.api.pipeline import _score_all_neurons
+
+    result = _score_all_neurons(_fake_judge().neuron_fn(), "sample transcript")
+
+    # Must be a dict, not a coroutine
+    assert isinstance(result, dict), \
+        f"Expected dict, got {type(result)} — coroutine mismatch in pipeline"
+    # Must have the keys the pipeline expects
+    assert "results" in result, f"Missing 'results' key: {result.keys()}"
+    assert "summary" in result, f"Missing 'summary' key: {result.keys()}"
+    # results must be subscriptable (dict-like)
+    assert isinstance(result["results"], dict)
+
+
+def test_score_all_neurons_sync_compatibility():
+    """Verify score_all_neurons_sync has the signature pipeline expects."""
+    from src.trait.judge.per_criterion import score_all_neurons_sync
+    import inspect
+
+    sig = inspect.signature(score_all_neurons_sync)
+    params = list(sig.parameters.keys())
+
+    # Pipeline calls: _score_all_neurons(judge.neuron_fn(), transcript)
+    # So the first parameter must accept judge_fn
+    assert "judge_fn" in params, \
+        f"score_all_neurons_sync missing judge_fn parameter. Has: {params}"
+    # Second parameter must accept transcript
+    assert "transcript" in params, \
+        f"score_all_neurons_sync missing transcript parameter. Has: {params}"

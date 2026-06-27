@@ -1,12 +1,26 @@
 """
-Alembic migration 014: Two-table event log architecture (Item #8)
+Alembic migration: Two-table event log architecture (Item #8)
 
 Creates human_control_signals and ai_action_log tables.
+
+NOTE (2026-06-27): this file originally declared no revision vars, so alembic
+could not parse the versions directory at all (the whole chain was broken). It
+also collided on "014" with 014_is_minor.py and was never applied. Re-homed as a
+proper linear revision after 017 (DDL unchanged). See DISCREPANCY.md.
+
+Revision ID: two_table_event_log
+Revises: 017
+Create Date: 2026-06-22
 """
 
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+revision = "two_table_event_log"
+down_revision = "017"
+branch_labels = None
+depends_on = None
 
 
 def upgrade():

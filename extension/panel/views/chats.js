@@ -136,10 +136,23 @@ export function initChatsView(shadowRoot) {
       if (health.data?.scoring === 'missing_judge_key') {
         return 'Scoring is not configured. Set GEMINI_API_KEY or GOOGLE_API_KEY, then restart the SAF worker.';
       }
+      if (health.data?.worker === 'down') {
+        return 'Scoring worker is offline — captured chats stay pending until it runs. Start it with start_saf.ps1.';
+      }
     } catch (_) {
       return '';
     }
     return '';
+  }
+
+  function formatProgress(progress) {
+    // content.js already plumbs percent + captured_turns through background → api_client;
+    // surface them so a long capture shows live "% / N turns", not a frozen message.
+    const pct = Number(progress.percent);
+    const turns = Number(progress.captured_turns);
+    const head = Number.isFinite(pct) && pct > 0 ? `${Math.round(pct)}% · ` : '';
+    const tail = Number.isFinite(turns) && turns > 0 ? ` · ${turns} turns` : '';
+    return `${head}${progress.message || 'Capturing...'}${tail}`;
   }
 
   function setStatus(message, isError = false) {
@@ -403,7 +416,7 @@ export function initChatsView(shadowRoot) {
     if (apiClient.getAnalysisProgress) {
       progressPoll = globalThis.setInterval(async () => {
         const progress = await apiClient.getAnalysisProgress();
-        if (progress?.message) setStatus(progress.message);
+        if (progress) setStatus(formatProgress(progress));
       }, 2000);
     }
 

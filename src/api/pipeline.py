@@ -71,7 +71,7 @@ from src.trait.evidence import assess_ec_evidence
 from src.trait.extractors.per_dimension import al, aui, ca, cd, cs, ec, es, pr
 from src.trait.judge.cascade_eval import compute_disagreement_metric as _disagree
 from src.trait.judge.client import JudgeClient
-from src.trait.judge.per_criterion import score_all_neurons as _score_all_neurons
+from src.trait.judge.per_criterion import score_all_neurons_sync as _score_all_neurons
 from src.trait.judge.rubric_bank import DIM_OF as _JUDGE_DIM_OF, get_rubric as _get_judge_rubric
 from src.trait.phase_classifier import classify_phases
 from src.trait.tagger import tag_turns

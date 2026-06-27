@@ -1142,7 +1142,11 @@
       try {
         let res = await attempt(null);
         // Cookie alone rejected → retry once with the page's own bearer token.
-        if (res && (res.status === 401 || res.status === 403)) {
+        // Project/gizmo conversations (/g/g-p-*/c/*) return 404 (not 401) under
+        // cookie-only auth even though they exist — ChatGPT authorizes the tree
+        // read with the page's bearer token. A genuine 404 just 404s again and we
+        // fall through to the DOM scroll, so adding it here costs nothing.
+        if (res && (res.status === 401 || res.status === 403 || res.status === 404)) {
           const token = await fetchSessionAccessToken();
           if (token) {
             state.backendFetchStatus = "retry_with_token";

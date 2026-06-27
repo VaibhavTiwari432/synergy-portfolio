@@ -1667,16 +1667,97 @@
 }
 
 .saf-dimension-ci {
-  min-width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 64px;
   color: var(--saf-text-muted);
   font-size: 11px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
+.saf-ci-range {
+  color: var(--saf-text-muted);
+}
+
+/* Calm confidence chip — replaces the foregrounded ±half-width. */
+.saf-ci-chip {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 9px;
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.saf-ci-chip--wide {
+  background: color-mix(in srgb, var(--saf-amber) 18%, transparent);
+  color: var(--saf-amber);
+}
+
+.saf-ci-chip--evidence,
+.saf-ci-chip--na {
+  background: var(--saf-bg-elevated);
+  color: var(--saf-text-muted);
+}
+
 .saf-dimension-row[data-state="STRUCTURAL_NA"] .saf-dimension-fill,
 .saf-dimension-row[data-state="INSUFFICIENT_SAMPLE"] .saf-dimension-fill {
   background: var(--saf-text-faint);
+}
+
+/* Evidence & deduction tables (collapsed accordion in the results overlay). */
+.saf-evidence-summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.saf-evidence-block {
+  margin-top: 12px;
+}
+
+.saf-evidence-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--saf-text-secondary);
+}
+
+.saf-evidence-table-wrap {
+  overflow-x: auto;
+}
+
+.saf-evidence-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.saf-evidence-table th,
+.saf-evidence-table td {
+  padding: 4px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--saf-border-subtle, var(--saf-bg-elevated));
+  white-space: nowrap;
+}
+
+.saf-evidence-table th {
+  color: var(--saf-text-muted);
+  font-weight: 600;
+}
+
+.saf-evidence-table td {
+  color: var(--saf-text-secondary);
+}
+
+.saf-evidence-empty {
+  color: var(--saf-text-faint);
+  font-style: italic;
+  white-space: normal;
 }
 
 .saf-detail-note {

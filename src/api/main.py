@@ -86,6 +86,28 @@ async def _scoring_readiness() -> str:
     return status
 
 
+#: a worker beats every WORKER_HEARTBEAT_SECONDS (default 30s); allow ~3 missed
+#: beats before calling it down, so one slow beat is not a false alarm.
+_WORKER_STALE_SECONDS = 95.0
+
+
+async def _worker_readiness() -> str:
+    """ok = a worker beat within the staleness window; down = none has (no worker
+    running, or it stopped); unknown = DB unreachable so we can't tell."""
+    from src.db.connection import get_pool_optional
+    from src.db.queries import worker_heartbeat_age_seconds
+    pool = get_pool_optional()
+    if pool is None:
+        return "unknown"
+    try:
+        age = await worker_heartbeat_age_seconds(pool)
+    except Exception:
+        return "unknown"
+    if age is None:
+        return "down"
+    return "ok" if float(age) <= _WORKER_STALE_SECONDS else "down"
+
+
 # ── lifespan (Postgres pool) ──────────────────────────────────────────────────
 
 @asynccontextmanager
@@ -180,7 +202,12 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
                 db = "ok"
             except Exception:
                 db = "unavailable"
-        return {"status": "ok", "db": db, "scoring": await _scoring_readiness()}
+        return {
+            "status": "ok",
+            "db": db,
+            "scoring": await _scoring_readiness(),
+            "worker": await _worker_readiness(),
+        }
 
     @app.get("/v1/contracts")
     async def contracts() -> dict[str, str]:

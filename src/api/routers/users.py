@@ -31,6 +31,7 @@ from src.db.queries import (
     delete_user,
     feedback_given,
     get_all_scores_for_user,
+    get_neuron_firings,
     get_portfolio_ack,
     get_scored_score_row,
     get_settings,
@@ -215,6 +216,21 @@ async def get_chat_score(
     out = score.model_dump(by_alias=True)
     out["raw_profile"] = row["raw_profile"]
     out["telemetry_metrics"] = row["telemetry_metrics"]
+    # Deduction log: the per-neuron firings behind the dimension scores. Safe
+    # derived metrics only (codes, values, n_eff, turn indices) — no transcript
+    # text. Empty list when none stored, so the UI shows an explicit empty state.
+    out["neuron_firings"] = [
+        {
+            "neuron_code": r["neuron_code"],
+            "dimension": r["dimension"],
+            "value": r["value"],
+            "applicable_opportunities": r["applicable_opportunities"],
+            "n_eff": r["n_eff"],
+            "evidence_turn_indices": list(r["evidence_turn_indices"] or []),
+            "extractor_version": r["extractor_version"],
+        }
+        for r in await get_neuron_firings(pool, chat_id=chat_id)
+    ]
     out["current_chat_score"] = {
         "score": _mean(current_values),
         "dimensions": current_values,
@@ -283,6 +299,7 @@ async def get_chat_work(
                 "status": r.get("status", "N/A"),
                 "human_pct": r.get("human_pct"),
                 "ai_pct": r.get("ai_pct"),
+                "n_eff": r.get("n_eff"),
                 "ci": r.get("ci"),
                 "flags": r.get("flags", []),
             }

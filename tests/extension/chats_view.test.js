@@ -259,6 +259,41 @@ test('pending chats surface missing scorer configuration from health', async () 
   assert.match(shadow.getElementById('saf-chat-status').textContent, /GEMINI_API_KEY or GOOGLE_API_KEY/);
 });
 
+test('pending chats surface offline worker from health', async () => {
+  globalThis.SAFStorage = {
+    STORAGE_KEYS: { USER_REF: 'user_ref' },
+    async get() { return 'user-1'; },
+  };
+  globalThis.SAFApiClient = {
+    async getChatList() {
+      return {
+        ok: true,
+        data: {
+          chats: [{ chat_id: 'chat-1', conversation_id: 'conv-1', status: 'pending', captured_at: '2026-06-21T00:00:00Z' }],
+          summary: { total: 1, scored: 0, pending: 1, failed: 0 },
+        },
+      };
+    },
+    async getHealth() {
+      return { ok: true, data: { status: 'ok', db: 'ok', scoring: 'ok', worker: 'down' } };
+    },
+  };
+
+  const initChatsView = loadInitChatsView({
+    globalThis: {
+      location: { href: 'https://chatgpt.com/' },
+      setInterval() { return 1; },
+      clearInterval() {},
+    },
+  });
+  const shadow = new FakeShadowRoot();
+  initChatsView(shadow);
+  await flush();
+  await flush();
+
+  assert.match(shadow.getElementById('saf-chat-status').textContent, /worker is offline/i);
+});
+
 test('Analyse current starts capture without an existing chat row', async () => {
   let triggerArgument = 'not-called';
   globalThis.SAFStorage = {

@@ -2,6 +2,20 @@ const DIMENSIONS = ['AL', 'PR', 'EC', 'ES', 'CS', 'CD', 'AUI', 'CA'];
 const DEBT_FLAG_TOOLTIP = 'Pattern detected — not proven without retention probe.';
 const MAX_FEEDBACK_CHARS = 280;
 
+// Uncertainty is shown as a calm CI range plus, when notable, one chip — never a
+// foregrounded ±half-width (which reads like an error when it exceeds the score).
+// Thresholds are on the 0–100 display scale; the exact ± stays in the tooltip.
+const WIDE_HALF_PCT = 25;   // CI half-width ≥ this → "Wide interval"
+const LIMITED_NEFF = 3;     // effective evidence below this → "Limited evidence"
+
+// Status → human label, shared by the dimension and cognitive-work evidence tables.
+const STATE_LABEL = {
+  OK: 'measured',
+  'N/A': 'not applicable',
+  INSUFFICIENT_SAMPLE: 'limited evidence',
+  MEASUREMENT_SATURATED: 'saturated',
+};
+
 // Every emitted claim carries exactly one evidence rung (#14). The badge makes
 // the rung visible next to the number so a value is never read as more certain
 // than its rung allows.
@@ -56,6 +70,10 @@ export function initDetailView(shadowRoot) {
     cslSection: shadowRoot.getElementById('saf-csl-section'),
     cslLevels: shadowRoot.getElementById('saf-csl-levels'),
     cslNote: shadowRoot.getElementById('saf-csl-note'),
+    evidenceSection: shadowRoot.getElementById('saf-evidence-section'),
+    evidenceWork: shadowRoot.getElementById('saf-evidence-work'),
+    evidenceDims: shadowRoot.getElementById('saf-evidence-dims'),
+    evidenceLog: shadowRoot.getElementById('saf-evidence-log'),
     dimensionList: shadowRoot.getElementById('saf-dimension-list'),
     trendSection: shadowRoot.getElementById('saf-trend-section'),
     flagSection: shadowRoot.getElementById('saf-flags-section'),
@@ -108,15 +126,59 @@ export function initDetailView(shadowRoot) {
     return (number * 100).toFixed(2);
   }
 
-  function formatCI(dim, score) {
-    const ci = score?.ci;
-    const low = numeric(ci?.low);
-    const high = numeric(ci?.high);
-    if (low == null || high == null) {
-      console.warn('[SAF] scored dimension missing ci', dim, score);
-      return '±?';
+  // Exact ± half-width on the 0–100 scale, for tooltips/details only — never the
+  // foregrounded headline number.
+  function ciHalfPct(score) {
+    const low = numeric(score?.ci?.low);
+    const high = numeric(score?.ci?.high);
+    if (low == null || high == null) return null;
+    return (high - low) / 2 * 100;
+  }
+
+  // A short confidence label: "Wide interval" when the band is broad, "Limited
+  // evidence" when n_eff is thin (limited evidence wins — it's the root cause).
+  function confidenceChipLabel(score) {
+    const half = ciHalfPct(score);
+    const neff = numeric(score?.n_eff);
+    if (neff != null && neff < LIMITED_NEFF) return 'Limited evidence';
+    if (half != null && half >= WIDE_HALF_PCT) return 'Wide interval';
+    return null;
+  }
+
+  // CI as a calm range ("CI 2.62–95.02"); null when the band is absent.
+  function ciRangeText(score) {
+    const low = numeric(score?.ci?.low);
+    const high = numeric(score?.ci?.high);
+    if (low == null || high == null) return null;
+    return `CI ${pct(low)}–${pct(high)}`;
+  }
+
+  // Fill the dimension row's CI cell: calm range text on top, an optional
+  // confidence chip beneath, exact ± + n_eff in the tooltip (#6, #14).
+  function applyUncertainty(ciEl, dim, score) {
+    clear(ciEl);
+    const range = ciRangeText(score);
+    if (range == null) console.warn('[SAF] scored dimension missing ci', dim, score);
+
+    const rangeEl = document.createElement('span');
+    rangeEl.className = 'saf-ci-range';
+    rangeEl.textContent = range == null ? 'CI n/a' : range;
+    ciEl.appendChild(rangeEl);
+
+    const chip = confidenceChipLabel(score);
+    if (chip) {
+      const chipEl = document.createElement('span');
+      chipEl.className = `saf-ci-chip ${chip === 'Limited evidence' ? 'saf-ci-chip--evidence' : 'saf-ci-chip--wide'}`;
+      chipEl.textContent = chip;
+      ciEl.appendChild(chipEl);
     }
-    return `±${((high - low) / 2 * 100).toFixed(2)}`;
+
+    const half = ciHalfPct(score);
+    const neff = numeric(score?.n_eff);
+    ciEl.title = [
+      half == null ? null : `± ${half.toFixed(2)} (95% CI half-width)`,
+      neff == null ? null : `effective evidence n=${formatValue(neff)}`,
+    ].filter(Boolean).join(' · ');
   }
 
   function dimensionValue(score) {
@@ -365,6 +427,177 @@ export function initDetailView(shadowRoot) {
     }
   }
 
+  // ── Evidence tables (descriptive; built only from stored artifacts) ──────────
+  // A generic table. `rows` is an array of cell arrays; a cell is a string/number
+  // or {text, title, className}. An empty `rows` renders one explicit empty row
+  // naming the missing artifact — never a fabricated data row (#12, never fabricate).
+  function buildTable(headers, rows, emptyMsg) {
+    const table = document.createElement('table');
+    table.className = 'saf-evidence-table';
+
+    const thead = document.createElement('thead');
+    const htr = document.createElement('tr');
+    headers.forEach((h) => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    if (!rows.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.className = 'saf-evidence-empty';
+      td.setAttribute('colspan', String(headers.length));
+      td.textContent = emptyMsg;
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    } else {
+      rows.forEach((cells) => {
+        const tr = document.createElement('tr');
+        cells.forEach((c) => {
+          const td = document.createElement('td');
+          if (c && typeof c === 'object') {
+            td.textContent = c.text == null ? '—' : String(c.text);
+            if (c.title) td.title = c.title;
+            if (c.className) td.className = c.className;
+          } else {
+            td.textContent = c == null || c === '' ? '—' : String(c);
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+    table.appendChild(tbody);
+    return table;
+  }
+
+  function renderTableInto(node, table) {
+    if (!node) return;
+    clear(node);
+    node.appendChild(table);
+  }
+
+  function pctOrDash(value) {
+    const n = numeric(value);
+    return n == null ? '—' : `${(n * 100).toFixed(0)}%`;
+  }
+
+  function flagsText(flags) {
+    return Array.isArray(flags) && flags.length ? flags.join(', ') : '—';
+  }
+
+  // n_eff is a count-like float (1.0, 9.0, 34.0): show it clean, not "9.00".
+  function countText(value) {
+    const n = numeric(value);
+    if (n == null) return '—';
+    return Number.isInteger(n) ? String(n) : n.toFixed(1);
+  }
+
+  // A. Cognitive work evidence — the C1–C7 contributions as a table (the bars
+  // above are the compact visual; this is the tabular form with n_eff + caveats).
+  function renderWorkEvidence(work) {
+    const levels = Array.isArray(work?.levels) ? work.levels : [];
+    const usable = work?.status === 'ok' ? levels : [];
+    const rows = usable.map((lvl) => {
+      const ok = lvl?.status === 'OK';
+      return [
+        lvl?.level || '—',
+        lvl?.label || '—',
+        ok ? pctOrDash(lvl?.human_pct) : '—',
+        ok ? pctOrDash(lvl?.ai_pct) : '—',
+        countText(lvl?.n_eff),
+        STATE_LABEL[lvl?.status] || String(lvl?.status || '—').toLowerCase(),
+        flagsText(lvl?.flags),
+      ];
+    });
+    renderTableInto(
+      els.evidenceWork,
+      buildTable(
+        ['Level', 'Name', 'You', 'AI', 'n_eff', 'State', 'Caveats'],
+        rows,
+        'Cognitive-work evidence unavailable — needs the CSL work artifact (scores.csl).',
+      ),
+    );
+  }
+
+  // B. Dimension evidence — value/state, CI confidence, n_eff, caveats, source,
+  // all from the dimension scores already in the response.
+  function renderDimEvidence(profile) {
+    const rows = DIMENSIONS.map((dim) => {
+      const s = profile?.[dim] || {};
+      const ok = s.status === 'OK';
+      let valueCell = STATE_LABEL[s.status] || String(s.status || 'no data').toLowerCase();
+      if (ok) valueCell = pct(s.value) ?? '—';
+      else if (s.status === 'INSUFFICIENT_SAMPLE') valueCell = 'low n';
+      const confidence = ok
+        ? (ciRangeText(s) || '—')
+        : '—';
+      const chip = ok ? confidenceChipLabel(s) : null;
+      const rc = s.raw_counts || {};
+      const source = rc.neurons_succeeded != null && rc.neurons_attempted != null
+        ? `${rc.neurons_succeeded}/${rc.neurons_attempted} neurons`
+        : (s.rung || '—');
+      return [
+        dim,
+        { text: valueCell, title: s.status_reason || '' },
+        { text: confidence + (chip ? ` · ${chip}` : ''), title: chip ? `${chip} — see tooltip on the profile row` : '' },
+        countText(s.n_eff),
+        { text: flagsText(s.flags), title: s.status_reason || '' },
+        source,
+      ];
+    });
+    renderTableInto(
+      els.evidenceDims,
+      buildTable(
+        ['Dim', 'Value', 'Confidence', 'n_eff', 'Caveats', 'Source'],
+        rows,
+        'No dimension evidence in this score.',
+      ),
+    );
+  }
+
+  // C. Deduction log — the per-neuron firings behind the dimension scores.
+  // Empty state names the missing artifact (neuron_firings) rather than inventing rows.
+  function renderDeductionLog(firings) {
+    const list = Array.isArray(firings) ? firings : [];
+    const rows = list.map((f) => {
+      const v = numeric(f?.value);
+      const contribution = v == null
+        ? 'N/A'
+        : (v === 0 ? '0.00 (observed)' : v.toFixed(2));
+      const turns = Array.isArray(f?.evidence_turn_indices) && f.evidence_turn_indices.length
+        ? f.evidence_turn_indices.join(', ')
+        : '—';
+      return [
+        f?.neuron_code || '—',
+        f?.dimension || '—',
+        contribution,
+        countText(f?.n_eff),
+        turns,
+        f?.extractor_version || '—',
+      ];
+    });
+    renderTableInto(
+      els.evidenceLog,
+      buildTable(
+        ['Signal', 'Dim', 'Contribution', 'Weight', 'Turns', 'Source'],
+        rows,
+        'No per-neuron deduction log stored for this chat — needs the neuron_firings artifact (score API).',
+      ),
+    );
+  }
+
+  function clearEvidence() {
+    clear(els.evidenceWork);
+    clear(els.evidenceDims);
+    clear(els.evidenceLog);
+    if (els.evidenceSection) els.evidenceSection.hidden = true;
+  }
+
   function hideRichSections() {
     if (els.compositeCard) els.compositeCard.hidden = true;
     if (els.stateSection) els.stateSection.hidden = true;
@@ -374,6 +607,7 @@ export function initDetailView(shadowRoot) {
     clear(els.stateStrip);
     clear(els.stateReadout);
     clear(els.cslLevels);
+    clearEvidence();
   }
 
   // The full results render into a large scrollable overlay layered over the
@@ -479,7 +713,7 @@ export function initDetailView(shadowRoot) {
     fill.style.setProperty('--saf-dim-fill', `${Math.round(fillValue * 100)}%`);
     fill.style.setProperty('--saf-dim-color', colorForValue(fillValue));
     value.textContent = scoreValue == null ? '-' : pct(scoreValue);
-    ci.textContent = formatCI(dim, score);
+    applyUncertainty(ci, dim, score);
     return row;
   }
 
@@ -487,8 +721,16 @@ export function initDetailView(shadowRoot) {
     const { row, fill, value, ci } = makeDimensionRow(dim, 'STRUCTURAL_NA');
     fill.style.setProperty('--saf-dim-fill', '100%');
     value.textContent = 'N/A';
-    ci.textContent = score?.status_reason ? 'note' : '';
-    if (score?.status_reason) row.title = score.status_reason;
+    const reason = score?.status_reason;
+    clear(ci);
+    if (reason) {
+      const chip = document.createElement('span');
+      chip.className = 'saf-ci-chip saf-ci-chip--na';
+      chip.textContent = 'why?';
+      ci.appendChild(chip);
+      ci.title = reason;
+      row.title = reason;
+    }
     return row;
   }
 
@@ -613,6 +855,13 @@ export function initDetailView(shadowRoot) {
     renderProfile(score?.profile || {});
     renderFlags(score?.flags || {});
     renderRemarks(score?.report || {});
+    // Evidence tables: dimension evidence + deduction log come from the score
+    // response; cognitive-work evidence is filled later by loadWork(). The section
+    // is always shown once a score loads (dimension evidence always exists).
+    if (els.evidenceSection) els.evidenceSection.hidden = false;
+    renderDimEvidence(score?.profile || {});
+    renderDeductionLog(score?.neuron_firings);
+    renderWorkEvidence(null); // placeholder until the CSL work route returns
     resetFeedback(Boolean(score?.feedback_given));
   }
 
@@ -731,10 +980,13 @@ export function initDetailView(shadowRoot) {
     try {
       const result = await apiClient.getChatWork(userRef, chatId);
       if (requestId !== state.requestId) return;
-      renderCSL(result?.ok ? result.data || {} : null);
+      const work = result?.ok ? result.data || {} : null;
+      renderCSL(work);
+      renderWorkEvidence(work);
     } catch (_error) {
       if (requestId !== state.requestId) return;
       renderCSL(null);
+      renderWorkEvidence(null);
     }
   }
 

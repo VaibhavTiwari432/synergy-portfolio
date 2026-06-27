@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import os
+import socket
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -40,6 +41,7 @@ from src.db.queries import (
     upsert_question_quality,
     upsert_reliance,
     upsert_score,
+    upsert_worker_heartbeat,
 )
 from src.trait.judge.prompt import JUDGE_PROMPT_VERSION
 
@@ -50,6 +52,9 @@ POLL_INTERVAL: int = int(os.environ.get("WORKER_POLL_INTERVAL", "3"))
 # with a UTC timestamp — so ops can detect a silently-dead worker.
 HEARTBEAT_INTERVAL: int = int(os.environ.get("WORKER_HEARTBEAT_SECONDS", "30"))
 HEARTBEAT_FILE: str | None = os.environ.get("WORKER_HEARTBEAT_FILE") or None
+#: identifies this worker process in the worker_heartbeat table (host:pid) so
+#: multiple workers each keep their own row; readers take MAX(beat_at).
+WORKER_ID: str = f"{socket.gethostname()}:{os.getpid()}"
 
 # Lease watchdog (stuck-scoring recovery). A chat enters status='scoring' when a
 # worker claims it; if that worker crashes or hangs before finalizing, the row is
@@ -57,12 +62,12 @@ HEARTBEAT_FILE: str | None = os.environ.get("WORKER_HEARTBEAT_FILE") or None
 # and records every reset in scoring_lease_events (reason='lease_timeout'). The
 # default (600 s) must exceed the longest legitimate single-chat scoring time so a
 # slow-but-live score is never reset out from under itself.
-LEASE_TIMEOUT_SECONDS: int = int(os.environ.get("LEASE_TIMEOUT_SECONDS", "600"))
+LEASE_TIMEOUT_SECONDS: int = int(os.environ.get("LEASE_TIMEOUT_SECONDS", "1200"))
 # Maximum wall-clock seconds for a single chat's scoring call. Must be less than
 # LEASE_TIMEOUT_SECONDS so a timed-out chat is marked 'failed' before the watchdog
 # would reset it — prevents the watchdog from re-queuing a chat whose scoring
 # thread is still alive but whose lease has already expired.
-SCORING_TIMEOUT_SECONDS: int = int(os.environ.get("SCORING_TIMEOUT_SECONDS", "540"))
+SCORING_TIMEOUT_SECONDS: int = int(os.environ.get("SCORING_TIMEOUT_SECONDS", "900"))
 # How often the watchdog checks. Default = a quarter of the lease, clamped to
 # [30 s, 300 s] so a check always lands well within the lease window.
 LEASE_WATCHDOG_INTERVAL: int = int(
@@ -334,12 +339,22 @@ async def _poll_loop(pool: asyncpg.Pool) -> None:
         await asyncio.sleep(POLL_INTERVAL)
 
 
-async def _heartbeat_loop() -> None:
-    """Liveness signal so a silently-dead worker is detectable (Track 4)."""
+async def _heartbeat_loop(pool: asyncpg.Pool) -> None:
+    """Liveness signal so a silently-dead worker is detectable (Track 4).
+
+    Persists a DB heartbeat each beat so /v1/health (and thus the panel) can tell
+    "scoring is slow" from "no worker is draining the queue". The DB write and the
+    optional file write are both best-effort — a heartbeat hiccup never kills the
+    worker or its scoring loop."""
     import time
     while True:
         ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         log.info("[WORKER] heartbeat %s (poll=%ds)", ts, POLL_INTERVAL)
+        try:
+            async with pool.acquire() as conn:
+                await upsert_worker_heartbeat(conn, WORKER_ID)
+        except Exception as exc:  # DB heartbeat is best-effort, never fatal
+            log.warning("[WORKER] db heartbeat failed: %s", exc)
         if HEARTBEAT_FILE:
             try:
                 with open(HEARTBEAT_FILE, "w", encoding="utf-8") as fh:
@@ -369,7 +384,7 @@ async def run() -> None:
     # Poll loop, lease watchdog, and heartbeat run concurrently; if any coroutine
     # ever raises out of its own try/except (it shouldn't), gather surfaces it
     # loudly rather than leaving a half-dead worker.
-    await asyncio.gather(_poll_loop(pool), _lease_watchdog(pool), _heartbeat_loop())
+    await asyncio.gather(_poll_loop(pool), _lease_watchdog(pool), _heartbeat_loop(pool))
 
 
 if __name__ == "__main__":

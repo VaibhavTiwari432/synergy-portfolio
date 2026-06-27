@@ -1225,6 +1225,26 @@ without gold data.
 
 ---
 
+## D-032  [RESOLVED]  — Orphan migration broke the whole alembic chain
+**Filed:** 2026-06-27
+**Filed by:** CE
+**Status:** RESOLVED
+**Component:** alembic/versions/014_two_table_event_log.py
+**Problem:** The file declared no `revision`/`down_revision`/`branch_labels`/`depends_on`
+module vars, so `alembic upgrade head` failed to parse the *entire* versions directory
+("Could not determine revision id from filename"). It also collided on number "014" with
+`014_is_minor.py` and had never been applied — its tables (`human_control_signals`,
+`ai_action_log`) were absent from the DB despite being referenced by `src/eventlog/queries.py`
+and `src/api/pipeline.py` (a latent D4 bug). This blocked migration 018 (worker heartbeat).
+**Decision (CE):** Added the four missing alembic vars and re-homed it as a proper linear
+revision (`revision="two_table_event_log"`, `down_revision="017"`) — DDL unchanged. Migration
+018 (worker_heartbeat) now chains after it. Applied: `017 → two_table_event_log → 018`. The
+two D4 tables now exist. No file rename; no logic change. If D4's owner intended a different
+chain position, re-open.
+**Non-negotiable reference:** #21 (no silent workaround) — recorded rather than quietly patched.
+
+---
+
 ## Quick reference — when to file here vs just build
 
 | Situation | Action |
