@@ -30,6 +30,7 @@ from src.provenance import EXTRACTOR_VERSION, provenance_stamp
 
 from contracts.schemas import (
     CanonicalSession,
+    Censored,
     ConfidenceInterval,
     Dimension,
     DimensionScore,
@@ -71,7 +72,8 @@ from src.trait.evidence import assess_ec_evidence
 from src.trait.extractors.per_dimension import al, aui, ca, cd, cs, ec, es, pr
 from src.trait.judge.cascade_eval import compute_disagreement_metric as _disagree
 from src.trait.judge.client import JudgeClient
-from src.trait.judge.per_criterion import score_all_neurons_sync as _score_all_neurons
+from src.trait.extractors.per_dimension.ec_tobit import apply_tobit_to_ec_scores as _tobit_ec
+from src.trait.judge.per_criterion import score_all_neurons_replicated as _score_all_neurons
 from src.trait.judge.rubric_bank import DIM_OF as _JUDGE_DIM_OF, get_rubric as _get_judge_rubric
 from src.trait.phase_classifier import classify_phases
 from src.trait.tagger import tag_turns
@@ -426,6 +428,7 @@ def _profile_from_judge(
     extractor_firings: dict[Dimension, dict[str, float]] | None = None,
     extractor_opportunities: dict[Dimension, dict[str, int]] | None = None,
     neuron_stats: dict[Dimension, dict[str, int]] | None = None,
+    per_neuron_disagreement: dict[str, float] | None = None,
 ) -> dict[Dimension, DimensionScore]:
     ec_evidence = assess_ec_evidence(session, tags)
     profile: dict[Dimension, DimensionScore] = {}
@@ -466,15 +469,24 @@ def _profile_from_judge(
         # if per-criterion scoring failed entirely fall back to the joint judge score
         has_judge_neurons = any(nid in _JUDGE_DIM_OF for nid in dim_firings)
 
-        # A4: CI from within-dim neuron disagreement (not LLM self-confidence).
-        # Self-confidence is demoted to a secondary flag only.
-        judge_strengths = [v for nid, v in dim_firings.items() if nid in _JUDGE_DIM_OF]
-        if judge_strengths and len(judge_strengths) > 1:
-            disagreement = _disagree(judge_strengths)
+        # A4: CI from per-neuron replication variance (real measurement noise, not
+        # between-neuron spread which reflects genuine facet heterogeneity).
+        # Falls back to between-neuron spread when replication data absent.
+        judge_nids_in_dim = [nid for nid in dim_firings if nid in _JUDGE_DIM_OF]
+        if per_neuron_disagreement and judge_nids_in_dim:
+            rep_vars = [per_neuron_disagreement[nid] for nid in judge_nids_in_dim if nid in per_neuron_disagreement]
+            disagreement = sum(rep_vars) / len(rep_vars) if rep_vars else 0.0
             half = _CI_FLOOR + _CI_SPAN * disagreement
             if js.confidence < 0.5:
                 flags.append("low_judge_confidence")
             flags.append("ci_from_disagreement")  # item 3: CI source is observable variance
+        elif judge_nids_in_dim and len(judge_nids_in_dim) > 1:
+            judge_strengths = [dim_firings[nid] for nid in judge_nids_in_dim]
+            disagreement = _disagree(judge_strengths)
+            half = _CI_FLOOR + _CI_SPAN * disagreement
+            if js.confidence < 0.5:
+                flags.append("low_judge_confidence")
+            flags.append("ci_from_disagreement")
         else:
             # fallback: use joint confidence (per-criterion unavailable for this dim)
             half = _CI_FLOOR + _CI_SPAN * (1.0 - js.confidence)
@@ -590,6 +602,7 @@ def _compute_fluent_incompetence(
     ec_evidence,
     tags: list[TurnTags],
     state_validity: StateValidity,
+    rel=None,
 ) -> bool:
     pr = profile.get(Dimension.PR)
     if pr is None or pr.value is None or pr.value <= _TAU_PR_HIGH:
@@ -597,13 +610,22 @@ def _compute_fluent_incompetence(
     n = len(tags)
     if n == 0:
         return False
-    verify_ratio = sum(1 for tt in tags if IntentTag.VERIFY in frozenset(tt.tags)) / n
-    n_verify = len(ec_evidence.tags)
-    theater_frac = ec_evidence.theater_counter / n_verify if n_verify > 0 else 0.0
     ep_mean = state_validity.epistemic_mean
     if ep_mean is None:
         return False  # absent epistemic evidence → don't trigger (#12)
-    return verify_ratio < _TAU_V and theater_frac > _TAU_A and ep_mean < _TAU_GEN
+    verify_ratio = sum(1 for tt in tags if IntentTag.VERIFY in frozenset(tt.tags)) / n
+    # FIX-4A: attribution_gap via weight_of_advice (rel.weight_of_advice proxies how much
+    # weight the human gives AI output vs. their own judgment; high WoA = low attribution)
+    attribution_gap = (rel.weight_of_advice if rel is not None and rel.weight_of_advice is not None else 0.0)
+    # FIX-4B: majority-vote conjunction (3 behavioral signals; gate fires when ≥2 present)
+    # Prevents the self-limiting AND that was near-impossible when verify_ratio ≈ 0
+    signals = [
+        pr.value > _TAU_PR_HIGH,
+        verify_ratio < _TAU_V,
+        attribution_gap > _TAU_A,
+    ]
+    behavioral_score = sum(signals)
+    return behavioral_score >= 2 and ep_mean < _TAU_GEN
 
 
 def score_session_with_artifacts(
@@ -630,7 +652,10 @@ def score_session_with_artifacts(
     # ── trait channel ──
     judge = judge or JudgeClient()
     # A2: per-neuron scoring (neuron-grain, replaces joint call as value source)
+    # FIX-1: K-rep median via score_all_neurons_replicated; per_neuron_disagreement
+    # feeds CI calibration in _profile_from_judge (replaces between-neuron spread)
     per_neuron_out = _score_all_neurons(judge.neuron_fn(), _build_transcript_text(session))
+    per_neuron_disagreement = per_neuron_out.get("per_neuron_disagreement")
     _add_judge_neuron_firings(per_neuron_out["results"], firings, opportunities)
     neuron_stats = _per_dim_neuron_stats(per_neuron_out["results"])
     # joint call retained for provenance metadata (flags, raw_response, family check)
@@ -645,7 +670,27 @@ def score_session_with_artifacts(
     raw_profile = _profile_from_judge(
         judge_output, session, tags, firings, opportunities,
         neuron_stats=neuron_stats,
+        per_neuron_disagreement=per_neuron_disagreement,
     )
+    # FIX-2: wire Tobit CI onto EC dimension (D3 — was unit-tested but never called on live path)
+    _ec = raw_profile.get(Dimension.EC)
+    if _ec is not None and _ec.status == ScoreStatus.OK and _ec.value is not None:
+        _tobit = _tobit_ec({'ec_score': _ec.value})
+        _tobit_flags = list(_ec.flags or []) + ["ec_tobit_ci"]
+        if _tobit['censored']:
+            raw_profile[Dimension.EC] = _ec.model_copy(update={
+                'status': ScoreStatus.MEASUREMENT_SATURATED,
+                'value': None,
+                'ci': None,
+                'censored': Censored(bound=0.0, direction='low'),
+                'flags': _tobit_flags,
+                'status_reason': 'ec_tobit_censored_floor',
+            })
+        else:
+            raw_profile[Dimension.EC] = _ec.model_copy(update={
+                'ci': ConfidenceInterval(low=_tobit['ci_lo'], high=_tobit['ci_hi']),
+                'flags': _tobit_flags,
+            })
 
     # ── state channel (sibling, same inputs) ──
     estimator = estimator or ProxyEstimator(
@@ -670,7 +715,7 @@ def score_session_with_artifacts(
     )
 
     # ── D2: fluent_incompetence gate (behavioral, not state; rule #2 preserved) ──
-    fluent_incompat = _compute_fluent_incompetence(profile, ec_evidence, tags, state_validity)
+    fluent_incompat = _compute_fluent_incompetence(profile, ec_evidence, tags, state_validity, rel=rel)
 
     composite = compute_composite(profile, state_validity, fluent_incompetence=fluent_incompat)
 

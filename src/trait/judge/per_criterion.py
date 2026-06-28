@@ -372,6 +372,106 @@ async def _score_all_neurons_async(
     }
 
 
+def score_all_neurons_replicated(
+    judge_fn: Callable,
+    transcript: str,
+    neuron_ids: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """K-rep median: cascaded selective replication per dimension (FIX-1).
+
+    Runs DEFAULT_INITIAL_REPS passes per dimension, escalates high-disagreement
+    dimensions up to DEFAULT_MAX_REPS. Final per-neuron score = median of all
+    reps. Returns per_neuron_disagreement for CI calibration in pipeline.py.
+    """
+    import statistics as _stats
+    from src.trait.judge.client import JudgeClient
+    from src.trait.judge.cascade_eval import (
+        compute_disagreement_metric,
+        DEFAULT_INITIAL_REPS,
+        DEFAULT_MAX_REPS,
+        DEFAULT_DISAGREEMENT_THRESHOLD,
+    )
+
+    def combined_prompt(system_prompt: str, user_prompt: str) -> str:
+        return judge_fn(f"{system_prompt}\n{user_prompt}")
+
+    client = JudgeClient(generate=combined_prompt)
+    all_nids: List[str] = neuron_ids if neuron_ids is not None else list_all_neurons()
+    by_dim = group_by_dimension(all_nids)
+
+    per_neuron_all_reps: Dict[str, List[float]] = {nid: [] for nid in all_nids}
+
+    async def _run_reps() -> None:
+        # Phase 1: initial reps — all dimensions concurrent per rep
+        for _ in range(DEFAULT_INITIAL_REPS):
+            tasks = [
+                score_dimension(transcript, dim, nids, client)
+                for dim, nids in by_dim.items()
+            ]
+            rep_results = await asyncio.gather(*tasks, return_exceptions=True)
+            for dim, dim_result in zip(by_dim.keys(), rep_results):
+                if isinstance(dim_result, Exception):
+                    continue
+                for nid, val in dim_result.items():
+                    if val is not None:
+                        per_neuron_all_reps[nid].append(val)
+
+        # Phase 2: escalate dimensions where any neuron exceeds threshold
+        escalate_dims = [
+            dim for dim, nids in by_dim.items()
+            if any(
+                len(per_neuron_all_reps[nid]) >= 2
+                and compute_disagreement_metric(per_neuron_all_reps[nid]) > DEFAULT_DISAGREEMENT_THRESHOLD
+                for nid in nids
+            )
+        ]
+        if escalate_dims:
+            for _ in range(DEFAULT_MAX_REPS - DEFAULT_INITIAL_REPS):
+                tasks = [
+                    score_dimension(transcript, dim, by_dim[dim], client)
+                    for dim in escalate_dims
+                ]
+                rep_results = await asyncio.gather(*tasks, return_exceptions=True)
+                for dim, dim_result in zip(escalate_dims, rep_results):
+                    if isinstance(dim_result, Exception):
+                        continue
+                    for nid, val in dim_result.items():
+                        if val is not None:
+                            per_neuron_all_reps[nid].append(val)
+
+    asyncio.run(_run_reps())
+
+    results: Dict[str, Dict[str, Any]] = {}
+    per_neuron_disagreement: Dict[str, float] = {}
+    for nid in all_nids:
+        reps = per_neuron_all_reps[nid]
+        if not reps:
+            results[nid] = {"neuron_id": nid, "error": True, "error_message": "no reps scored"}
+        else:
+            median_val = float(_stats.median(reps))
+            disagreement = compute_disagreement_metric(reps) if len(reps) >= 2 else 0.0
+            per_neuron_disagreement[nid] = disagreement
+            results[nid] = {
+                "neuron_id": nid,
+                "score": median_val,
+                "final_score_after_leniency_penalty": median_val,
+                "n_reps": len(reps),
+                "disagreement": disagreement,
+            }
+
+    successful = sum(1 for r in results.values() if not r.get("error"))
+    return {
+        "results": results,
+        "per_neuron_disagreement": per_neuron_disagreement,
+        "summary": {
+            "n_neurons": len(all_nids),
+            "successful": successful,
+            "errors": len(all_nids) - successful,
+            "success_rate": successful / len(all_nids) if all_nids else 0,
+        },
+    }
+
+
 def score_all_neurons(
     *args,
     **kwargs,
