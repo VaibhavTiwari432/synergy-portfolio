@@ -1127,7 +1127,7 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
-## D-027  [RESOLVED]  — Contract bump: GroundingFunction + VigilanceResult added for the AI-psychology precision conditioners (Phase E)
+## D-027  [RESOLVED-SCHEMA-ONLY]  — Contract bump: GroundingFunction + VigilanceResult added for the AI-psychology precision conditioners (Phase E) — wiring deferred, see D-035
 - Raised by: Chief Engineer
 - Date: 2026-06-23
 - File(s): contracts/schemas.py (CE), INTERFACES.md (CE), PROPOSALS.md (P-002),
@@ -1150,7 +1150,7 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 - **Contract bumped: contracts/schemas.py + INTERFACES.md (SCHEMA_VERSION → 1.2.0)
   — re-read required by: Codex** before implementing src/trait/grounding.py and
   src/trait/vigilance.py (see TEAM.md task + PROPOSALS.md P-002 for the spec).
-- Status: RESOLVED (schema landed; Codex implementation pending — tracked in TEAM.md)
+- Status: RESOLVED-SCHEMA-ONLY (schema landed; live wiring deferred — zero consumer on live path; see D-035 for formal deferral tracking)
 
 ---
 
@@ -1242,6 +1242,57 @@ revision (`revision="two_table_event_log"`, `down_revision="017"`) — DDL uncha
 two D4 tables now exist. No file rename; no logic change. If D4's owner intended a different
 chain position, re-open.
 **Non-negotiable reference:** #21 (no silent workaround) — recorded rather than quietly patched.
+
+---
+
+## D-033  [OPEN]  — Gate A criteria (i) failed on live data; downstream waves built without passing the gate
+- Raised by: Audit
+- Date: 2026-06-29
+- File(s): gate_a_runs.json, STATUS.md, src/api/pipeline.py
+- Problem: CD 4-run range = 0.263 (target ≤ 0.10); composite range = 0.272 (target ≤ 0.03).
+  Root cause: replication-median (cascade_eval) not wired to live path — each neuron scored once.
+  STATUS.md checkboxes still said "needs live run" masking the failure.
+  Downstream waves (D/C/B/F/G) were built without Gate A (i) passing.
+- Proposed fix: FIX-1 in SAF_ARI_v3.22_Corrections_Prompt.md (wire K-rep median via
+  score_all_neurons_replicated). Re-score Chat4 4× after fix lands to verify CD range ≤ 0.10.
+- Decision: <CE ONLY>
+- Status: OPEN
+
+---
+
+## D-034  [OPEN]  — SSSR Phase-0 telemetry columns not added; migration 015 was repurposed
+- Raised by: Audit
+- Date: 2026-06-29
+- File(s): alembic/versions/015_research_question_quality_view.py, specs/v3.22/v3.22_SpecDelta.md §SSSR
+- Problem: v3.22 SpecDelta specified migration 015 to add s0_snapshot, external_uncertainty_flag,
+  semantic_volume, and competency_covariates columns (SSSR Phase-0 + CRO covariate capture).
+  The actual migration 015 was instead used for a question_quality research view. Neither
+  SSSR Phase-0 telemetry nor CRO competency_covariates were added. CRO Phase-0 is now
+  also blocked (its migration dependency was 015-SSSR). This was not noted in any discrepancy.
+- Proposed fix: Add migration 019 with the SSSR + CRO covariate columns (renumbered from
+  the displaced 015 plan). CE to assign a new number and approve schema additions.
+- Decision: <CE ONLY>
+- Status: OPEN
+
+---
+
+## D-035  [OPEN]  — D-027 grounding/vigilance: schema landed, live wiring deferred; zero consumer
+- Raised by: Audit
+- Date: 2026-06-29
+- File(s): src/trait/grounding.py, src/trait/vigilance.py, src/merge/precision.py, contracts/schemas.py
+- Problem: D-027 was marked RESOLVED after adding GroundingFunction and VigilanceResult schema
+  types, but the D-027 decision itself notes "the types have no consumer yet." The modules exist
+  (grounding.py, vigilance.py) but are produced nowhere and consumed nowhere on the live scoring
+  path. The D-027 entry calls this "resolved" when only the schema half is done; wiring into
+  merge/precision.py was never attempted.
+- Proposed fix (Option B — formal deferral, CE decision required for Option A):
+  Reinstatement trigger = Gate A passes (FIX-1) + n≥50 corpus. When reinstating:
+  classify_grounding() → list[GroundingFunction] per turn; REPAIR fraction > 0.20 widens
+  EC CI by × (1 + 0.15 × repair_fraction). score_vigilance() → VigilanceResult; if
+  pattern_detected, widen CA CI by × (1 + 0.10 × vig_result.score). Clamp to [0,1].
+  See PROPOSALS.md P-002 for the existing spec.
+- Decision: <CE ONLY — Option A (wire now) vs Option B (defer to n≥50)>
+- Status: OPEN
 
 ---
 

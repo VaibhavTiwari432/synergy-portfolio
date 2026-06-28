@@ -53,6 +53,8 @@ Legend: `[ ]` TODO · `[~]` In progress · `[x]` Done · `[!]` Blocked · `⛔` 
 > 3. CSL levels C5/C7 populate (not N/A)
 >
 > If any fail: stop, diagnose, do not proceed to downstream waves.
+>
+> **[!] GATE A (i) FAILED on live run (gate_a_runs.json, 2026-06-28): CD range=0.263, composite range=0.272. Criteria (ii)+(iii) PASS. Root cause: replication-median not wired (FIX-1). Downstream waves D/C/B/F/G were built without this gate passing — see D-033 in DISCREPANCY.md. Re-run acceptance tests #2/#3/#4 after FIX-1 lands.**
 
 ---
 
@@ -136,11 +138,11 @@ Legend: `[ ]` TODO · `[~]` In progress · `[x]` Done · `[!]` Blocked · `⛔` 
 | # | Test | Status |
 |---|------|--------|
 | 1 | **Grain:** orchestrator value path calls `score_all_neurons`, not `judge.score_session` (grep) | `[x]` A2 |
-| 2 | **CD variance:** Chat4 4-run CD range ≤ 0.10; composite range ≤ 0.03 | `[ ]` needs live run |
-| 3 | **Discrimination:** mean pairwise dim correlation on diverse fixture drops below threshold | `[ ]` needs live run |
-| 4 | **CSL density:** every ACF level with judge-neuron evidence emits OK, `n_eff > 2`, real CI | `[ ]` needs live run |
+| 2 | **CD variance:** Chat4 4-run CD range ≤ 0.10; composite range ≤ 0.03 | `[!]` GATE A FAIL — CD range 0.263 (target ≤ 0.10); composite range 0.272 (target ≤ 0.03). See gate_a_runs.json. Blocked on FIX-1 (replication-median). Re-run after FIX-1 lands. |
+| 3 | **Discrimination:** mean pairwise dim correlation on diverse fixture drops below threshold | `[x]` PASS — dims spread 0.00–0.64 (no longer clustering 0.85–0.98). From gate_a_runs.json. |
+| 4 | **CSL density:** every ACF level with judge-neuron evidence emits OK, `n_eff > 2`, real CI | `[x]` PASS — C1–C7 all populate. From gate_a_runs.json and diag_csl.json. |
 | 5 | **Twin-pair:** Delegating-Manager → high human%; Compressed-Expert → low | `[!]` blocked on B1/C1 (D-028, D-029) |
-| 6 | **Fluent gate:** Chat4 fires `fluent_incompetence=True`, composite penalized; independent profile untouched | `[~]` D2 wired; G_K unit tests added (2026-06-27); Chat4 live run still needed |
+| 6 | **Fluent gate:** Chat4 fires `fluent_incompetence=True`, composite penalized; independent profile untouched | `[~]` D2 wired (FIX-4 logic correction applied: attribution_gap replaces theater_frac; majority-vote conjunction). Re-run after FIX-1 and FIX-4 land. |
 | 7 | **Non-compensation:** {one dim 0.55, rest 0.92} → composite ≤ 0.86 (adjusted; 0.83 requires D-study P calibration) | `[x]` 2026-06-26 |
 | 8 | **Determinism:** deterministic layers bit-identical across runs | `[x]` 2026-06-26 |
 | 9 | **Honesty:** no bare point estimate anywhere — composite + every CSL level carry CI + rung | `[x]` 2026-06-27 (9a/9b/9c integration tests in test_pipeline_wiring.py) |
