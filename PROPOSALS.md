@@ -221,3 +221,39 @@ Observation (separate, minor): `run_stage2` cache has no prompt-version key — 
 latent stale-cache risk on any future prompt edit. Worth a follow-up to stamp the
 cache with `JUDGE_PROMPT_VERSION`; not blocking this change.
 Status: PROPOSED — code landed behind the MAE gate; awaiting the gold-set re-judge.
+
+---
+
+## P-006 [ASPIRATIONAL] — Noorani Multi-Round Collaboration Framework (Tier 3 Intervention Target)
+
+**Source:** Noorani et al. (2026) — Multi-Round Human-AI Collaboration
+**Status:** ASPIRATIONAL (register entry only; zero current implementation)
+**Rung:** ASPIRATIONAL → DESIGNED (when Tier 3 platform build begins)
+
+**What it is:** A structured multi-round collaboration protocol where the AI progressively
+reduces scaffolding while the human takes on more cognitive ownership. Operationalised
+via Conformal Prediction (Venn-Abers/RAPS) for dynamic uncertainty quantification and
+a GT (Ground Truth) loss rate metric for sustainability detection.
+
+**Why deferred:** This is an *intervention* arm — it conditions the user's experience
+based on score outputs, which would contaminate IRT calibration if deployed concurrently
+with the retention-probe validation phase. Non-negotiable: intervention strictly separated
+from measurement.
+
+**Replaces:** The vague "Adaptive Friction Layer" placeholder in §10.3.
+
+**Construct validity grounding:** Noorani et al. 2026 show GT loss rate d≈0.68 in
+classroom contexts — humans who rely heavily on AI explanations show degraded independent
+performance on transfer tasks. This is the behavioral signature SAF/ARI's EC dimension
+is designed to measure (see contracts/contract_table.yaml construct_validity_grounding).
+
+**Reinstatement triggers:**
+1. SAF/ARI instrument validated (retention probe data at n≥200, Layer 4 cleared)
+2. Separate intervention arm deployed in a distinct study arm (not the calibration cohort)
+3. Conformal Prediction model fitted on post-validation score distributions
+
+**Does NOT cross The Wall:** Intervention uses score outputs, not transcript-derived
+counterfactuals. Layer 4 outcome data is the prerequisite, not a bypass.
+
+**Note:** The corrections prompt labeled this P-003, but P-003 is occupied ([REJECTED]
+header-bypass). Renumbered P-006 per existing register.
