@@ -257,3 +257,54 @@ counterfactuals. Layer 4 outcome data is the prerequisite, not a bypass.
 
 **Note:** The corrections prompt labeled this P-003, but P-003 is occupied ([REJECTED]
 header-bypass). Renumbered P-006 per existing register.
+
+---
+
+## P-007 [REJECTED] — IANVS edge-AI benchmarking framework (`kubeedge/ianvs`)
+
+**Source:** v3.23 strategy review §4.1; full rationale in ADR-0017 §3.
+**Proposal:** Adopt KubeEdge's IANVS for reproducible evaluation and CI regression testing.
+
+**Why rejected (structural mismatch):** SAF/ARI's validation problem is psychometric
+(G-study ≥30, MAE ratchet ≤0.2994, DIF, EFA, retention probes), not ML-benchmark. IANVS's
+primitives (test envs, paradigms, story managers) benchmark *model performance on labeled
+tasks* — there is nowhere to put a G-study or an MAE ratchet. Adoption shoehorns a
+psychometric problem into the wrong abstraction.
+
+**Alternative (already built):** 26-chat gold corpus + MAE ratchet in CI.
+
+---
+
+## P-008 [REJECTED] — ChatGPMe persistent vector DB (`keyboardP/ChatGPMe`)
+
+**Source:** v3.23 strategy review §4.2; full rationale in ADR-0017 §4.
+**Proposal:** Adopt a persistent vector DB for semantic memory, cross-session retrieval, and
+embedding-based pattern discovery over scored sessions.
+
+**Why rejected (three standing violations):**
+1. **The Wall (§2.1):** retrieving "similar" MEASURED-tier sessions reconstructs
+   validated-looking patterns from MEASURED evidence; schema-level claims-gating exists to
+   prevent exactly this.
+2. **Ontology freeze (#1, §14.3):** semantic retrieval over neuron firings is a
+   construct-discovery engine — forbidden until diverse corpus + EFA.
+3. **DPDP / data-dignity (#16, Δ9):** persistent embeddings of student transcripts conflict
+   with minimization and deletion-propagation.
+
+**Alternative (already built):** gold corpus + deterministic event-log replay (idempotent
+re-entry, not semantic search).
+
+---
+
+## P-009 [REJECTED] — chatgpt-prompt-evaluator (`alignedai/chatgpt-prompt-evaluator`)
+
+**Source:** v3.23 strategy review §4.3; full rationale in ADR-0017 §5.
+**Proposal:** Adopt the repo for evidence gating / evaluator-before-judge architecture.
+
+**Why rejected (misidentification):** The repo is a single jailbreak-filter system prompt,
+not an evaluator framework. The desired pattern (evidence → validation → scoring) already
+exists as v3.22 Item #2 (per-criterion calls + anchored rubric), live on the neuron-grain
+path. Importing it adds nothing.
+
+**Better references (cite, not import):** G-Eval (Liu et al., 2023) — CoT criteria
+decomposition; Prometheus 2 (Kim et al., 2024) — fine-grained rubric-based LLM evaluators.
+Adopted as reference patterns in ADR-0018.
