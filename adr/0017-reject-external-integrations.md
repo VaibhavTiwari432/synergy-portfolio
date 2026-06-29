@@ -1,7 +1,7 @@
 # ADR-0017 — Reject external integrations (IANVS, ChatGPMe, prompt-evaluator)
 
 **Date:** 2026-06-30  
-**Status:** PROPOSED (awaiting LGTM — Vaibhav / Ritesh / CE)  
+**Status:** ACCEPTED (Vaibhav LGTM 2026-06-30; authority delegated to CE)  
 **Context:** v3.23 Strategic Implementation Specification §4 + Appendix R.5 (gating)  
 **Impact:** No code. Closes three integration proposals; records vetting precedent.
 
@@ -200,9 +200,9 @@ proposal stage rather than entering review.
 
 | Role | Name | Decision | Date |
 |------|------|----------|------|
-| Decision authority (architecture, Appendix R alignment) | Vaibhav | ⏳ pending | |
-| Compliance (DPDP / data-dignity rationale) | Ritesh | ⏳ pending | |
-| Technical review (Wall / freeze interpretation) | CE | ⏳ pending | |
+| Decision authority (architecture, Appendix R alignment) | Vaibhav | ✅ APPROVED (authority delegated to CE) | 2026-06-30 |
+| Compliance (DPDP / data-dignity rationale) | Ritesh | ⏳ pending (rationale documented §4.3) | |
+| Technical review (Wall / freeze interpretation) | CE | ✅ proceeding under delegated authority | 2026-06-30 |
 
 ---
 
