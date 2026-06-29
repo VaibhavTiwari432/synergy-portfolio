@@ -274,9 +274,17 @@ async def score_dimension(
             lambda: judge_client._generate(system_prompt, user_prompt)
         )
 
-        # Parse the JSON response
+        # Parse the JSON response. Gemini wraps JSON in ```json … ``` fences;
+        # strip them (same treatment as the per-neuron path at ~L158) before
+        # json.loads, else every fenced response fails with "Expecting value".
         try:
-            response_json = json.loads(raw_response)
+            cleaned = raw_response
+            if isinstance(cleaned, str) and cleaned.strip().startswith("```"):
+                cleaned = cleaned.strip()
+                cleaned = (
+                    cleaned.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+                )
+            response_json = json.loads(cleaned)
         except json.JSONDecodeError as e:
             log.error(f"Failed to parse dimension response as JSON: {raw_response}")
             raise ValueError(f"Invalid JSON in dimension response: {e}")

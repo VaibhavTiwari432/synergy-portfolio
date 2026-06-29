@@ -110,8 +110,8 @@ def collect_diagnostics(corpus: list[GoldChat]) -> dict:
         "gate_effect": {
             "baseline_judge_calls": baseline_calls,  # 98/chat — judge-typed only
             "actual_judge_calls": actual_calls,
-            "cost_reduction_pct": reduction_pct,  # 0.0 on permissive scaffold
-            "note": "0% until matrix cells tightened (ADR-0019 §7 Q1)",
+            "cost_reduction_pct": reduction_pct,  # excluded judge-typed / baseline
+            "note": "excluded judge-typed neuron calls / baseline; 0 if matrix permissive or no chats tagged",
         },
         "neuron_grain_split": neuron_grain_split(),
         "synergy_context_chats": synergy_context_chats,
