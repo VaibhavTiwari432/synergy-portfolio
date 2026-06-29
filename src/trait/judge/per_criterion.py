@@ -26,6 +26,32 @@ from src.trait.judge.rubric_bank import get_rubric, list_all_neurons, neurons_by
 
 log = logging.getLogger(__name__)
 
+
+def _run_coro_blocking(coro: Any) -> Any:
+    """Run a coroutine to completion regardless of loop context.
+
+    ``asyncio.run`` raises ``RuntimeError`` when called from inside a running
+    event loop (e.g. the async FastAPI ``get_score`` handler, which invokes the
+    pipeline synchronously). FIX-1 introduced an unguarded ``asyncio.run`` here,
+    which crashed every live API scoring request. When a loop is already running,
+    offload to a fresh thread that owns its own loop; otherwise run directly.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)  # no running loop (worker/sync path)
+    import threading
+
+    box: Dict[str, Any] = {}
+
+    def _runner() -> None:
+        box["result"] = asyncio.run(coro)
+
+    t = threading.Thread(target=_runner)
+    t.start()
+    t.join()
+    return box.get("result")
+
 _DIMENSION_LABELS = {
     "AL": "Actualization",
     "PR": "Prompt Responsibility",
@@ -439,7 +465,7 @@ def score_all_neurons_replicated(
                         if val is not None:
                             per_neuron_all_reps[nid].append(val)
 
-    asyncio.run(_run_reps())
+    _run_coro_blocking(_run_reps())
 
     results: Dict[str, Dict[str, Any]] = {}
     per_neuron_disagreement: Dict[str, float] = {}

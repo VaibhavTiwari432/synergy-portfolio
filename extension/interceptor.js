@@ -63,94 +63,41 @@
     }
 
     _complete() {
+      // Complete when every accumulated node is reachable from a root by walking
+      // children. A root is a node with no parent, or whose parent is not (yet)
+      // in the map.
+      //
+      // Bug fix (D-015): the prior check derived "roots" as `!parents.has(id)`,
+      // i.e. ids never referenced as a parent — those are LEAVES, not roots. It
+      // then walked `children[0]` from a leaf (no children), so `visited.size`
+      // was 1 and never equalled `nodes.size`; `_complete()` returned false for
+      // every multi-turn chat and SAF_CONVERSATION_READY never fired. This is a
+      // BFS over all children from the true root(s); it handles linear, branched
+      // (regenerated/edited), and multi-root (disconnected) mappings.
       if (this.nodes.size === 0) return false;
       const nodeArray = Array.from(this.nodes.values());
-      const parents = new Set();
-      const children = new Set();
-      for (const node of nodeArray) {
-        if (node.parent) parents.add(String(node.parent));
-        if (Array.isArray(node.children)) {
-          for (const child of node.children) children.add(String(child));
-        }
-        if (Array.isArray(node.child_ids)) {
-          for (const child of node.child_ids) children.add(String(child));
+      const present = new Set(nodeArray.map((n) => String(n.id)));
+      const roots = nodeArray.filter((n) => !n.parent || !present.has(String(n.parent)));
+      if (roots.length === 0) return false; // pure cycle — never "complete"
+      const visited = new Set();
+      const queue = roots.map((r) => String(r.id));
+      while (queue.length) {
+        const id = queue.shift();
+        if (visited.has(id)) continue;
+        visited.add(id);
+        const node = this.nodes.get(id);
+        if (!node) continue;
+        const children = Array.isArray(node.children) ? node.children
+          : (Array.isArray(node.child_ids) ? node.child_ids : []);
+        for (const c of children) {
+          if (!visited.has(String(c))) queue.push(String(c));
         }
       }
-      const roots = nodeArray.filter((n) => !parents.has(String(n.id)));
-      if (roots.length === 0) return false;
-      for (const root of roots) {
-        const visited = new Set();
-        let current = root.id;
-        while (current && !visited.has(current)) {
-          visited.add(current);
-          const node = this.nodes.get(String(current));
-          if (!node) return false;
-          const children = Array.isArray(node.children) ? node.children : node.child_ids;
-          if (!Array.isArray(children) || children.length === 0) break;
-          current = children[0];
-        }
-        if (visited.size !== this.nodes.size) continue;
-        return true;
-      }
-      return false;
+      return visited.size === this.nodes.size;
     }
-
-    toConversation() {
-      const mapping = {};
-      for (const [id, node] of this.nodes) {
-        mapping[id] = node;
-      }
-      const nodeArray = Array.from(this.nodes.values());
-      const parents = new Set();
-      for (const node of nodeArray) {
-        if (node.parent) parents.add(String(node.parent));
-      }
-      const roots = nodeArray.filter((n) => !parents.has(String(n.id)));
-      let currentNode = null;
-      if (roots.length > 0) {
-        let best = roots[0];
-        let bestDepth = 0;
-        for (const root of roots) {
-          const visited = new Set();
-          let current = root.id;
-          let depth = 0;
-          while (current && !visited.has(current)) {
-            visited.add(current);
-            depth += 1;
-            const node = this.nodes.get(String(current));
-            if (!node) break;
-            const children = Array.isArray(node.children) ? node.children : node.child_ids;
-            current = (Array.isArray(children) && children.length > 0) ? children[0] : null;
-          }
-          if (depth > bestDepth) {
-            best = root;
-            bestDepth = depth;
-            currentNode = current ? this.nodes.get(String(current))?.id : null;
-          }
-        }
-        if (!currentNode) {
-          const queue = [best.id];
-          let last = best.id;
-          const seen = new Set([best.id]);
-          while (queue.length > 0) {
-            last = queue.shift();
-            const node = this.nodes.get(String(last));
-            if (!node) break;
-            const children = Array.isArray(node.children) ? node.children : node.child_ids;
-            if (Array.isArray(children) && children.length > 0) {
-              for (const child of children) {
-                if (!seen.has(child)) {
-                  seen.add(child);
-                  queue.push(child);
-                }
-              }
-            }
-          }
-          currentNode = last;
-        }
-      }
-      return { mapping, current_node: currentNode };
-    }
+    // ponytail: removed dead `toConversation()` — never called, and it carried
+    // the same inverted-root bug as the old _complete(). publish() reads
+    // acc.nodes directly. Restore from git if a consumer ever needs it.
   }
 
   // Global accumulator keyed by conversation URL

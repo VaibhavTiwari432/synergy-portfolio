@@ -8,7 +8,7 @@ The completeness gate is informational, not a hard reject (absent ≠ zero, #12)
 """
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from src.api.main import create_app
 
@@ -17,7 +17,7 @@ from src.api.main import create_app
 async def test_ingest_sparse_chat_returns_200_not_422():
     """Sparse chat (short, few turns) should be stored, not rejected with 422."""
     app = create_app()
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/v1/ingest",
             headers={"X-API-Key": "test-key"},
@@ -51,7 +51,7 @@ async def test_ingest_sparse_chat_returns_200_not_422():
 async def test_ingest_malformed_chat_returns_422():
     """Malformed chat (no turns) should be rejected with 422 MALFORMED."""
     app = create_app()
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/v1/ingest",
             headers={"X-API-Key": "test-key"},
@@ -80,7 +80,7 @@ async def test_ingest_incomplete_capture_returns_200_not_422():
     it with INSUFFICIENT_SAMPLE or similar (absent ≠ zero, #12).
     """
     app = create_app()
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/v1/ingest",
             headers={"X-API-Key": "test-key"},

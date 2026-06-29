@@ -272,7 +272,7 @@ def test_default_client_regression_pin_gemini_google():
     out = JudgeClient(generate=lambda s, u: _good_json(), sleep=lambda _: None).score_session(
         _session(family="openai")
     )
-    assert out.judge_model == JUDGE_MODEL == "gemini-2.5-flash"
+    assert out.judge_model == JUDGE_MODEL == "gemini-2.5-flash-lite"
     assert out.judge_family == "google"
     assert out.judge_family_conflict is False
 

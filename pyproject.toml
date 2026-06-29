@@ -27,8 +27,10 @@ pythonpath = ["."]
 testpaths = ["tests"]
 # E1: pin hash seed so dict/set iteration is stable across runs.
 # Run as: PYTHONHASHSEED=0 python -m pytest  (or set in CI env)
+asyncio_mode = "auto"
 markers = [
     "stage1_stub: failing-stub test for a Stage-1 module not yet implemented (xfail until its owner builds it)",
+    "integration: integration test requiring live infra (DB/network); may be deselected in unit runs",
 ]
 
 [tool.ruff]

@@ -73,7 +73,7 @@ def test_health_and_contracts_are_open(client: TestClient):
     assert health["status"] == "ok"
     assert health["db"] in ("ok", "unavailable")
     contracts = client.get("/v1/contracts").json()
-    assert contracts["judge_prompt_version"] == "v2.1"
+    assert contracts["judge_prompt_version"] == "v2.2"
 
 
 # ── POST → GET score end-to-end (Gate D shape) ───────────────────────────────

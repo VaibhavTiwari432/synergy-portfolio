@@ -111,15 +111,14 @@ def _gemini_generate_with_cache(
         f"https://generativelanguage.googleapis.com/v1beta/models/{JUDGE_MODEL}"
         f":generateContent?key={api_key}"
     )
+    # Gemini's REST `system_instruction` is a Content object — it has NO
+    # `cacheControl` field (that shape is Anthropic's). Sending it returned a 400
+    # on EVERY judge call, so all dimensions came back N/A and every chat was
+    # marked 'failed'. Gemini 2.5 applies implicit caching automatically; explicit
+    # caching uses the separate cachedContents resource, not an inline field.
+    _ = cache_control  # ponytail: signature kept for compat; Gemini caches implicitly
     body = {
-        "system_instruction": {
-            "parts": [{"text": system_prompt}],
-            **(
-                {"cacheControl": {"type": "EPHEMERAL"}}
-                if cache_control
-                else {}
-            ),
-        },
+        "system_instruction": {"parts": [{"text": system_prompt}]},
         "contents": [{"parts": [{"text": user_prompt}]}],
         "generationConfig": {"temperature": TEMPERATURE},
     }
