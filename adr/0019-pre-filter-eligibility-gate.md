@@ -1,9 +1,11 @@
 # ADR-0019 — Pre-filter eligibility gate
 
 **Date:** 2026-06-30  
-**Status:** PROPOSED (gate code + scaffold landed flag-off; matrix content + wiring await review)  
+**Status:** ACCEPTED (wired live by default; permissive scaffold remains review-gated)  
 **Context:** v3.23 §3 (was "ADR-0016"), corrected by Appendix R.2/R.3/R.4/R.5  
-**Impact:** No live-path change yet. Adds a pure-function gate + scaffold matrix + tests.
+**Impact:** Live path now passes judge-typed neuron IDs through the gate when
+known task intents are present. The scaffold remains permissive, so reviewed
+cell tightening is still the step that changes eligibility behavior.
 
 ---
 
@@ -15,10 +17,11 @@ marked **N/A with a structural reason** instead of being judge-scored — saving
 judge calls and distinguishing "the task never called for this" (`STRUCTURAL_NA`)
 from "could fire, did not" (`BEHAVIORAL_NA`).
 
-The gate ships **off the live path**, behind the same discipline as
-`cspc_weighting` (pure function + tests, not wired into the pipeline), because
-turning it on *changes emitted scores* and its benefit (cost cut, EC MAE
-improvement) is gold-corpus gated. It is enabled only after corpus validation.
+The gate is wired in `src/api/pipeline.py` behind `SAF_ADR0019_GATE_ENABLED`
+(default enabled). The current scaffold is permissive for any known intent, so
+enabling the gate bounds the judge-neuron list without excluding reviewed cells
+yet. Empty/untagged sessions stay on the legacy all-neuron path to avoid turning
+tagger uncertainty into structural N/A.
 
 ---
 
@@ -26,9 +29,10 @@ improvement) is gold-corpus gated. It is enabled only after corpus validation.
 
 | Artifact | Path | State |
 |---|---|---|
-| Gate logic | `src/aggregate/eligibility_gate.py` | live code, unit-tested, **not wired** |
+| Gate logic | `src/aggregate/eligibility_gate.py` | live code, unit-tested |
 | Matrix scaffold | `contracts/neuron_task_eligibility.yaml` | permissive no-op; every cell `needs_review` |
 | Tests | `tests/unit/test_eligibility_gate.py` | 8 passing |
+| Pipeline wiring | `src/api/pipeline.py` | enabled by default via `SAF_ADR0019_GATE_ENABLED` |
 
 ---
 
@@ -92,14 +96,12 @@ Per v3.23 §3.7 — all gold-corpus gated, hence the flag-off posture:
 
 ## Consequences
 
-- **Reversible and inert** until both the matrix is reviewed and the wiring flag
-  is flipped. Landing it now unblocks the matrix-authoring work without touching
-  emitted scores.
-- Wiring step (future): in `src/api/pipeline.py`, after intent tagging, call
+- Reversible through `SAF_ADR0019_GATE_ENABLED=0`.
+- In `src/api/pipeline.py`, after intent tagging, known task intents call
   `determine_scorable_neurons(intents)` to bound the judge-typed set passed to
-  `score_all_neurons`, and stamp non-scorable judge neurons as
-  `NOT_APPLICABLE` + structural reason in `normalize.py`. Deterministic neurons
-  bypass untouched.
+  per-neuron scoring. Deterministic neurons bypass untouched.
+- Structural N/A stamping for tightened cells remains the follow-up persistence
+  work; the current scaffold excludes no known-intent cells.
 
 ---
 

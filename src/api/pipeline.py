@@ -20,6 +20,7 @@ a time).
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
 from typing import Callable
@@ -47,8 +48,20 @@ from contracts.schemas import (
     TurnTags,
 )
 from src.aggregate.gates import gate_dimension
+from src.aggregate.eligibility_gate import default_gate
 from src.aggregate.normalize import normalize_counts
 from src.aggregate.saturation import saturation_for
+from src.classifier.grain_router import (
+    GrainDecision,
+    ci_width_from_synergy_subset,
+    route_neurons,
+    synergy_ci_neuron_ids,
+)
+from src.classifier.provenance_classifier import (
+    ProvenanceDecision,
+    apply_provenance_weights,
+    neuron_provenance_weights,
+)
 from src.trait.question_quality import question_evidence_rows, score_questions
 from src.trait.reliance_metrics import reliance_evidence_rows, reliance_metrics
 from src.aggregate.softmin import compute_composite
@@ -97,6 +110,14 @@ _CI_FLOOR = 0.05
 _CI_SPAN = 0.45
 #: each theater-flagged verification widens EC's CI by this factor increment
 _THEATER_WIDENING_STEP = 0.10
+_ADR0019_ENV = "SAF_ADR0019_GATE_ENABLED"
+_SATURATION_NON_BLOCKING_FLAGS = frozenset({
+    "ci_from_self_confidence",
+    "ci_from_disagreement",
+    "ci_from_grain_router",
+    "low_judge_confidence",
+    "partial_neuron_coverage",
+})
 
 
 @dataclass(frozen=True)
@@ -405,6 +426,26 @@ def _per_dim_neuron_stats(results: dict[str, dict]) -> dict[Dimension, dict[str,
     return stats
 
 
+def _adr0019_enabled() -> bool:
+    return os.environ.get(_ADR0019_ENV, "1").strip().lower() not in {"0", "false", "off", "no"}
+
+
+def _scorable_judge_neurons(tags: list[TurnTags]) -> list[str] | None:
+    """ADR-0019 live wiring.
+
+    The current scaffold is permissive for any known intent. Empty/untagged
+    sessions stay on the legacy all-neuron path to avoid turning tagger
+    uncertainty into structural N/A.
+    """
+    if not _adr0019_enabled():
+        return None
+    intents = sorted({tag.value for tt in tags for tag in tt.tags})
+    if not intents:
+        return None
+    scorable = sorted(default_gate().determine_scorable_neurons(intents))
+    return scorable
+
+
 def _judge_run_record(judge_output: JudgeOutput) -> dict:
     """The judge_runs row: literal output + model identity + per-dim confidence."""
     return {
@@ -429,6 +470,9 @@ def _profile_from_judge(
     extractor_opportunities: dict[Dimension, dict[str, int]] | None = None,
     neuron_stats: dict[Dimension, dict[str, int]] | None = None,
     per_neuron_disagreement: dict[str, float] | None = None,
+    grain_routes: dict[str, GrainDecision] | None = None,
+    provenance_decisions: dict[str, ProvenanceDecision] | None = None,
+    classifier_stats: dict | None = None,
 ) -> dict[Dimension, DimensionScore]:
     ec_evidence = assess_ec_evidence(session, tags)
     profile: dict[Dimension, DimensionScore] = {}
@@ -473,17 +517,32 @@ def _profile_from_judge(
         # between-neuron spread which reflects genuine facet heterogeneity).
         # Falls back to between-neuron spread when replication data absent.
         judge_nids_in_dim = [nid for nid in dim_firings if nid in _JUDGE_DIM_OF]
-        if per_neuron_disagreement and judge_nids_in_dim:
-            rep_vars = [per_neuron_disagreement[nid] for nid in judge_nids_in_dim if nid in per_neuron_disagreement]
+        ci_nids = judge_nids_in_dim
+        routed_ci_nids: list[str] = []
+        if grain_routes and judge_nids_in_dim:
+            routed_ci_nids = synergy_ci_neuron_ids(judge_nids_in_dim, grain_routes)
+            if routed_ci_nids:
+                ci_nids = routed_ci_nids
+
+        if per_neuron_disagreement and ci_nids:
+            rep_vars = [per_neuron_disagreement[nid] for nid in ci_nids if nid in per_neuron_disagreement]
             disagreement = sum(rep_vars) / len(rep_vars) if rep_vars else 0.0
             half = _CI_FLOOR + _CI_SPAN * disagreement
+            if routed_ci_nids:
+                width = ci_width_from_synergy_subset(half * 2.0, judge_nids_in_dim, grain_routes or {})
+                half = width / 2.0
+                flags.append("ci_from_grain_router")
             if js.confidence < 0.5:
                 flags.append("low_judge_confidence")
             flags.append("ci_from_disagreement")  # item 3: CI source is observable variance
-        elif judge_nids_in_dim and len(judge_nids_in_dim) > 1:
-            judge_strengths = [dim_firings[nid] for nid in judge_nids_in_dim]
+        elif ci_nids and len(ci_nids) > 1:
+            judge_strengths = [dim_firings[nid] for nid in ci_nids]
             disagreement = _disagree(judge_strengths)
             half = _CI_FLOOR + _CI_SPAN * disagreement
+            if routed_ci_nids:
+                width = ci_width_from_synergy_subset(half * 2.0, judge_nids_in_dim, grain_routes or {})
+                half = width / 2.0
+                flags.append("ci_from_grain_router")
             if js.confidence < 0.5:
                 flags.append("low_judge_confidence")
             flags.append("ci_from_disagreement")
@@ -499,6 +558,22 @@ def _profile_from_judge(
                 "neuron_mean_pct": int(round(100 * (norm.normalized or 0.0))),
                 "joint_judge_pct": int(round(100 * js.score)) if js.score is not None else 0,
             }
+            if grain_routes and judge_nids_in_dim:
+                raw_counts["grain_synergy_ci_neurons"] = len(routed_ci_nids)
+                raw_counts["grain_total_judge_neurons"] = len(judge_nids_in_dim)
+            if provenance_decisions and judge_nids_in_dim:
+                prov_zeroed = sum(
+                    1 for nid in judge_nids_in_dim
+                    if provenance_decisions.get(nid) is not None
+                    and provenance_decisions[nid].weight == 0.0
+                )
+                if prov_zeroed:
+                    raw_counts["provenance_zeroed_neurons"] = prov_zeroed
+                    flags.append("copy_verbatim_weighted_out")
+            if classifier_stats:
+                eligible = classifier_stats.get("eligibility_scorable_neurons")
+                if isinstance(eligible, int):
+                    raw_counts["eligibility_scorable_neurons"] = eligible
 
         # item 4: neuron success rate per dimension
         dim_stats = (neuron_stats or {}).get(dim)
@@ -533,7 +608,8 @@ def _profile_from_judge(
         # instrument saturation: a confident, well-sampled, unflagged ceiling-hit
         # becomes a censored "≥ tau" rather than a point value (v3 P1 / ADR-0010).
         # Precision only — the score value is never asserted past saturation.
-        censored = saturation_for(dim, value, n_eff_val, js.confidence, flags)
+        saturation_flags = [flag for flag in flags if flag not in _SATURATION_NON_BLOCKING_FLAGS]
+        censored = saturation_for(dim, value, n_eff_val, js.confidence, saturation_flags)
         if censored is not None:
             profile[dim] = DimensionScore(
                 dim=dim,
@@ -545,7 +621,7 @@ def _profile_from_judge(
                 evidence_turns=js.evidence_turns,
                 provenance_share_displayed=share,
                 status_reason=f"score {value:g} >= ceiling tau {censored.bound:g}",
-                flags=flags,
+                flags=saturation_flags,
             )
             continue
 
@@ -654,9 +730,23 @@ def score_session_with_artifacts(
     # A2: per-neuron scoring (neuron-grain, replaces joint call as value source)
     # FIX-1: K-rep median via score_all_neurons_replicated; per_neuron_disagreement
     # feeds CI calibration in _profile_from_judge (replaces between-neuron spread)
-    per_neuron_out = _score_all_neurons(judge.neuron_fn(), _build_transcript_text(session))
+    scorable_neuron_ids = _scorable_judge_neurons(tags)
+    per_neuron_out = _score_all_neurons(
+        judge.neuron_fn(),
+        _build_transcript_text(session),
+        neuron_ids=scorable_neuron_ids,
+    )
     per_neuron_disagreement = per_neuron_out.get("per_neuron_disagreement")
     _add_judge_neuron_firings(per_neuron_out["results"], firings, opportunities)
+    grain_routes = route_neurons(per_neuron_out["results"], tags=tags, phases=phases)
+    provenance_decisions = neuron_provenance_weights(session, per_neuron_out["results"])
+    provenance_zeroed = apply_provenance_weights(firings, provenance_decisions)
+    classifier_stats = {
+        "eligibility_scorable_neurons": (
+            len(scorable_neuron_ids) if scorable_neuron_ids is not None else len(per_neuron_out["results"])
+        ),
+        "provenance_zeroed_neurons": provenance_zeroed,
+    }
     neuron_stats = _per_dim_neuron_stats(per_neuron_out["results"])
     # joint call retained for provenance metadata (flags, raw_response, family check)
     judge_output = judge.score_session(session)
@@ -671,6 +761,9 @@ def score_session_with_artifacts(
         judge_output, session, tags, firings, opportunities,
         neuron_stats=neuron_stats,
         per_neuron_disagreement=per_neuron_disagreement,
+        grain_routes=grain_routes,
+        provenance_decisions=provenance_decisions,
+        classifier_stats=classifier_stats,
     )
     # FIX-2: wire Tobit CI onto EC dimension (D3 — was unit-tested but never called on live path)
     _ec = raw_profile.get(Dimension.EC)
