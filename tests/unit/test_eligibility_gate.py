@@ -25,11 +25,13 @@ def test_matrix_covers_all_judge_typed_and_exempts_deterministic():
     assert len(g.intent_tags) == 10
 
 
-def test_scaffold_is_a_safe_no_op_for_any_real_intent():
-    """Permissive default: any single real intent makes every neuron scorable."""
+def test_full_tag_set_covers_all_single_intent_filters():
+    """Tightened matrix (v1.1.0): the full 10-tag set covers every neuron (each
+    cell has >=1 valid tag); a single intent yields a proper subset."""
     g = EligibilityGate()
-    assert g.determine_scorable_neurons(["VERIFY"]) == set(g.matrix)
-    assert g.determine_scorable_neurons(["DELEGATE", "ACCEPT_FLAT"]) == set(g.matrix)
+    assert g.determine_scorable_neurons(g.intent_tags) == set(g.matrix)
+    verify = g.determine_scorable_neurons(["VERIFY"])
+    assert 0 < len(verify) < len(g.matrix)  # gate actually filters now
 
 
 def test_empty_or_unknown_intents_score_nothing():

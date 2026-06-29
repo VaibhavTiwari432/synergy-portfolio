@@ -30,11 +30,14 @@ def test_diagnostics_run_without_a_judge():
     assert d["copy_paste_detected"] <= sum(d["provenance_distribution"].values())
 
 
-def test_gate_effect_is_zero_on_permissive_scaffold():
-    """Scaffold matrix excludes nothing -> 0% reduction. Flips >0% once tightened."""
+def test_gate_never_adds_calls_and_filters_when_tagged():
+    """Tightened matrix (v1.1.0): the gate never adds calls; when a chat has
+    intents tagged it must exclude some neurons (>0% reduction)."""
     d = collect_diagnostics(_corpus())
-    assert d["gate_effect"]["cost_reduction_pct"] == 0.0
-    assert d["gate_effect"]["actual_judge_calls"] == d["gate_effect"]["baseline_judge_calls"]
+    ge = d["gate_effect"]
+    assert ge["actual_judge_calls"] <= ge["baseline_judge_calls"]
+    if any(c["gate_applied"] for c in d["per_chat"]):
+        assert ge["cost_reduction_pct"] > 0.0
 
 
 def test_mae_block_present_only_with_score_fn():

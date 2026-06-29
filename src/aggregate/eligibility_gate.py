@@ -91,10 +91,11 @@ if __name__ == "__main__":
     g = EligibilityGate()
     assert len(g.matrix) == 98, f"expected 98 judge-typed, got {len(g.matrix)}"
     assert len(g.exempt) == 9, f"expected 9 exempt, got {len(g.exempt)}"
-    # Permissive default: any single real intent makes every neuron scorable.
-    scorable = g.determine_scorable_neurons(["VERIFY"])
-    assert scorable == set(g.matrix), "scaffold must be a no-op (excludes nothing)"
-    # Empty / unknown intents → nothing scorable, everything STRUCTURAL_NA.
+    # Matrix-agnostic invariants: the full tag set covers every neuron (each cell
+    # has >=1 valid tag); a single tag is some subset; empty intents score none.
+    assert g.determine_scorable_neurons(g.intent_tags) == set(g.matrix)
+    one = g.determine_scorable_neurons(["VERIFY"])
+    assert one <= set(g.matrix)  # subset (tightened matrix => proper subset)
     assert g.determine_scorable_neurons([]) == set()
     assert g.classify_na_reason("CA-16", []) == STRUCTURAL_NA
     assert g.classify_na_reason("CA-16", ["VERIFY"]) == BEHAVIORAL_NA
