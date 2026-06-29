@@ -29,33 +29,40 @@ from contracts.schemas import LoadLabel, MetacogLabel, StateVector
 # These are calibrated on the gold corpus to maximize signal-to-noise on long chats.
 # Conservative defaults: epistemic boost, load penalty, metacog boost.
 CSPC_EPISTEMIC_WEIGHT = 0.4  # z += 0.4 * epistemic (range -1 to 1)
-CSPC_LOAD_WEIGHT = 0.3  # z -= 0.3 * load_penalty (load: low→0, medium→0.5, high→1)
-CSPC_METACOG_WEIGHT = 0.3  # z += 0.3 * metacog_bonus (metacog: low→0, medium→0.5, high→1)
+CSPC_LOAD_WEIGHT = 0.3  # z -= 0.3 * load_penalty (LOW_LOAD→0, HIGH_ICL→0.5, HIGH_ECL/FATIGUE→1)
+CSPC_METACOG_WEIGHT = 0.3  # z += 0.3 * metacog_bonus (ACTIVE→1, PASSIVE/SURRENDER→0)
+# ponytail: with these conservative weights max |z|=0.7, so weight saturates at
+# sigmoid(±0.7)=0.668/0.332 — it cannot reach the 0.7/0.3 extremes. Bump the
+# weights here if a future D-study calibrates a wider band; feature is flag-off.
 
 
 def _load_penalty(label: LoadLabel | None) -> float:
-    """Map LoadLabel to a [0, 1] penalty (0=low load, 1=high load)."""
+    """Map LoadLabel to a [0, 1] penalty (0=low load, 1=high load).
+
+    The prior implementation compared against "low"/"medium"/"high" — strings
+    that never matched the real enum values, so every label fell through to the
+    0.5 fallback and load was effectively ignored. HIGH_ICL (intrinsic load =
+    engaged effort) is the partial-penalty middle; HIGH_ECL/FATIGUE are full.
+    """
     if label is None:
         return 0.5  # absent = unknown, neutral weight
-    if label == "low":
+    if label == LoadLabel.LOW_LOAD:
         return 0.0
-    if label == "medium":
+    if label == LoadLabel.HIGH_ICL:
         return 0.5
-    if label == "high":
+    if label in (LoadLabel.HIGH_ECL, LoadLabel.FATIGUE):
         return 1.0
     return 0.5  # fallback
 
 
 def _metacog_bonus(label: MetacogLabel | None) -> float:
-    """Map MetacogLabel to a [0, 1] bonus (0=low metacog, 1=high metacog)."""
+    """Map MetacogLabel to a [0, 1] bonus (1=ACTIVE, 0=PASSIVE/SURRENDER)."""
     if label is None:
         return 0.5  # absent = unknown, neutral weight
-    if label == "low":
-        return 0.0
-    if label == "medium":
-        return 0.5
-    if label == "high":
+    if label == MetacogLabel.ACTIVE:
         return 1.0
+    if label in (MetacogLabel.PASSIVE, MetacogLabel.SURRENDER):
+        return 0.0
     return 0.5  # fallback
 
 
