@@ -23,7 +23,7 @@ jobs:
         # so they must IMPORT cleanly to be collected — even though they then
         # SKIP (PHASE1_GATE unset / no Postgres in CI). Without these, collection
         # errors and the whole run fails.
-        run: pip install pydantic pyyaml pytest fastapi httpx sqlalchemy asyncpg pytest-asyncio ruff
+        run: pip install pydantic pyyaml numpy scipy pytest fastapi httpx sqlalchemy asyncpg pytest-asyncio ruff
 
       - name: Lint (ruff, src/ — pyflakes rules)
         # F rules over src/ (unused imports / undefined names). Config in

@@ -25,7 +25,7 @@ jobs:
 
       - name: Install dependencies
         # Same lean set as ci.yml — enough to import the pipeline + parse contracts.
-        run: pip install pydantic pyyaml fastapi httpx sqlalchemy asyncpg
+        run: pip install pydantic pyyaml numpy scipy fastapi httpx sqlalchemy asyncpg
 
       - name: D1 — unwired evidence
         run: python scripts/discovery/unwired_evidence.py
