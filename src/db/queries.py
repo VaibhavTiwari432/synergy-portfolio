@@ -88,11 +88,21 @@ def capture_validation_error(turns: list[dict]) -> str | None:
     This is intentionally small and mechanical: it only checks whether the DB
     has enough user/assistant structure to represent a real ChatGPT exchange.
     Semantic quality belongs in the scorer; missing turns must stop at ingest.
+
+    Assistant runs count once. A multi-part assistant response (tool call → tool
+    result → final answer, or a reasoning node before the answer) lands on
+    ChatGPT's active path as two or more CONSECUTIVE assistant nodes for a single
+    user turn. They are one logical assistant turn, so a run of them is counted
+    once — otherwise a long, tool-heavy chat (e.g. user=153, assistant=182) is
+    wrongly rejected as imbalanced. A human turn is never split this way, so
+    consecutive USER nodes are counted individually: a run of them is a genuine
+    imbalance (a lost assistant turn / truncated capture) that must still fail.
     """
     if not turns:
         return "capture has no turns"
 
     counts = {"user": 0, "assistant": 0}
+    prev_assistant = False
     for turn in turns:
         role = str(turn.get("role") or "").lower()
         text = str(turn.get("text") or "").strip()
@@ -100,8 +110,11 @@ def capture_validation_error(turns: list[dict]) -> str | None:
             continue
         if role in ("human", "user"):
             counts["user"] += 1
+            prev_assistant = False
         elif role in ("ai", "assistant"):
-            counts["assistant"] += 1
+            if not prev_assistant:  # first node of an assistant run
+                counts["assistant"] += 1
+            prev_assistant = True
         else:
             return f"unsupported turn role: {role or '<empty>'}"
 
@@ -245,6 +258,7 @@ async def upsert_chat(
     expected_turn_count: int | None = None,
     captured_turn_count: int | None = None,
     capture_complete: bool | None = None,
+    is_minor: bool = False,
 ) -> dict[str, Any]:
     """Insert or update (idempotent on user_ref + conversation_id).
 
@@ -253,22 +267,24 @@ async def upsert_chat(
     requiring the user to edit the chat, while identical successful re-ingests
     (panel reopen, telemetry-only snapshot) remain no-ops.
 
-    Two-layer capture gate (D-015 / ADR-0007): the structural role-balance gate
-    (capture_validation_error) AND the completeness gate (capture_completeness_error)
-    both raise ValueError → HTTP 422 at the router → never enters 'pending'. The
-    completeness columns are persisted on accepted rows; the migration-007 CHECK
+    Two-layer capture gate (Phase 0 / D-015 / ADR-0007): the structural role-balance
+    gate (capture_validation_error) rejects genuinely malformed transcripts with
+    ValueError → HTTP 422. The completeness gate (capture_completeness_error) is
+    informational and does NOT reject: sparse or incomplete chats are stored with
+    flags so the scoring layer can emit missingness labels (absent ≠ zero, #12).
+    The completeness columns are persisted on accepted rows; the migration-007 CHECK
     constraint backstops the invariant at rest."""
     invalid_reason = capture_validation_error(turns)
     if invalid_reason is not None:
         raise ValueError(f"invalid capture: {invalid_reason}")
 
-    incomplete_reason = capture_completeness_error(
+    # Phase 0: collect completeness info but don't reject. The scoring layer will
+    # emit INSUFFICIENT_SAMPLE or other flags as appropriate.
+    _incomplete_reason = capture_completeness_error(
         expected_turn_count=expected_turn_count,
         captured_turn_count=captured_turn_count,
         capture_complete=capture_complete,
     )
-    if incomplete_reason is not None:
-        raise ValueError(f"invalid capture: {incomplete_reason}")
 
     content_hash = hash_turns(turns)
     # Resolve (or mint) the opaque subject_id for this user_ref in the same
@@ -287,9 +303,9 @@ async def upsert_chat(
         INSERT INTO raw_chats
             (user_ref, conversation_id, source, partner_model, turns, turn_count,
              content_hash, subject_id,
-             expected_turn_count, captured_turn_count, capture_complete)
+             expected_turn_count, captured_turn_count, capture_complete, is_minor)
         VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT subject_id FROM subj),
-                $8, $9, $10)
+                $8, $9, $10, $11)
         ON CONFLICT (user_ref, conversation_id) DO UPDATE
             SET turns        = CASE
                     WHEN EXCLUDED.turn_count >= raw_chats.turn_count
@@ -323,6 +339,11 @@ async def upsert_chat(
                     THEN EXCLUDED.capture_complete
                     ELSE raw_chats.capture_complete
                 END,
+                -- is_minor is a SAFETY flag (#15): sticky-true. Once a chat is
+                -- flagged minor it never silently reverts on a later ingest that
+                -- omits/clears the flag — a non-minor → minor transition is allowed,
+                -- the reverse is not.
+                is_minor = raw_chats.is_minor OR EXCLUDED.is_minor,
                 status = CASE
                     WHEN EXCLUDED.turn_count < raw_chats.turn_count
                     THEN raw_chats.status
@@ -343,7 +364,7 @@ async def upsert_chat(
         RETURNING id, status, captured_at, content_hash, turn_count
         """,
         user_ref, conversation_id, source, partner_model, turns, turn_count, content_hash,
-        expected_turn_count, captured_turn_count, capture_complete,
+        expected_turn_count, captured_turn_count, capture_complete, is_minor,
     )
     return dict(row)
 
@@ -464,25 +485,27 @@ async def get_chats_for_user(pool: asyncpg.Pool, user_ref: str) -> list[asyncpg.
     )
 
 
-_SCORING_LEASE = "5 minutes"
-
-
 async def claim_pending_batch(
-    conn: asyncpg.Connection, batch_size: int = 5
+    conn: asyncpg.Connection,
+    batch_size: int = 5,
+    lease_timeout_seconds: int = 600,
 ) -> list[asyncpg.Record]:
     """Atomically claim up to batch_size chats for scoring.
 
     Picks up genuine 'pending' rows AND reclaims 'scoring' rows whose lease has
     expired — a worker that died mid-scoring (e.g. dev restart) no longer wedges
-    a chat forever. FOR UPDATE SKIP LOCKED keeps concurrent workers disjoint."""
+    a chat forever. FOR UPDATE SKIP LOCKED keeps concurrent workers disjoint.
+
+    lease_timeout_seconds must match the watchdog's LEASE_TIMEOUT_SECONDS so the
+    poll-loop reclaim window and the watchdog audit window are consistent."""
     return await conn.fetch(
-        f"""
+        """
         UPDATE raw_chats SET status = 'scoring', scoring_started_at = NOW()
         WHERE id IN (
             SELECT id FROM raw_chats
             WHERE status = 'pending'
                OR (status = 'scoring'
-                   AND scoring_started_at < NOW() - INTERVAL '{_SCORING_LEASE}')
+                   AND scoring_started_at < NOW() - make_interval(secs => $2::double precision))
             ORDER BY captured_at ASC
             LIMIT $1
             FOR UPDATE SKIP LOCKED
@@ -490,6 +513,28 @@ async def claim_pending_batch(
         RETURNING *
         """,
         batch_size,
+        float(lease_timeout_seconds),
+    )
+
+
+async def upsert_worker_heartbeat(conn: asyncpg.Connection, worker_id: str) -> None:
+    """Record that worker `worker_id` is alive as of now (liveness signal)."""
+    await conn.execute(
+        """
+        INSERT INTO worker_heartbeat (worker_id, beat_at) VALUES ($1, now())
+        ON CONFLICT (worker_id) DO UPDATE SET beat_at = now()
+        """,
+        worker_id,
+    )
+
+
+async def worker_heartbeat_age_seconds(conn: asyncpg.Connection) -> float | None:
+    """Seconds since the freshest worker heartbeat, or None if none recorded.
+
+    MAX(beat_at) = "is ANY worker alive" — a dead worker's stale row is ignored as
+    long as a live one is still beating."""
+    return await conn.fetchval(
+        "SELECT EXTRACT(EPOCH FROM (now() - MAX(beat_at))) FROM worker_heartbeat"
     )
 
 
@@ -524,6 +569,29 @@ async def set_chat_status(
         "UPDATE raw_chats SET status = $1, scoring_started_at = NULL WHERE id = $2",
         status, chat_id,
     )
+
+
+async def requeue_failed_chat(
+    conn: asyncpg.Connection, *, chat_id: UUID, user_ref: str
+) -> str | None:
+    """Reset a failed chat to pending without re-ingesting the transcript.
+
+    Returns 'pending' on success, the current status string if the chat exists
+    but is not 'failed' (caller can decide whether to 409 or treat as ok), or
+    None when the chat does not exist / is not owned by user_ref."""
+    row = await conn.fetchrow(
+        "SELECT status FROM raw_chats WHERE id = $1 AND user_ref = $2",
+        chat_id, user_ref,
+    )
+    if row is None:
+        return None
+    if row["status"] != "failed":
+        return row["status"]
+    await conn.execute(
+        "UPDATE raw_chats SET status = 'pending', scoring_started_at = NULL WHERE id = $1",
+        chat_id,
+    )
+    return "pending"
 
 
 async def reset_expired_scoring_leases(
@@ -598,6 +666,8 @@ async def upsert_score(
     telemetry_metrics: dict | None = None,
     event_log: list | None = None,
     provenance: dict | None = None,
+    session_intent: str | None = None,
+    session_intent_confidence: float | None = None,
 ) -> None:
     prov = provenance or {}
     await conn.execute(
@@ -607,9 +677,10 @@ async def upsert_score(
             state_strip, state_validity, flags, reaction_signatures,
             regime_overlay, sustainability, report, raw_profile, telemetry_metrics,
             event_log, framework_version, schema_version, contract_table_version,
-            code_git_sha, judge_model_id, judge_model_version
+            code_git_sha, judge_model_id, judge_model_version,
+            session_intent, session_intent_confidence
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                  $15, $16, $17, $18, $19, $20, $21)
+                  $15, $16, $17, $18, $19, $20, $21, $22, $23)
         ON CONFLICT (chat_id) DO UPDATE SET
             prompt_version         = EXCLUDED.prompt_version,
             tier                   = EXCLUDED.tier,
@@ -631,6 +702,8 @@ async def upsert_score(
             code_git_sha           = EXCLUDED.code_git_sha,
             judge_model_id         = EXCLUDED.judge_model_id,
             judge_model_version    = EXCLUDED.judge_model_version,
+            session_intent            = EXCLUDED.session_intent,
+            session_intent_confidence = EXCLUDED.session_intent_confidence,
             scored_at              = NOW()
         """,
         chat_id, prompt_version, tier, profile, composite,
@@ -640,6 +713,34 @@ async def upsert_score(
         prov.get("framework_version"), prov.get("schema_version"),
         prov.get("contract_table_version"), prov.get("code_git_sha"),
         prov.get("judge_model_id"), prov.get("judge_model_version"),
+        session_intent, session_intent_confidence,
+    )
+
+
+async def insert_drift_run(
+    conn: asyncpg.Connection,
+    *,
+    judge_model_id: str,
+    prompt_version: str,
+    anchor_set: list[str],
+    mae_overall: float | None,
+    mae_per_dimension: dict | None,
+    baseline_mae: float | None,
+    drift_detected: bool | None,
+    drift_note: str | None,
+) -> UUID:
+    """Append one frozen-anchor drift-check result (Phase F). Append-only history;
+    each scheduled run is a new row. Returns the new row id."""
+    return await conn.fetchval(
+        """
+        INSERT INTO drift_runs (
+            judge_model_id, prompt_version, anchor_set, mae_overall,
+            mae_per_dimension, baseline_mae, drift_detected, drift_note
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id
+        """,
+        judge_model_id, prompt_version, anchor_set, mae_overall,
+        mae_per_dimension, baseline_mae, drift_detected, drift_note,
     )
 
 
@@ -772,6 +873,23 @@ async def replace_neuron_firings(
         ],
     )
     return len(rows)
+
+
+async def get_neuron_firings(pool: asyncpg.Pool, *, chat_id: UUID) -> list[asyncpg.Record]:
+    """Per-neuron firing rows for one chat — the deduction log behind a score.
+
+    Read-only view over the same rows `replace_neuron_firings` persisted. Ordered
+    by dimension then neuron so the UI table is stable. Empty list = none stored
+    (absent ≠ zero, #12): the caller shows an explicit empty state, never a fake row."""
+    return await pool.fetch(
+        """
+        SELECT neuron_code, dimension, value, applicable_opportunities,
+               n_eff, evidence_turn_indices, extractor_version
+        FROM neuron_firings WHERE chat_id = $1
+        ORDER BY dimension, neuron_code
+        """,
+        chat_id,
+    )
 
 
 # ── turn_state (per-turn state strip + per-turn precision, Track 2) ──────────────

@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import os
+import socket
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -30,7 +31,6 @@ from src.db.queries import (
     capture_validation_error,
     claim_pending_batch,
     get_telemetry_for_chat,
-    get_score_row,
     mark_scored,
     replace_neuron_firings,
     replace_turn_state,
@@ -41,10 +41,20 @@ from src.db.queries import (
     upsert_question_quality,
     upsert_reliance,
     upsert_score,
+    upsert_worker_heartbeat,
 )
 from src.trait.judge.prompt import JUDGE_PROMPT_VERSION
 
 POLL_INTERVAL: int = int(os.environ.get("WORKER_POLL_INTERVAL", "3"))
+
+# Heartbeat (Audit Track 4): the worker emits a liveness log every
+# WORKER_HEARTBEAT_SECONDS and, if WORKER_HEARTBEAT_FILE is set, touches that file
+# with a UTC timestamp — so ops can detect a silently-dead worker.
+HEARTBEAT_INTERVAL: int = int(os.environ.get("WORKER_HEARTBEAT_SECONDS", "30"))
+HEARTBEAT_FILE: str | None = os.environ.get("WORKER_HEARTBEAT_FILE") or None
+#: identifies this worker process in the worker_heartbeat table (host:pid) so
+#: multiple workers each keep their own row; readers take MAX(beat_at).
+WORKER_ID: str = f"{socket.gethostname()}:{os.getpid()}"
 
 # Lease watchdog (stuck-scoring recovery). A chat enters status='scoring' when a
 # worker claims it; if that worker crashes or hangs before finalizing, the row is
@@ -52,7 +62,12 @@ POLL_INTERVAL: int = int(os.environ.get("WORKER_POLL_INTERVAL", "3"))
 # and records every reset in scoring_lease_events (reason='lease_timeout'). The
 # default (600 s) must exceed the longest legitimate single-chat scoring time so a
 # slow-but-live score is never reset out from under itself.
-LEASE_TIMEOUT_SECONDS: int = int(os.environ.get("LEASE_TIMEOUT_SECONDS", "600"))
+LEASE_TIMEOUT_SECONDS: int = int(os.environ.get("LEASE_TIMEOUT_SECONDS", "1200"))
+# Maximum wall-clock seconds for a single chat's scoring call. Must be less than
+# LEASE_TIMEOUT_SECONDS so a timed-out chat is marked 'failed' before the watchdog
+# would reset it — prevents the watchdog from re-queuing a chat whose scoring
+# thread is still alive but whose lease has already expired.
+SCORING_TIMEOUT_SECONDS: int = int(os.environ.get("SCORING_TIMEOUT_SECONDS", "900"))
 # How often the watchdog checks. Default = a quarter of the lease, clamped to
 # [30 s, 300 s] so a check always lands well within the lease window.
 LEASE_WATCHDOG_INTERVAL: int = int(
@@ -125,6 +140,10 @@ def _build_canonical_session(
         user_ref=chat["user_ref"],
         detected_tier=2 if telemetry is not None else 1,
         metadata=metadata,
+        # D-022 (#15): carry the persisted minor flag into scoring so enforce()
+        # receives the true value. claim_pending_batch RETURNING * supplies the
+        # column; a legacy row predating migration 014 reads as False (adult).
+        is_minor=bool(chat.get("is_minor", False)),
     )
 
 
@@ -169,7 +188,16 @@ async def _score_one(pool: asyncpg.Pool, chat: asyncpg.Record) -> None:
 
         # Direct import — NOT via HTTP (EXTENSION_BUILD_PROMPT.md §2)
         from src.api.pipeline import score_session_with_artifacts
-        run = await asyncio.to_thread(score_session_with_artifacts, session)
+        try:
+            run = await asyncio.wait_for(
+                asyncio.to_thread(score_session_with_artifacts, session),
+                timeout=float(SCORING_TIMEOUT_SECONDS),
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError(
+                f"scoring timed out after {SCORING_TIMEOUT_SECONDS}s — "
+                "chat marked failed; background thread may still be running"
+            )
         result = run.response
 
         full: dict = json.loads(result.model_dump_json(by_alias=True))
@@ -197,6 +225,9 @@ async def _score_one(pool: asyncpg.Pool, chat: asyncpg.Record) -> None:
                 telemetry_metrics=run.telemetry_metrics,
                 event_log=run.event_log,
                 provenance=run.provenance,
+                # Phase C.1 — session intent at score-time (research-only, #2).
+                session_intent=run.session_intent.get("intent"),
+                session_intent_confidence=run.session_intent.get("confidence"),
             )
             # Track 1: persist the evidence + judge audit trail alongside the score
             # so a chat can be reproduced/re-analysed after the transcript purges.
@@ -296,7 +327,7 @@ async def _poll_loop(pool: asyncpg.Pool) -> None:
     while True:
         try:
             async with pool.acquire() as conn:
-                batch = await claim_pending_batch(conn)
+                batch = await claim_pending_batch(conn, lease_timeout_seconds=LEASE_TIMEOUT_SECONDS)
 
             if batch:
                 log.info("[WORKER] claimed %d chat(s)", len(batch))
@@ -308,19 +339,55 @@ async def _poll_loop(pool: asyncpg.Pool) -> None:
         await asyncio.sleep(POLL_INTERVAL)
 
 
+async def _heartbeat_loop(pool: asyncpg.Pool) -> None:
+    """Liveness signal so a silently-dead worker is detectable (Track 4).
+
+    Persists a DB heartbeat each beat so /v1/health (and thus the panel) can tell
+    "scoring is slow" from "no worker is draining the queue". The DB write and the
+    optional file write are both best-effort — a heartbeat hiccup never kills the
+    worker or its scoring loop."""
+    import time
+    while True:
+        ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        log.info("[WORKER] heartbeat %s (poll=%ds)", ts, POLL_INTERVAL)
+        try:
+            async with pool.acquire() as conn:
+                await upsert_worker_heartbeat(conn, WORKER_ID)
+        except Exception as exc:  # DB heartbeat is best-effort, never fatal
+            log.warning("[WORKER] db heartbeat failed: %s", exc)
+        if HEARTBEAT_FILE:
+            try:
+                with open(HEARTBEAT_FILE, "w", encoding="utf-8") as fh:
+                    fh.write(ts)
+            except Exception as exc:  # heartbeat file is best-effort, never fatal
+                log.warning("[WORKER] heartbeat file write failed: %s", exc)
+        await asyncio.sleep(HEARTBEAT_INTERVAL)
+
+
 async def run() -> None:
+    from src.startup_checks import check_any_env, check_db, check_env
+    check_env(
+        component="worker",
+        required=[],
+        optional=["DATABASE_URL", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"],
+    )
+    if not check_any_env(
+        component="worker",
+        names=["GEMINI_API_KEY", "GOOGLE_API_KEY"],
+        purpose="judge scoring",
+    ):
+        raise SystemExit(2)
     await init_pool()
     pool = get_pool()
-    log.info("[WORKER] started — poll interval %ds", POLL_INTERVAL)
-    # Poll loop and lease watchdog run concurrently; if either coroutine ever
-    # raises out of its own try/except (it shouldn't), gather surfaces it loudly
-    # rather than leaving a half-dead worker.
-    await asyncio.gather(_poll_loop(pool), _lease_watchdog(pool))
+    await check_db(pool)  # startup connectivity probe (logs verdict)
+    log.info("[WORKER] started — poll interval %ds, heartbeat %ds", POLL_INTERVAL, HEARTBEAT_INTERVAL)
+    # Poll loop, lease watchdog, and heartbeat run concurrently; if any coroutine
+    # ever raises out of its own try/except (it shouldn't), gather surfaces it
+    # loudly rather than leaving a half-dead worker.
+    await asyncio.gather(_poll_loop(pool), _lease_watchdog(pool), _heartbeat_loop(pool))
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)-5s %(message)s",
-    )
+    from src.logging_config import configure_logging
+    configure_logging()
     asyncio.run(run())

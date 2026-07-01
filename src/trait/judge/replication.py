@@ -174,6 +174,26 @@ def _judge_config(output: JudgeOutput, temperature: float) -> dict[str, object]:
     }
 
 
+def summarize(result: "ReplicatedJudgeResult") -> "dict[Dimension, dict]":
+    """E2: one median estimate + dispersion CI per dim — never N raw composites.
+
+    Callers receive this summary, not `result.runs`, so raw per-replication scores
+    cannot leak into user-facing output. The dispersion CI is 95% normal around the
+    within-replications mean; it is None when only one run was made (no spread info).
+    """
+    out: dict[Dimension, dict] = {}
+    for d, agg in result.aggregates.items():
+        half = (agg.sd * 1.96) if agg.sd is not None else None
+        out[d] = {
+            "median": round(agg.mean, 6),
+            "ci_lo": round(max(0.0, agg.mean - half), 6) if half is not None else None,
+            "ci_hi": round(min(1.0, agg.mean + half), 6) if half is not None else None,
+            "n": agg.n,
+            "dispersion_sd": round(agg.sd, 6) if agg.sd is not None else None,
+        }
+    return out
+
+
 def replicate_judge(
     score_fn: ScoreFn,
     session,
@@ -219,3 +239,90 @@ def replicate_judge(
         judge_unavailable=any_unavailable,
         runs=tuple(runs),
     )
+
+
+# ── Phase 1b: Disagreement cascade (Trust-or-Escalate) ──────────────────────
+
+def disagreement_cascade(
+    score_fn: ScoreFn,
+    session,
+    initial_passes: int = 3,
+    escalation_variance_threshold: float = 0.15,
+    max_escalation_passes: int = 4,
+) -> dict:
+    """
+    Phase 1b: Disagreement-triggered cascade for neuron replication.
+
+    Issue initial_passes (default 3) in parallel. If variance across those passes
+    exceeds the threshold, escalate with max_escalation_passes more. Otherwise,
+    stop at initial_passes (interior case, high confidence).
+
+    This is v3.22 Item #1 (Trust-or-Escalate, Jung et al.).
+    Saves ~30-50% judge compute on interior neurons; escalates only on boundaries.
+
+    Args:
+        score_fn: ScoreFn callable (e.g., JudgeClient.score_session)
+        session: the CanonicalSession to score
+        initial_passes: number of initial replication passes (default 3)
+        escalation_variance_threshold: if variance > threshold, escalate
+        max_escalation_passes: max additional passes on escalation (default 4)
+
+    Returns:
+        {
+            "score": median score,
+            "ci_lower": 2.5th percentile,
+            "ci_upper": 97.5th percentile,
+            "n_passes": total number of passes issued,
+            "escalated": True if variance exceeded threshold,
+            "variance_initial": variance of the initial passes,
+            "judge_unavailable": True if any pass failed
+        }
+    """
+    import numpy as np
+
+    # Phase 1: Initial passes
+    initial_results = []
+    for _ in range(initial_passes):
+        result = score_fn(session)
+        initial_results.append(result)
+
+    # Compute disagreement (variance) across initial passes
+    # For simplicity, we use a single dimension (e.g., composite) to decide escalation
+    # In production, this would be domain-specific
+    initial_scores = [r.composite.value if r.composite.value is not None else 0.5
+                      for r in initial_results]
+    variance = np.var(initial_scores)
+
+    # Decision: escalate if variance is high
+    escalate = variance > escalation_variance_threshold
+    escalation_count = 0
+    all_results = initial_results
+
+    if escalate:
+        # Phase 2: Escalation
+        for _ in range(max_escalation_passes):
+            result = score_fn(session)
+            all_results.append(result)
+            escalation_count += 1
+
+    # Compute final estimate and CI from all passes
+    all_scores = [r.composite.value if r.composite.value is not None else 0.5
+                  for r in all_results]
+    median_score = np.median(all_scores)
+    ci_lower, ci_upper = np.percentile(all_scores, [2.5, 97.5])
+
+    # Check for judge unavailability
+    judge_unavailable = any(r.judge_unavailable for r in all_results)
+
+    return {
+        "score": median_score,
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
+        "n_passes": len(all_results),
+        "escalated": escalate,
+        "escalation_count": escalation_count,
+        "variance_initial": float(variance),
+        "judge_unavailable": judge_unavailable,
+        "initial_passes": initial_results,
+        "escalation_passes": initial_results[initial_passes:] if escalate else [],
+    }

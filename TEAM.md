@@ -327,6 +327,7 @@ updated at the close of each CE session.
 
 | Commit | Author | Files | What |
 |---|---|---|---|
+| `993a958`+`ab13ec5` `[CE]` | CE | `extension/panel/panel.html`, `extension/panel/views/settings.js` | **S10 addition: one-click dev sentinel in Settings (localhost only).** "Use dev key" button writes `api_key="dev-local"` to `chrome.storage.local` on explicit click; localhost-only (two-layer guard), hidden for remote and after click. Ingress-only — the api_client "never invent a shared key" egress guarantee is untouched. `api_client.js` + tests deliberately out of scope (gated separately). |
 | `cd3d648` `[Codex]` | Codex | `extension/content.js`, `extension/utils/payload_builder.js` | DOM hardening (data-message-id selectors), scroll-progress notifications, location-change auto-capture, D-015 §7 snapshot fields, D-015 §8 payload pass-through |
 | `7f10fdf` `[CE]` | CE | `adr/0007-*`, `extension/interceptor.js`, `DISCREPANCY.md`, `TEAM.md` | ADR-0007 + D-015 spec + release-gate doc; interceptor.js shipped dormant |
 | `cc30e4e` `[CE]` | CE | all Scope B + recoverability files | Scope B Phases 1–4 + recoverability Tracks 0–2 (migrations 001–007, worker, API, extension, panel) |
@@ -398,11 +399,11 @@ passes. Covered by `tests/extension/interception_race.test.js` (2 tests). This t
 plan. Scope A is implemented, Scope B extension/DB/worker work exists, and the
 next framework update is driven by:
 
-- `SAF_ARI_v3_ClaudeCode_Upgrades.md`
-- `SAF_ARI_v3.1_ClaudeCode_Upgrades.md`
-- `SAF_ARI_v3_SpecDelta_over_v2.2.md`
-- `SAF_ARI_v3.1_SpecDelta_over_v3.md`
-- the new top section of `AGENT_REBUILD_BRIEF_v3.md`
+- `specs/v3/SAF_ARI_v3_ClaudeCode_Upgrades.md`
+- `specs/v3.1/SAF_ARI_v3.1_ClaudeCode_Upgrades.md`
+- `specs/v3/SAF_ARI_v3_SpecDelta_over_v2.2.md`
+- `specs/v3.1/SAF_ARI_v3.1_SpecDelta_over_v3.md`
+- the new top section of `specs/v3/AGENT_REBUILD_BRIEF_v3.md`
 
 Claude Code remains Chief Engineer and owns shared contracts, DB, worker, API,
 claims/reporting, migrations, cross-module integration, and all governance
@@ -413,5 +414,39 @@ edited to reassign work.
 **Active rule for v3/v3.1:** build freeze-compliant fields, gates, artifacts,
 and data-gated stubs. Do not rebuild the repo, do not add ontology, and do not
 fit on the pilot/gold chats.
+
+---
+
+## Open Codex tasks — v3.21 (added 2026-06-23 by CE)
+
+### TASK C-001 — AI-psychology precision conditioners (grounding + vigilance)
+- **Status:** READY (contract landed). Spec: `PROPOSALS.md` P-002. Interfaces:
+  `INTERFACES.md` §1.4 `classify_grounding` + §1.5 `score_vigilance`.
+- **⚠ RE-READ REQUIRED:** `contracts/schemas.py` bumped **SCHEMA_VERSION → 1.2.0**
+  (D-027). New types `GroundingFunction` + `VigilanceResult`. Re-read the contract
+  before writing any code.
+- **Build (Codex-owned leaves):**
+  - `src/trait/grounding.py` → `classify_grounding(session, tags) -> list[GroundingFunction]`
+  - `src/trait/vigilance.py`  → `score_vigilance(session, tags) -> VigilanceResult`
+  - Unit tests beside each: {happy path, empty-session, absent-≠-zero}.
+- **Bounds (CLAUDE.md):** evidence for EC/CA **precision only** — never a score
+  value (#2); no new neuron/dimension/pillar/latent (#1); import only from
+  `contracts.*` + stdlib; deterministic; no judge, no event-log writes.
+- **Not in this task (CE follow-up):** the merge-side wiring (REPAIR-fraction /
+  vigilance-score → EC/CA CI-widening in `src/merge/precision.py`, R2-audited).
+  The leaves land first; CE wires precision after review.
+
+---
+
+## Long-chat capture fix — 2026-06-26
+
+CE applied 3-file patch (D-015 ADR-0007 revision):
+- extension/interceptor.js: replaced with accumulator-based capture (union merge, both XHR+fetch, gap-free chain detection)
+- extension/content.js: added chunk reassembly handler (SAF_CONVERSATION_READY for small/medium, SAF_CONVERSATION_CHUNK + SAF_CONVERSATION_CHUNK_END for large payloads)
+- extension/background.js: added SAF_CAPTURE handler + storage sweep on SW activate
+
+Fixes root causes A (pagination gap), B (partial overwrite guard removed), C (large payload via chunked postMessage + storage fallback).
+
+Tests: node long-chat-fix/extension/test_accumulator.js → 14/14 passed (pending ref file setup).
 
 ---

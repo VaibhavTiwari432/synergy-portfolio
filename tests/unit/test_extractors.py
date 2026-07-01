@@ -195,7 +195,10 @@ def test_ec07_affirmative_multisentence_turn_is_measured_zero():
     assert "EC-07" not in out["neuron_firings"]
 
 
-def test_ec09_debt_rate_for_unverified_confident_claims():
+def test_ec09_all_claims_unverified_strength_is_zero():
+    # EC-09 valence is −1 (debt direction). Strength is stored as 1 − debt_rate
+    # so the normalizer's mean is consistent (higher = better) across all EC neurons.
+    # All claims unverified → debt_rate = 1.0 → strength = 0.0.
     s = _session([
         ("human", "how many users does it support?"),
         ("ai", "It supports exactly 10000 users. This is definitely the correct number for 2026."),
@@ -204,8 +207,48 @@ def test_ec09_debt_rate_for_unverified_confident_claims():
     ])
     out = _run(ec, s)
     assert out["applicable_opportunities"]["EC-09"] == 1
-    assert out["neuron_firings"]["EC-09"] == 1.0  # debt direction
+    assert out["neuron_firings"]["EC-09"] == 0.0  # 1 - 1.0: all unverified → worst
     assert out["evidence_turns"]["EC-09"] == [2]
+
+
+def test_ec09_high_debt_lowers_ec_dimension_score():
+    # Semantic direction test: a session where the AI makes confident claims
+    # that the user never verifies should produce a LOWER EC dimension score
+    # than a session where the user verifies every AI claim.
+    from src.aggregate.normalize import normalize_counts
+    from contracts.schemas import Dimension
+
+    def _ec_score(pairs):
+        s = _session(list(pairs))
+        out = _run(ec, s)
+        norm = normalize_counts(
+            {Dimension.EC: out["neuron_firings"]},
+            {Dimension.EC: out["applicable_opportunities"]},
+        )
+        return norm.per_dimension[Dimension.EC].normalized
+
+    score_high_debt = _ec_score([
+        ("human", "how many?"),
+        ("ai", "It is exactly 10000. This is definitely correct and always has been."),
+        ("human", "cool"),
+        ("ai", "…"),
+        ("human", "and the limit?"),
+        ("ai", "The limit is exactly 500. This is the only correct value."),
+        ("human", "ok"),
+        ("ai", "…"),
+    ])
+    score_no_debt = _ec_score([
+        ("human", "how many?"),
+        ("ai", "It is exactly 10000. This is definitely correct."),
+        ("human", "are you sure? verify that"),
+        ("ai", "confirmed."),
+        ("human", "and the limit?"),
+        ("ai", "The limit is exactly 500. Definitely."),
+        ("human", "double-check that against the spec"),
+        ("ai", "checked."),
+    ])
+    # High-debt session must score lower (or equal when both have no opportunities)
+    assert score_high_debt is None or score_no_debt is None or score_high_debt <= score_no_debt
 
 
 def test_ec09_verified_claim_does_not_fire():

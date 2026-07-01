@@ -983,7 +983,7 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
 
 ---
 
-## D-022  [OPEN]  — is_minor defaults False on the live ingest path; scoring-path minor protection unenforced
+## D-022  [RESOLVED]  — is_minor defaults False on the live ingest path; scoring-path minor protection unenforced
 - Raised by: Chief Engineer
 - Date: 2026-06-20
 - File(s): src/worker/scorer.py (_build_canonical_session), src/db/queries.py
@@ -1014,7 +1014,20 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
   work; the composite removal already makes the Scope-C responses minor-safe by
   construction, so this is not a release blocker, but the scoring-path guarantee
   stays UNENFORCED until the above lands.
-- Status: OPEN
+- Resolution (CE, 2026-06-23, commit ce7cd05 — Phase B): landed exactly the
+  proposed fix. Migration 014 adds `raw_chats.is_minor BOOLEAN NOT NULL DEFAULT
+  FALSE`; `upsert_chat` accepts `is_minor` (INSERT + sticky-true conflict update
+  `is_minor = old OR new` so a chat never silently reverts minor→non-minor);
+  `IngestRequest.is_minor` threads the payload; `_build_canonical_session` sets
+  `is_minor=bool(chat.get("is_minor", False))` (the worker claim uses RETURNING *,
+  so the column is on the record). `enforce(is_minor=session.is_minor)` now
+  receives the true value on the live path. Integration test R9
+  (test_rescore_integrity.py) proves a minor chat withholds composite (value None,
+  NOT_APPLICABLE) + debt, with an adult control on identical content proving the
+  flag — not the gates — caused the withholding. R1–R9 green vs live Postgres;
+  full suite 570 passed; migration down/up round-trip clean. Approved by project
+  lead at STOP B (#15 gate).
+- Status: RESOLVED
 
 ---
 
@@ -1111,6 +1124,175 @@ manifest, or a build injects a `fetch`/`XHR` patch with no consumer. Therefore:
   affordance, not a silent dead link.
 - Status: OPEN
 - One-liner: Profile account link → real web-app URL (currently # placeholder).
+
+---
+
+## D-027  [RESOLVED-SCHEMA-ONLY]  — Contract bump: GroundingFunction + VigilanceResult added for the AI-psychology precision conditioners (Phase E) — wiring deferred, see D-035
+- Raised by: Chief Engineer
+- Date: 2026-06-23
+- File(s): contracts/schemas.py (CE), INTERFACES.md (CE), PROPOSALS.md (P-002),
+  TEAM.md; future: src/trait/grounding.py (Codex), src/trait/vigilance.py (Codex)
+- Problem: v3.21 §3.1 specifies two unimplemented AI-psychology precision
+  conditioners — conversational grounding (Clark & Brennan) and epistemic
+  vigilance (Sperber & Mercier). Their leaf modules are Codex-owned, but they
+  produce types the frozen contract did not yet define. CE must add the types
+  (schema-first) before Codex can implement; that bumps SCHEMA_VERSION.
+- Decision (CE, 2026-06-23, project-lead approved at STOP C): added
+  `GroundingFunction` (enum: INITIATION/GROUNDING/REPAIR/NONE) and
+  `VigilanceResult` (score/n_signals/pattern_detected) to contracts/schemas.py;
+  bumped SCHEMA_VERSION 1.1.0 → 1.2.0; added both to __all__; added the leaf
+  signatures to INTERFACES.md §1.4/§1.5 with a 1.2.0 version-log entry. Additive
+  only — no existing type changed; adds NO neuron/dimension/pillar/latent (#1) and
+  NO score multiplier — these condition EC/CA evidence PRECISION only (#2). The
+  types have no consumer yet; the producing leaves + the merge-side precision
+  wiring (REPAIR-fraction / vigilance-score → EC/CA CI-widening, R2-audited) are
+  follow-ups. Full suite 574 passed after the bump; no test pinned the old version.
+- **Contract bumped: contracts/schemas.py + INTERFACES.md (SCHEMA_VERSION → 1.2.0)
+  — re-read required by: Codex** before implementing src/trait/grounding.py and
+  src/trait/vigilance.py (see TEAM.md task + PROPOSALS.md P-002 for the spec).
+- Status: RESOLVED-SCHEMA-ONLY (schema landed; live wiring deferred — zero consumer on live path; see D-035 for formal deferral tracking)
+
+---
+
+## D-028  [OPEN]  — B1 🧊 Tagger rebalance blocked: frozen surface requires CE ownership
+- Raised by: Chief Engineer
+- Date: 2026-06-26
+- File(s): src/trait/tagger.py
+- Problem: STATUS.md item B1 (rebalance tagger: narrow EXTRACT patterns, broaden generative
+  tags, add hybrid judge-confirm on ambiguous turns) is marked 🧊 (frozen surface).
+  The CLAUDE.md non-negotiable #21 says never edit a file you don't own without CE approval.
+  The tagger regex patterns are a calibration surface — narrowing EXTRACT incorrectly would
+  suppress passive-engagement detection and break B2's metacog untagged-turns logic.
+- Proposed fix: CE to review the proposed EXTRACT pattern narrowing before execution.
+  Candidate narrowing: remove the broad `^\s*(what|who|...)` opener from EXTRACT and
+  require at least one of {explain, describe, tell me, show me} alongside a domain noun.
+  Broaden SCAFFOLD to catch "given that" / "assuming" / "context:" prefixes.
+- Decision: <CE ONLY>
+- Status: OPEN
+
+## D-029  [OPEN]  — C1 🧊 AI-ownership discount blocked: depends on B1 + frozen surface
+- Raised by: Chief Engineer
+- Date: 2026-06-26
+- File(s): csl/ai_side_extractor.py
+- Problem: STATUS.md item C1 (AI ownership = AI provision discounted by human control
+  fraction via REACTION_WINDOW_K tags) is marked 🧊 and depends on B1. Without reliable
+  control tags (B1), the human-control discount fraction will be noisy and inverted
+  for Delegating-Manager sessions. Implementing C1 before B1 ships would make the
+  Twin-pair Gate B acceptance test unobtainable.
+- Proposed fix: Block on B1. Once B1 is merged and human tag recall verified, implement
+  C1 as: ai_displayed[level] *= (1 - human_control_fraction[level]) where
+  human_control_fraction = REACTION_WINDOW_K hits (OVERRIDE/VERIFY/INJECT) / total_ai_turns.
+- Decision: <CE ONLY>
+- Status: OPEN
+
+## D-030  [OPEN]  — C4 🧊 ES split blocked: frozen surface + ES is structurally absent
+- Raised by: Chief Engineer
+- Date: 2026-06-26
+- File(s): src/trait/extractors/per_dimension/es.py, contracts/contract_table.yaml
+- Problem: STATUS.md item C4 (split ES: ES-01 stays deterministic; other ES neurons →
+  judge-typed rubrics) is marked 🧊 (frozen surface). The ES extractor is event-gated
+  (only fires when ethics events exist). Adding judge-typed ES neurons would require
+  new entries in contract_table.yaml (CE-only contract change) and new rubrics in
+  rubric_bank.py for the additional neurons. Without a contract bump the DETERMINISTIC_NEURONS
+  freeze in rubric_bank.py would conflict with any new judge-typed ES neuron.
+- Proposed fix: CE to approve which ES neurons become judge-typed (candidates: ES-02 through
+  ES-07 based on the ethical-reasoning-without-overreach use case), bump the contract table,
+  then proceed with rubric authoring + es.py split.
+- Decision: <CE ONLY>
+- Status: OPEN
+
+---
+
+## D-031  [OPEN]  — Fluent gate thresholds uncalibrated: no gold data backing
+**Filed:** 2026-06-27
+**Filed by:** CE
+**Status:** OPEN
+**Component:** src/api/pipeline.py — `_compute_fluent_incompetence` thresholds
+**Finding:** `_TAU_PR_HIGH=0.70`, `_TAU_V=0.10`, `_TAU_A=0.50`, `_TAU_GEN=0.30` were set
+without gold data on this specific construct. If miscalibrated, the D2 gate fires
+incorrectly and propagates to composite via G_K. No tests verify correct verdicts on
+known-truth cases.
+**Risk:** MEDIUM — gate affects composite value; false positives penalise genuinely
+skilled users; false negatives miss fluent-incompetence cases.
+**Rung:** DESIGNED
+**Reinstatement trigger:** n≥50 gold chats with annotated fluent-incompetence ground truth
+(CE + Sathwik agreement); then calibrate thresholds via ROC and update with a D-study.
+**Proposed fix when unblocked:** Fit logistic threshold on gold labels; add 5 known-truth
+fixtures (2 true-positive, 2 true-negative, 1 boundary) to
+`tests/integration/test_gates_calibration.py`.
+**Non-negotiable reference:** #19 (calibration before claims) — do not tighten thresholds
+without gold data.
+
+---
+
+## D-032  [RESOLVED]  — Orphan migration broke the whole alembic chain
+**Filed:** 2026-06-27
+**Filed by:** CE
+**Status:** RESOLVED
+**Component:** alembic/versions/014_two_table_event_log.py
+**Problem:** The file declared no `revision`/`down_revision`/`branch_labels`/`depends_on`
+module vars, so `alembic upgrade head` failed to parse the *entire* versions directory
+("Could not determine revision id from filename"). It also collided on number "014" with
+`014_is_minor.py` and had never been applied — its tables (`human_control_signals`,
+`ai_action_log`) were absent from the DB despite being referenced by `src/eventlog/queries.py`
+and `src/api/pipeline.py` (a latent D4 bug). This blocked migration 018 (worker heartbeat).
+**Decision (CE):** Added the four missing alembic vars and re-homed it as a proper linear
+revision (`revision="two_table_event_log"`, `down_revision="017"`) — DDL unchanged. Migration
+018 (worker_heartbeat) now chains after it. Applied: `017 → two_table_event_log → 018`. The
+two D4 tables now exist. No file rename; no logic change. If D4's owner intended a different
+chain position, re-open.
+**Non-negotiable reference:** #21 (no silent workaround) — recorded rather than quietly patched.
+
+---
+
+## D-033  [OPEN]  — Gate A criteria (i) failed on live data; downstream waves built without passing the gate
+- Raised by: Audit
+- Date: 2026-06-29
+- File(s): gate_a_runs.json, STATUS.md, src/api/pipeline.py
+- Problem: CD 4-run range = 0.263 (target ≤ 0.10); composite range = 0.272 (target ≤ 0.03).
+  Root cause: replication-median (cascade_eval) not wired to live path — each neuron scored once.
+  STATUS.md checkboxes still said "needs live run" masking the failure.
+  Downstream waves (D/C/B/F/G) were built without Gate A (i) passing.
+- Proposed fix: FIX-1 in SAF_ARI_v3.22_Corrections_Prompt.md (wire K-rep median via
+  score_all_neurons_replicated). Re-score Chat4 4× after fix lands to verify CD range ≤ 0.10.
+- Decision: <CE ONLY>
+- Status: OPEN
+
+---
+
+## D-034  [OPEN]  — SSSR Phase-0 telemetry columns not added; migration 015 was repurposed
+- Raised by: Audit
+- Date: 2026-06-29
+- File(s): alembic/versions/015_research_question_quality_view.py, specs/v3.22/v3.22_SpecDelta.md §SSSR
+- Problem: v3.22 SpecDelta specified migration 015 to add s0_snapshot, external_uncertainty_flag,
+  semantic_volume, and competency_covariates columns (SSSR Phase-0 + CRO covariate capture).
+  The actual migration 015 was instead used for a question_quality research view. Neither
+  SSSR Phase-0 telemetry nor CRO competency_covariates were added. CRO Phase-0 is now
+  also blocked (its migration dependency was 015-SSSR). This was not noted in any discrepancy.
+- Proposed fix: Add migration 019 with the SSSR + CRO covariate columns (renumbered from
+  the displaced 015 plan). CE to assign a new number and approve schema additions.
+- Decision: <CE ONLY>
+- Status: OPEN
+
+---
+
+## D-035  [OPEN]  — D-027 grounding/vigilance: schema landed, live wiring deferred; zero consumer
+- Raised by: Audit
+- Date: 2026-06-29
+- File(s): src/trait/grounding.py, src/trait/vigilance.py, src/merge/precision.py, contracts/schemas.py
+- Problem: D-027 was marked RESOLVED after adding GroundingFunction and VigilanceResult schema
+  types, but the D-027 decision itself notes "the types have no consumer yet." The modules exist
+  (grounding.py, vigilance.py) but are produced nowhere and consumed nowhere on the live scoring
+  path. The D-027 entry calls this "resolved" when only the schema half is done; wiring into
+  merge/precision.py was never attempted.
+- Proposed fix (Option B — formal deferral, CE decision required for Option A):
+  Reinstatement trigger = Gate A passes (FIX-1) + n≥50 corpus. When reinstating:
+  classify_grounding() → list[GroundingFunction] per turn; REPAIR fraction > 0.20 widens
+  EC CI by × (1 + 0.15 × repair_fraction). score_vigilance() → VigilanceResult; if
+  pattern_detected, widen CA CI by × (1 + 0.10 × vig_result.score). Clamp to [0,1].
+  See PROPOSALS.md P-002 for the existing spec.
+- Decision: <CE ONLY — Option A (wire now) vs Option B (defer to n≥50)>
+- Status: OPEN
 
 ---
 

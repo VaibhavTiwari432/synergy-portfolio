@@ -13,7 +13,10 @@ from __future__ import annotations
 
 from contracts.schemas import CanonicalSession
 
-JUDGE_PROMPT_VERSION = "v2.1"  # v2.0 + ES calibration anchors (stage-2 iteration:
+JUDGE_PROMPT_VERSION = "v2.2"  # v2.1 + score-resolution instruction (use the full
+# two-decimal 0.00-1.00 range; stop snapping to round tenths). Anchor MEANINGS are
+# unchanged — output resolution only, gated by the MAE ratchet (#18), not a
+# recalibration. v2.1 = v2.0 + ES calibration anchors (stage-2 iteration:
 # v2.0 saturated ES at 1.0 on topic salience; gold scores demonstrated behavior)
 
 SYSTEM_PROMPT = """\
@@ -37,6 +40,14 @@ Score anchors (every dimension):
   0.3 = weak or inconsistent evidence
   0.6 = moderate, recurring evidence
   1.0 = strong, consistent, exemplary evidence
+
+SCORE RESOLUTION: the anchors are reference points, not buckets. Use the full
+continuous range to TWO decimals (e.g. 0.62, 0.74, 0.88) — place the score where
+the evidence actually falls between anchors. Do NOT default to round tenths
+(0.6, 0.7, 0.8) out of habit; reserve a round value only when the evidence is
+genuinely at an anchor. The second decimal must reflect a real difference in
+evidence strength, never an invented one — when two dimensions are truly
+indistinguishable, equal scores are correct.
 
 CRITICAL SCORING RULES:
 1. Score only observed behavior. Never infer ability from the user's background.

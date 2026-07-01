@@ -17,7 +17,7 @@ scores (#2).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Protocol, Sequence
+from typing import Callable, Sequence
 
 from contracts.schemas import (
     CanonicalSession,

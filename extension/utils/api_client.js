@@ -17,16 +17,59 @@
 
 (function initApiClient(globalScope) {
   const DEFAULT_ENDPOINT = 'http://localhost:8000';
+  const API_REQUEST_TIMEOUT_MS = 15000;
+  // Must exceed CAPTURE_ABSOLUTE_TIMEOUT_MS (300s) + API_REQUEST_TIMEOUT_MS (15s) + margin.
+  // The heartbeat fix extends capture past the old 30s stall; this must match.
+  const TRIGGER_ANALYSIS_TIMEOUT_MS = 330000;
+  // The dev server binds IPv4 127.0.0.1 only, but on Windows `localhost` resolves
+  // to IPv6 ::1 first — fetch can fail there before falling back. Force IPv4 for
+  // the loopback host so the call always lands on the listening socket. Stored /
+  // displayed value is untouched; this only affects the URL we fetch.
+  function _forceIpv4Local(endpoint) {
+    try {
+      const url = new URL(endpoint);
+      if (url.hostname === 'localhost' || url.hostname === '[::1]' || url.hostname === '::1') {
+        url.hostname = '127.0.0.1';
+        return url.toString().replace(/\/+$/, '');
+      }
+    } catch (_) { /* fall through to original */ }
+    return String(endpoint || '').replace(/\/+$/, '');
+  }
 
   async function _getConfig() {
     const storage = globalScope.SAFStorage;
     if (!storage) throw new Error('SAFStorage not loaded');
     const keys = storage.STORAGE_KEYS;
     const values = await storage.getMany([keys.API_ENDPOINT, keys.API_KEY]);
+    const rawEndpoint = String(values[keys.API_ENDPOINT] || '').trim() || DEFAULT_ENDPOINT;
+    const endpoint = _forceIpv4Local(rawEndpoint);
+    const storedKey = values[keys.API_KEY] || '';
     return {
-      endpoint: values[keys.API_ENDPOINT] || DEFAULT_ENDPOINT,
-      key: values[keys.API_KEY] || '',
+      endpoint,
+      key: storedKey,
     };
+  }
+
+  async function _fetchWithTimeout(url, options = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) {
+    if (!globalScope.AbortController || timeoutMs <= 0) {
+      return fetch(url, options);
+    }
+
+    const controller = new globalScope.AbortController();
+    const timer = globalScope.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      globalScope.clearTimeout(timer);
+    }
+  }
+
+  function _requireUserRef(userRef) {
+    return typeof userRef === 'string' && userRef.trim() ? userRef : null;
+  }
+
+  function _missingUserRef() {
+    return { ok: false, error: 'user_ref_required', status: 0 };
   }
 
   async function _request(method, path, body, extraHeaders = null) {
@@ -44,7 +87,7 @@
     if (extraHeaders) Object.assign(headers, extraHeaders);
 
     try {
-      const res = await fetch(`${cfg.endpoint}${path}`, {
+      const res = await _fetchWithTimeout(`${cfg.endpoint}${path}`, {
         method,
         headers,
         body: body != null ? JSON.stringify(body) : undefined,
@@ -85,25 +128,44 @@
   }
 
   async function listChats(userRef) {
-    return _request('GET', `/v1/users/${encodeURIComponent(userRef)}/chats`);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('GET', `/v1/users/${encodeURIComponent(ref)}/chats`);
   }
 
   async function getScore(userRef, chatId) {
-    return _request('GET', `/v1/users/${encodeURIComponent(userRef)}/chats/${encodeURIComponent(chatId)}/score`);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('GET', `/v1/users/${encodeURIComponent(ref)}/chats/${encodeURIComponent(chatId)}/score`);
   }
 
   async function postFeedback(userRef, chatId, body) {
-    return _request('POST', `/v1/users/${encodeURIComponent(userRef)}/chats/${encodeURIComponent(chatId)}/feedback`, body);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('POST', `/v1/users/${encodeURIComponent(ref)}/chats/${encodeURIComponent(chatId)}/feedback`, body);
   }
 
   async function getPortfolio(userRef) {
-    return _request('GET', `/v1/users/${encodeURIComponent(userRef)}/portfolio`);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('GET', `/v1/users/${encodeURIComponent(ref)}/portfolio`);
+  }
+
+  // GET .../chats/{id}/work — read-only CSL (Cognitive Work Layer): the
+  // descriptive per-ACF-level human/AI contribution split. Never an ARI score;
+  // separate route so the frozen ScoreResponse stays untouched.
+  async function getChatWork(userRef, chatId) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('GET', `/v1/users/${encodeURIComponent(ref)}/chats/${encodeURIComponent(chatId)}/work`);
   }
 
   async function acknowledgePortfolio(userRef, snapshotHash) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'POST',
-      `/v1/users/${encodeURIComponent(userRef)}/portfolio/ack`,
+      `/v1/users/${encodeURIComponent(ref)}/portfolio/ack`,
       { snapshot_hash: snapshotHash },
     );
   }
@@ -132,6 +194,18 @@
     return postFeedback(userRef, chatId, body);
   }
 
+  // requeueChat — re-queue an already-ingested failed chat for scoring without
+  // re-capturing from the page. Use this for the Retry CTA on a known chat_id
+  // instead of triggerAnalysis, which re-captures whatever tab is active.
+  async function requeueChat(userRef, chatId) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request(
+      'POST',
+      `/v1/users/${encodeURIComponent(ref)}/chats/${encodeURIComponent(chatId)}/requeue`,
+    );
+  }
+
   // triggerAnalysis — the "Analyse" CTA does NOT hit the API directly. Analysis
   // is driven by the background worker (capture → ingest → score), so this sends
   // SAF_PANEL_ANALYSE_NOW and resolves when background acknowledges. Returns the
@@ -143,14 +217,25 @@
         resolve({ ok: false, error: 'runtime_unavailable' });
         return;
       }
+      let settled = false;
+      let timer = null;
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        globalScope.clearTimeout(timer);
+        resolve(result);
+      };
+      timer = globalScope.setTimeout(() => {
+        finish({ ok: false, error: 'analysis_timeout' });
+      }, TRIGGER_ANALYSIS_TIMEOUT_MS);
       try {
         runtime.sendMessage({ type: 'SAF_PANEL_ANALYSE_NOW', chatId }, (res) => {
           const err = runtime.lastError;
-          if (err) { resolve({ ok: false, error: err.message || 'send_failed' }); return; }
-          resolve(res || { ok: false, error: 'no_response' });
+          if (err) { finish({ ok: false, error: err.message || 'send_failed' }); return; }
+          finish(res || { ok: false, error: 'no_response' });
         });
       } catch (e) {
-        resolve({ ok: false, error: String(e?.message || e) });
+        finish({ ok: false, error: String(e?.message || e) });
       }
     });
   }
@@ -167,9 +252,11 @@
   // POST /projects — Idempotency-Key dedupes a double-tap (§3.4); auto-generated
   // when the caller does not supply one.
   async function createProject(userRef, { name, description = null } = {}, idempotencyKey) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'POST',
-      `/v1/users/${encodeURIComponent(userRef)}/projects`,
+      `/v1/users/${encodeURIComponent(ref)}/projects`,
       { name, description },
       { 'Idempotency-Key': idempotencyKey || _newIdempotencyKey() },
     );
@@ -177,38 +264,46 @@
 
   // GET /projects?limit=&cursor= — keyset page (§3.2)
   async function listProjects(userRef, { limit, cursor } = {}) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     const params = new URLSearchParams();
     if (limit != null) params.set('limit', String(limit));
     if (cursor) params.set('cursor', cursor);
     const qs = params.toString();
     return _request(
       'GET',
-      `/v1/users/${encodeURIComponent(userRef)}/projects${qs ? `?${qs}` : ''}`,
+      `/v1/users/${encodeURIComponent(ref)}/projects${qs ? `?${qs}` : ''}`,
     );
   }
 
   async function getProject(userRef, projectId) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'GET',
-      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}`,
+      `/v1/users/${encodeURIComponent(ref)}/projects/${encodeURIComponent(projectId)}`,
     );
   }
 
   // PATCH /projects/{id} — If-Match carries the version (optimistic concurrency,
   // §3.3); a stale version returns HTTP 409 → result.status === 409.
   async function updateProject(userRef, projectId, patch, version) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'PATCH',
-      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}`,
+      `/v1/users/${encodeURIComponent(ref)}/projects/${encodeURIComponent(projectId)}`,
       patch,
       { 'If-Match': String(version) },
     );
   }
 
   async function deleteProject(userRef, projectId, version) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'DELETE',
-      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}`,
+      `/v1/users/${encodeURIComponent(ref)}/projects/${encodeURIComponent(projectId)}`,
       null,
       { 'If-Match': String(version) },
     );
@@ -216,48 +311,81 @@
 
   // POST /projects/{id}/sessions — chat_ids ARE saf_session_ids (§1)
   async function addProjectSessions(userRef, projectId, chatIds) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'POST',
-      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}/sessions`,
+      `/v1/users/${encodeURIComponent(ref)}/projects/${encodeURIComponent(projectId)}/sessions`,
       { chat_ids: chatIds },
     );
   }
 
   async function removeProjectSession(userRef, projectId, sessionId) {
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
     return _request(
       'DELETE',
-      `/v1/users/${encodeURIComponent(userRef)}/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}`,
+      `/v1/users/${encodeURIComponent(ref)}/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}`,
     );
   }
 
   // ── Settings (S10: migration-013 routes) ────────────────────────────────────
 
   async function getSettings(userRef) {
-    return _request('GET', `/v1/users/${encodeURIComponent(userRef)}/settings`);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('GET', `/v1/users/${encodeURIComponent(ref)}/settings`);
   }
 
   // patch = { auto_analyse?: bool, calibration_opt_in?: bool } — partial update
   async function updateSettings(userRef, patch) {
-    return _request('PATCH', `/v1/users/${encodeURIComponent(userRef)}/settings`, patch);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('PATCH', `/v1/users/${encodeURIComponent(ref)}/settings`, patch);
   }
 
   async function deleteUser(userRef) {
-    return _request('DELETE', `/v1/users/${encodeURIComponent(userRef)}`);
+    const ref = _requireUserRef(userRef);
+    if (!ref) return _missingUserRef();
+    return _request('DELETE', `/v1/users/${encodeURIComponent(ref)}`);
   }
 
-  async function checkHealth() {
+  async function getHealth() {
     let cfg;
     try {
       cfg = await _getConfig();
     } catch {
-      return false;
+      return { ok: false, error: 'storage_unavailable', status: 0 };
     }
     try {
-      const res = await fetch(`${cfg.endpoint}/v1/health`);
-      return res.ok;
+      const res = await _fetchWithTimeout(`${cfg.endpoint}/v1/health`);
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (_) {
+        data = null;
+      }
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}`, status: res.status, data };
+      return { ok: true, data, status: res.status };
     } catch {
-      return false;
+      return { ok: false, error: 'api_unreachable', status: 0 };
     }
+  }
+
+  async function checkHealth() {
+    const result = await getHealth();
+    return Boolean(result?.ok);
+  }
+
+  function getAnalysisProgress() {
+    const runtime = globalScope.chrome?.runtime;
+    if (!runtime?.sendMessage) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      runtime.sendMessage({ type: 'SAF_PANEL_GET_STATUS' }, (res) => {
+        void runtime.lastError;
+        resolve(res?.ok ? (res.data?.analysisProgress ?? null) : null);
+      });
+    });
   }
 
   const api = Object.freeze({
@@ -266,11 +394,14 @@
     getScore,
     postFeedback,
     getPortfolio,
+    getChatWork,
     acknowledgePortfolio,
     getChatList,
     getChatScore,
     submitFeedback,
+    requeueChat,
     triggerAnalysis,
+    getAnalysisProgress,
     createProject,
     listProjects,
     getProject,
@@ -281,6 +412,7 @@
     getSettings,
     updateSettings,
     deleteUser,
+    getHealth,
     checkHealth,
     DEFAULT_ENDPOINT,
   });

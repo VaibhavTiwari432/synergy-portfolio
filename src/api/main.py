@@ -23,11 +23,15 @@ endpoints return 503 — Scope A is unaffected (it uses SQLite only).
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import time as _time
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from contracts.schemas import (
@@ -52,18 +56,82 @@ from src.trait.judge.prompt import JUDGE_PROMPT_VERSION
 log = logging.getLogger(__name__)
 
 
+def _csv_env(name: str) -> list[str]:
+    return [part.strip() for part in os.environ.get(name, "").split(",") if part.strip()]
+
+
+_judge_probe_cache: tuple[float, str] = (0.0, "unknown")
+_JUDGE_PROBE_TTL = 60.0  # re-probe at most once per minute
+
+
+def _probe_judge_sync() -> str:
+    """Blocking live probe — run via asyncio.to_thread in the health handler."""
+    from src.trait.judge.client import _gemini_generate
+    try:
+        _gemini_generate("health probe", "ok?", timeout=5)
+        return "ok"
+    except Exception:
+        return "degraded"
+
+
+async def _scoring_readiness() -> str:
+    global _judge_probe_cache
+    if not (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")):
+        return "missing_judge_key"
+    now = _time.monotonic()
+    if now - _judge_probe_cache[0] < _JUDGE_PROBE_TTL:
+        return _judge_probe_cache[1]
+    status = await asyncio.to_thread(_probe_judge_sync)
+    _judge_probe_cache = (now, status)
+    return status
+
+
+#: a worker beats every WORKER_HEARTBEAT_SECONDS (default 30s); allow ~3 missed
+#: beats before calling it down, so one slow beat is not a false alarm.
+_WORKER_STALE_SECONDS = 95.0
+
+
+async def _worker_readiness() -> str:
+    """ok = a worker beat within the staleness window; down = none has (no worker
+    running, or it stopped); unknown = DB unreachable so we can't tell."""
+    from src.db.connection import get_pool_optional
+    from src.db.queries import worker_heartbeat_age_seconds
+    pool = get_pool_optional()
+    if pool is None:
+        return "unknown"
+    try:
+        age = await worker_heartbeat_age_seconds(pool)
+    except Exception:
+        return "unknown"
+    if age is None:
+        return "down"
+    return "ok" if float(age) <= _WORKER_STALE_SECONDS else "down"
+
+
 # ── lifespan (Postgres pool) ──────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from src.db.connection import close_pool, init_pool
+    from src.db.connection import close_pool, get_pool_optional, init_pool
+    from src.logging_config import configure_logging
+    from src.startup_checks import check_db, check_env
+
+    configure_logging()
+    # fail loud on misconfiguration — SAF_API_KEY absent means auth fails closed
+    check_env(
+        component="api",
+        required=["SAF_API_KEY"],
+        optional=["DATABASE_URL", "GEMINI_API_KEY", "GOOGLE_API_KEY",
+                  "OPENAI_API_KEY", "SAF_GIT_SHA"],
+    )
     try:
         await init_pool()
     except Exception as exc:
         log.warning(
-            "Postgres unavailable — Scope B endpoints will return 503. (%s: %s)",
+            "Postgres unavailable — Scope B/C endpoints will return 503. (%s: %s)",
             type(exc).__name__, exc,
         )
+    await check_db(get_pool_optional())  # startup connectivity probe (logs verdict)
     yield
     await close_pool()
 
@@ -89,6 +157,26 @@ class CreateSessionResponse(BaseModel):
 def create_app(store: SessionStore | None = None) -> FastAPI:
     app = FastAPI(title="saf-brain", version=SCHEMA_VERSION, lifespan=lifespan)
     app.state.store = store or SessionStore("saf_brain.db")
+    extension_origin_regex = os.environ.get("SAF_EXTENSION_ORIGIN_REGEX") or None
+
+    # Extension UI runs in ChatGPT/Claude pages and sends X-API-Key, so browser
+    # preflight must be allowed or content-script fetch reports "api_unreachable".
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://chatgpt.com",
+            "https://chat.openai.com",
+            "https://claude.ai",
+            *_csv_env("SAF_CORS_ORIGINS"),
+        ],
+        allow_origin_regex=extension_origin_regex,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Track 2: request IDs + generic-500 / DB-down-503 handlers (no traceback leak)
+    from src.api.observability import install_observability
+    install_observability(app)
 
     # Scope B routers (Postgres)
     app.include_router(ingest_router)
@@ -103,7 +191,23 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
 
     @app.get("/v1/health")
     async def health() -> dict[str, str]:
-        return {"status": "ok"}
+        # liveness ("status": process up) + readiness ("db": Postgres reachable);
+        # no auth so a load balancer / ops can poll it.
+        from src.db.connection import get_pool_optional
+        pool = get_pool_optional()
+        db = "unavailable"
+        if pool is not None:
+            try:
+                await pool.fetchval("SELECT 1")
+                db = "ok"
+            except Exception:
+                db = "unavailable"
+        return {
+            "status": "ok",
+            "db": db,
+            "scoring": await _scoring_readiness(),
+            "worker": await _worker_readiness(),
+        }
 
     @app.get("/v1/contracts")
     async def contracts() -> dict[str, str]:

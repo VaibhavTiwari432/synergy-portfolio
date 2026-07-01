@@ -6,7 +6,7 @@
  */
 
 (function initSafModalShell() {
-  const SAF_BUILD = '0.5.0-s2-logo';
+  const SAF_BUILD = '0.5.1-toolbar-open';
   const FAB_ID = 'saf-fab';
   const HOST_ID = 'saf-modal-host';
   const ROOT_STYLESHEET_ID = 'saf-panel-stylesheet';
@@ -21,6 +21,7 @@
   let isOpening = false;
   let closeTimer = null;
   let sidebarCleanup = null;
+  let openGeneration = 0;
 
   console.info(`[SAF] injected_icon build ${SAF_BUILD} loaded`);
 
@@ -29,7 +30,7 @@
   }
 
   function logoUrl() {
-    return chrome.runtime.getURL('assets/sangillence_mark.svg');
+    return chrome.runtime.getURL('icons/icon.png');
   }
 
   function setLogoSources(root) {
@@ -122,24 +123,39 @@
 
   async function openModal() {
     if (isOpen || isOpening) return;
+    const generation = ++openGeneration;
     isOpening = true;
 
     try {
       closeTimer = null;
-      modalHost = document.createElement('div');
-      modalHost.id = HOST_ID;
-      document.body.appendChild(modalHost);
+      const host = document.createElement('div');
+      host.id = HOST_ID;
+      document.body.appendChild(host);
+      modalHost = host;
 
-      modalShadow = modalHost.attachShadow({ mode: 'closed' });
+      const shadow = host.attachShadow({ mode: 'closed' });
+      modalShadow = shadow;
 
       const stylesheet = document.createElement('link');
       stylesheet.rel = 'stylesheet';
       stylesheet.href = extensionUrl(PANEL_CSS_PATH);
-      modalShadow.appendChild(stylesheet);
-      modalShadow.appendChild(await loadModalFragment());
-      setLogoSources(modalShadow);
+      shadow.appendChild(stylesheet);
+
+      const fragment = await loadModalFragment();
+      if (generation !== openGeneration || modalHost !== host || modalShadow !== shadow) {
+        host.remove();
+        return;
+      }
+
+      shadow.appendChild(fragment);
+      setLogoSources(shadow);
       const { initSidebar } = await import(chrome.runtime.getURL('panel/sidebar.js'));
-      sidebarCleanup = initSidebar(modalShadow);
+      if (generation !== openGeneration || modalHost !== host || modalShadow !== shadow) {
+        host.remove();
+        return;
+      }
+
+      sidebarCleanup = initSidebar(shadow);
 
       bindModalEvents();
       document.addEventListener('keydown', handleKeydown);
@@ -147,18 +163,19 @@
       isOpen = true;
 
       requestAnimationFrame(() => {
-        modalOverlay?.classList.add('saf-open');
+        if (generation === openGeneration) modalOverlay?.classList.add('saf-open');
       });
     } catch (error) {
       console.error('[SAF] Failed to open modal shell', error);
-      teardownModal();
+      if (generation === openGeneration) teardownModal();
     } finally {
-      isOpening = false;
+      if (generation === openGeneration) isOpening = false;
     }
   }
 
   function closeModal() {
     if (!isOpen && !isOpening) return;
+    openGeneration += 1;
     isOpening = false;
     isOpen = false;
     setFabExpanded(false);
@@ -185,6 +202,10 @@
   function handleRuntimeMessage(message) {
     if (message?.type === 'SAF_FAB_NOTIFICATION_DOT') {
       setFabNotification(Boolean(message.visible));
+    } else if (message?.type === 'SAF_OPEN_MODAL') {
+      // toolbar icon click relayed from background — toggle the modal open.
+      if (isOpen || isOpening) closeModal();
+      else void openModal();
     }
   }
 

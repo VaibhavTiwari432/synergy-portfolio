@@ -163,7 +163,8 @@ def compute_ownership(
         # is a genuine 0.0, not absence).
         pi_s = _clamp_unit(_level_pi_s(ev, precision_map, cspc.session_pi_s()))
         control = ev.control_strength if ev.control_strength is not None else 0.0
-        human_weighted = pi_s * control
+        # ponytail: C2 — pi_s enters CI only via _bootstrap_ci; point estimate = raw control (L5)
+        human_weighted = control
         denom = human_weighted + ai_displayed
 
         if denom <= 0.0:

@@ -141,6 +141,7 @@ def project_to_acf(
     crosswalk: ACFCrosswalk,
     *,
     min_n_eff: float = 1.0,
+    precision_map: "dict[int, float | None] | None" = None,
 ) -> dict[str, LevelEvidence]:
     """Re-project an already-computed `NeuronMatrix` onto the seven ACF levels.
 
@@ -152,6 +153,10 @@ def project_to_acf(
       - NOT_APPLICABLE  — no mapped neuron's opportunity arose (no denominator).
       - INSUFFICIENT_SAMPLE — opportunities arose but n_eff < `min_n_eff`.
       - OK — enough evidence; `control_strength` is populated.
+
+    F1: when `precision_map` (turn_index → π_t) is provided, control_strength is
+    weighted by mean per-turn precision of each neuron's evidence turns, realising
+    state-conditioned pooling without emitting per-segment composites (L12).
 
     This calls no extractor, reads no transcript, and never touches an ARI score.
     """
@@ -200,7 +205,7 @@ def project_to_acf(
             )
             continue
 
-        control_strength = _weighted_control_strength(contributing)
+        control_strength = _weighted_control_strength(contributing, precision_map)
         results[level] = LevelEvidence(
             level=level,
             label=label,
@@ -215,12 +220,17 @@ def project_to_acf(
     return results
 
 
-def _weighted_control_strength(firings: Iterable[NeuronEvidence]) -> float:
+def _weighted_control_strength(
+    firings: Iterable[NeuronEvidence],
+    precision_map: "dict[int, float | None] | None" = None,
+) -> float:
     """Opportunity-weighted mean of applicable foundation values.
 
-    Weighting by `n_eff` lets a neuron with more opportunities speak louder than a
-    single-shot one. Falls back to an unweighted mean when every weight is zero,
-    and treats a missing value as a non-contributor rather than a zero (#12).
+    F1: when precision_map is given, each neuron's base n_eff weight is further
+    scaled by the mean precision of its evidence turns, so turns in degraded state
+    contribute proportionally less to the projection (L12 — per-turn π pooling,
+    not session-level widening). Missing precision entries don't suppress the
+    neuron — they contribute at the neuron's plain n_eff weight (#12).
     """
     weighted_sum = 0.0
     weight_total = 0.0
@@ -231,7 +241,14 @@ def _weighted_control_strength(firings: Iterable[NeuronEvidence]) -> float:
             continue
         plain_sum += ev.control_value
         plain_count += 1
-        weight = max(ev.n_eff, 0.0)
+        base_weight = max(ev.n_eff, 0.0)
+        if precision_map is not None and ev.evidence_turns:
+            precisions = [precision_map.get(t) for t in ev.evidence_turns]
+            valid = [p for p in precisions if p is not None]
+            prec_scale = sum(valid) / len(valid) if valid else 1.0
+            weight = base_weight * prec_scale
+        else:
+            weight = base_weight
         weighted_sum += ev.control_value * weight
         weight_total += weight
     if weight_total > 0:

@@ -1,0 +1,319 @@
+{
+  "csl": {
+    "status": "ok",
+    "report": {
+      "panel_a": [
+        {
+          "level": "C1",
+          "label": "Knowledge Sourcing",
+          "status": "OK",
+          "status_label": "measured",
+          "your_share": 1.0,
+          "ai_share": 0.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0,
+          "n_eff": 11.0,
+          "censored": null
+        },
+        {
+          "level": "C2",
+          "label": "Sense-Making",
+          "status": "OK",
+          "status_label": "measured",
+          "your_share": 0.904673,
+          "ai_share": 0.095327,
+          "ci_low": 0.7463722453957788,
+          "ci_high": 0.9835765062824269,
+          "n_eff": 52.0,
+          "censored": null
+        },
+        {
+          "level": "C3",
+          "label": "Direction and Checking",
+          "status": "OK",
+          "status_label": "measured",
+          "your_share": 1.0,
+          "ai_share": 0.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0,
+          "n_eff": 201.0,
+          "censored": null
+        },
+        {
+          "level": "C4",
+          "label": "Problem Framing",
+          "status": "OK",
+          "status_label": "measured",
+          "your_share": 0.708616,
+          "ai_share": 0.291384,
+          "ci_low": 0.616719534183108,
+          "ci_high": 0.8958550809948067,
+          "n_eff": 89.0,
+          "censored": null
+        },
+        {
+          "level": "C5",
+          "label": "Quality Judging",
+          "status": "OK",
+          "status_label": "measured",
+          "your_share": 1.0,
+          "ai_share": 0.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0,
+          "n_eff": 24.0,
+          "censored": null
+        },
+        {
+          "level": "C6",
+          "label": "Original Making",
+          "status": "OK",
+          "status_label": "measured",
+          "your_share": 1.0,
+          "ai_share": 0.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0,
+          "n_eff": 153.0,
+          "censored": null
+        },
+        {
+          "level": "C7",
+          "label": "Partnership Steering",
+          "status": "OK",
+          "status_label": "measured",
+          "your_share": 1.0,
+          "ai_share": 0.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0,
+          "n_eff": 23.0,
+          "censored": null
+        }
+      ],
+      "panel_b": {
+        "count": 0,
+        "levels": [],
+        "bilateral_fraction": null,
+        "caveat": "This session contained 0 emergence events: moments where the exchange produced formulations neither party was approaching independently. These indicate genuine complementarity. They are not proof of performance gain above what you could achieve alone, which requires the unaided follow-up task to establish."
+      },
+      "panel_c": [
+        {
+          "level": "C1",
+          "label": "Knowledge Sourcing",
+          "ari_capability": 0.489846,
+          "your_share": 1.0,
+          "borrowed_brilliance": false,
+          "note": null
+        },
+        {
+          "level": "C2",
+          "label": "Sense-Making",
+          "ari_capability": 0.432007,
+          "your_share": 0.904673,
+          "borrowed_brilliance": false,
+          "note": null
+        },
+        {
+          "level": "C3",
+          "label": "Direction and Checking",
+          "ari_capability": 0.457588,
+          "your_share": 1.0,
+          "borrowed_brilliance": false,
+          "note": null
+        },
+        {
+          "level": "C4",
+          "label": "Problem Framing",
+          "ari_capability": 0.466043,
+          "your_share": 0.708616,
+          "borrowed_brilliance": false,
+          "note": null
+        },
+        {
+          "level": "C5",
+          "label": "Quality Judging",
+          "ari_capability": 0.37612,
+          "your_share": 1.0,
+          "borrowed_brilliance": false,
+          "note": null
+        },
+        {
+          "level": "C6",
+          "label": "Original Making",
+          "ari_capability": 0.390754,
+          "your_share": 1.0,
+          "borrowed_brilliance": false,
+          "note": null
+        },
+        {
+          "level": "C7",
+          "label": "Partnership Steering",
+          "ari_capability": 0.479846,
+          "your_share": 1.0,
+          "borrowed_brilliance": false,
+          "note": null
+        }
+      ],
+      "tier_caveat": "Contribution view (transcript-only): these are displayed-contribution observations from one conversation \u2014 who visibly drove each kind of work. They are not a measure of ability; what you could do unaided requires a follow-up task. Capability dots and contribution bars are separate and are never combined.",
+      "rung": "DESIGNED",
+      "notes": [
+        "Bars are independent per level and do not sum across levels.",
+        "Capability dots are never averaged into the contribution bars."
+      ]
+    },
+    "ownership": {
+      "C1": {
+        "level": "C1",
+        "label": "Knowledge Sourcing",
+        "status": "OK",
+        "human_pct": 1.0,
+        "ai_pct": 0.0,
+        "ci": {
+          "low": 1.0,
+          "high": 1.0
+        },
+        "n_eff": 11.0,
+        "pi_s": 0.965517,
+        "censored": null,
+        "rung": "DESIGNED",
+        "method_version": "csl-ownership-0.1",
+        "flags": [
+          "uncertified_pending_icc",
+          "state_conditioned_precision"
+        ]
+      },
+      "C2": {
+        "level": "C2",
+        "label": "Sense-Making",
+        "status": "OK",
+        "human_pct": 0.904673,
+        "ai_pct": 0.095327,
+        "ci": {
+          "low": 0.7463722453957788,
+          "high": 0.9835765062824269
+        },
+        "n_eff": 52.0,
+        "pi_s": 1.0,
+        "censored": null,
+        "rung": "DESIGNED",
+        "method_version": "csl-ownership-0.1",
+        "flags": [
+          "uncertified_pending_icc",
+          "state_conditioned_precision"
+        ]
+      },
+      "C3": {
+        "level": "C3",
+        "label": "Direction and Checking",
+        "status": "OK",
+        "human_pct": 1.0,
+        "ai_pct": 0.0,
+        "ci": {
+          "low": 1.0,
+          "high": 1.0
+        },
+        "n_eff": 201.0,
+        "pi_s": 1.0,
+        "censored": null,
+        "rung": "DESIGNED",
+        "method_version": "csl-ownership-0.1",
+        "flags": [
+          "uncertified_pending_icc",
+          "state_conditioned_precision"
+        ]
+      },
+      "C4": {
+        "level": "C4",
+        "label": "Problem Framing",
+        "status": "OK",
+        "human_pct": 0.708616,
+        "ai_pct": 0.291384,
+        "ci": {
+          "low": 0.616719534183108,
+          "high": 0.8958550809948067
+        },
+        "n_eff": 89.0,
+        "pi_s": 1.0,
+        "censored": null,
+        "rung": "DESIGNED",
+        "method_version": "csl-ownership-0.1",
+        "flags": [
+          "uncertified_pending_icc",
+          "state_conditioned_precision"
+        ]
+      },
+      "C5": {
+        "level": "C5",
+        "label": "Quality Judging",
+        "status": "OK",
+        "human_pct": 1.0,
+        "ai_pct": 0.0,
+        "ci": {
+          "low": 1.0,
+          "high": 1.0
+        },
+        "n_eff": 24.0,
+        "pi_s": 0.965517,
+        "censored": null,
+        "rung": "DESIGNED",
+        "method_version": "csl-ownership-0.1",
+        "flags": [
+          "uncertified_pending_icc",
+          "state_conditioned_precision"
+        ]
+      },
+      "C6": {
+        "level": "C6",
+        "label": "Original Making",
+        "status": "OK",
+        "human_pct": 1.0,
+        "ai_pct": 0.0,
+        "ci": {
+          "low": 1.0,
+          "high": 1.0
+        },
+        "n_eff": 153.0,
+        "pi_s": 1.0,
+        "censored": null,
+        "rung": "DESIGNED",
+        "method_version": "csl-ownership-0.1",
+        "flags": [
+          "uncertified_pending_icc",
+          "state_conditioned_precision"
+        ]
+      },
+      "C7": {
+        "level": "C7",
+        "label": "Partnership Steering",
+        "status": "OK",
+        "human_pct": 1.0,
+        "ai_pct": 0.0,
+        "ci": {
+          "low": 1.0,
+          "high": 1.0
+        },
+        "n_eff": 23.0,
+        "pi_s": 0.965517,
+        "censored": null,
+        "rung": "DESIGNED",
+        "method_version": "csl-ownership-0.1",
+        "flags": [
+          "uncertified_pending_icc",
+          "state_conditioned_precision"
+        ]
+      }
+    },
+    "emergence": {
+      "reportable_count": 0,
+      "candidate_count": 1,
+      "events": []
+    },
+    "s_human_detail": {
+      "r_auto": null,
+      "r_steer": 0.060906862432928234,
+      "delta_r": null,
+      "t_steered_out": 1147.0,
+      "value": null,
+      "rung": "DESIGNED",
+      "note": "falsification data for S_human \u2014 drop the metric if delta_r \u2248 0 across users; research-only, never conditions a score (#2)"
+    }
+  }
+}

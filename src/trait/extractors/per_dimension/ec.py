@@ -7,9 +7,9 @@ Deterministic EC neurons:
   (VERIFY intent tags are the marker source)
 - EC-07 interrogative-to-affirmative sentence ratio on multi-sentence turns
 - EC-09 Temporal Coherence Validation — VALENCE −1 in the contract table: the
-  deterministic detector fires on DEBT occurrences (confident unhedged AI claim
-  followed by no verification). The reported strength is the raw debt rate;
-  valence inversion is the aggregation consumer's job, NOT this module's.
+  detector fires on DEBT occurrences (confident unhedged AI claim followed by
+  no verification). Strength is stored as (1 − debt_rate) so the normalizer's
+  simple mean is correct — higher always means better across all EC neurons.
 """
 
 from __future__ import annotations
@@ -109,7 +109,11 @@ def extract(
         if applicable_claims:
             opportunities["EC-09"] = applicable_claims
         if unverified_evidence:
-            firings["EC-09"] = len(unverified_evidence) / applicable_claims
+            # EC-09 valence is −1 (debt direction): more unverified claims = lower score.
+            # Invert here so the normalizer's mean treats all EC neurons consistently
+            # (higher strength = better behavior). Do NOT defer to the normalizer —
+            # normalize_counts is valence-agnostic.
+            firings["EC-09"] = 1.0 - (len(unverified_evidence) / applicable_claims)
             evidence["EC-09"] = list(dict.fromkeys(unverified_evidence))
 
     return {

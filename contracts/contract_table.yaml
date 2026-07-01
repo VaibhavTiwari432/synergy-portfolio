@@ -15,6 +15,30 @@
 #   applicability_rule — condition under which the neuron fires
 #   sector_universal — true (97-98 neurons) or false (rare exceptions)
 
+# ── Governance (non-neuron metadata; does not add neurons/dimensions/pillars) ──
+
+dif_governance:
+  prohibition: >
+    Reference classes in DIF testing MUST be education_stage, domain, ai_familiarity,
+    language, task_type only. Occupation labels are PROHIBITED as reference classes —
+    they encode socioeconomic confounds and cannot be cleared by standard DIF procedures.
+    Violation requires CE sign-off and a new ADR before any DIF analysis.
+  permitted_covariates: [education_stage, domain, ai_familiarity, language, task_type]
+  prohibited_covariates: [occupation, employer, industry, income, job_title]
+  authority: "non-negotiable #14 (fairness-safe covariates); spec §8.7"
+
+# ── EC construct validity grounding (external evidence for Explanation Trap + D2 gate) ──
+ec_construct_validity_grounding:
+  - source: "Noorani et al. 2026 (multi-round Human-AI collaboration)"
+    finding: >
+      GT loss rate — humans who rely heavily on AI explanations show degraded independent
+      performance on transfer tasks; effect size d≈0.68 in classroom contexts.
+    relevance: >
+      External construct validity for Explanation Trap (EC) and Fluent Incompetence gate (D2).
+      GT loss rate is the behavioral signature this instrument's EC dimension is designed to
+      measure. Rung: MEASURABLE (external replication). See PROPOSALS.md P-006 for the
+      Noorani Tier-3 intervention proposal (deferred until instrument validated).
+
 neurons:
 
   # ── EC — Error Correction & Epistemic Vigilance (chunk-scope) ──────────────

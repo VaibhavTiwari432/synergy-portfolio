@@ -130,6 +130,25 @@ def generate_report(
         )
 
     # ── inferred: proxy/flag language, never direct claims ──
+
+    # item 1: EC calibration warning — always present when the flag is set (#19)
+    ec_score = profile.get(Dimension.EC)
+    if ec_score is not None and "ec_low_calibration_confidence" in (ec_score.flags or []):
+        inferred.append(
+            "Note: EC (Epistemic Calibration) scores carry reduced inferential weight "
+            "in this session — the dimension is below calibration threshold "
+            "(MAE 0.41 vs target ≤0.375). Treat EC values as directional only "
+            "until the high-band gold corpus is complete."
+        )
+
+    # item 5: state-channel proxy caveat — HGF is deferred at all current tiers (#9)
+    inferred.append(
+        "State classification (load, epistemic, metacog) uses rule-based buckets, "
+        "not probabilistic inference. CI widths reflect rule-derived categories, "
+        "not posterior uncertainty. HGF inference is deferred to Tier 3 "
+        "(non-negotiable #9)."
+    )
+
     if not is_minor and composite.status == ScoreStatus.OK and composite.value is not None:
         ci = composite.ci
         ci_text = f" (CI {_fmt(ci.low)}–{_fmt(ci.high)})" if ci else ""

@@ -1,0 +1,11 @@
+# Audit Track 6 — local lint hook. Install: pip install pre-commit && pre-commit install
+# Mirrors the CI ruff gate (F rules over src/) so dead imports / undefined names
+# are caught before commit. Broaden `select` in pyproject [tool.ruff.lint] later.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        name: ruff (F rules, src/)
+        args: ["check", "--select", "F", "src/"]
+        pass_filenames: false

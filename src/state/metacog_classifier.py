@@ -31,22 +31,27 @@ _ACTIVE_TAGS = frozenset({
     IntentTag.PIVOT,
 })
 
+# Tags that are evidence of passivity (not merely absence of active tags)
+_PASSIVE_TAGS = frozenset({IntentTag.EXTRACT, IntentTag.DELEGATE})
+
 
 def classify_metacog(session: CanonicalSession, tags: list[TurnTags]) -> MetacogResult:
     tags_by_turn = {tt.turn_index: frozenset(tt.tags) for tt in tags}
     human_indices = [t.index for t in session.turns if t.role == "human"]
 
-    # base labels
-    labels: list[MetacogLabel] = []
+    # base labels: B2 — untagged → None (absent ≠ PASSIVE, non-negotiable #12)
+    labels: list[MetacogLabel | None] = []
     is_accept_flat: list[bool] = []
     for idx in human_indices:
         turn_tags = tags_by_turn.get(idx, frozenset())
         flat = IntentTag.ACCEPT_FLAT in turn_tags
         is_accept_flat.append(flat)
-        if flat or not (turn_tags & _ACTIVE_TAGS):
+        if turn_tags & _ACTIVE_TAGS:
+            labels.append(MetacogLabel.ACTIVE)
+        elif flat or (turn_tags & _PASSIVE_TAGS):
             labels.append(MetacogLabel.PASSIVE)
         else:
-            labels.append(MetacogLabel.ACTIVE)
+            labels.append(None)  # untagged — no metacog evidence
 
     # surrender overlay: runs of >= SURRENDER_RUN_LENGTH consecutive flat accepts
     surrender_detected = False

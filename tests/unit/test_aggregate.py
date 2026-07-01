@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from contracts.schemas import (
+    Censored,
     ConfidenceInterval,
     Dimension,
     DimensionScore,
@@ -29,6 +30,15 @@ def _ok(dim: Dimension, value: float, n_eff: float = 5.0, width: float = 0.1) ->
 
 def _absent(dim: Dimension, status: ScoreStatus = ScoreStatus.NOT_APPLICABLE) -> DimensionScore:
     return DimensionScore(dim=dim, status=status, rung=Rung.MEASURABLE)
+
+
+def _saturated(dim: Dimension, bound: float = 0.95) -> DimensionScore:
+    """A topped-out dimension: status MEASUREMENT_SATURATED, value None, a high
+    censored bound (the form saturation.py emits for a ≥ tau strong score)."""
+    return DimensionScore(
+        dim=dim, status=ScoreStatus.MEASUREMENT_SATURATED, value=None,
+        censored=Censored(direction="high", bound=bound), n_eff=6.0, rung=Rung.MEASURABLE,
+    )
 
 
 def _profile(value: float = 0.6, **overrides: DimensionScore) -> dict[Dimension, DimensionScore]:
@@ -69,6 +79,30 @@ def test_scorability_gate_needs_four_valid_dims():
     assert scorability_gate(profile) is False
 
 
+def test_saturated_dims_count_toward_scorability():
+    # a topped-out strong session: 5 dims saturate, 3 stay OK. Saturated dims
+    # carry usable signal (a censored ceiling), so the gate must still pass —
+    # collapsing the strongest sessions to INSUFFICIENT_SAMPLE was the bug.
+    profile = _profile(0.9)
+    dims = list(Dimension)
+    for dim in dims[:5]:
+        profile[dim] = _saturated(dim)
+    assert scorability_gate(profile) is True
+
+
+def test_strong_topped_out_session_keeps_its_composite():
+    # the reported collapse: ≥95 across most dims drove the overall index to
+    # "—" (INSUFFICIENT_SAMPLE). It must now produce a real, high composite.
+    profile = _profile(0.92)
+    dims = list(Dimension)
+    for dim in dims[:5]:
+        profile[dim] = _saturated(dim, bound=0.95)
+    comp = compute_composite(profile, CLEAN)
+    assert comp.status == ScoreStatus.OK
+    assert comp.value is not None and comp.value >= 0.9
+    assert comp.ci is not None  # the 3 remaining OK dims still supply a CI
+
+
 def test_state_validity_gate():
     assert state_validity_gate(CLEAN) is True
     assert state_validity_gate(COMPROMISED) is False
@@ -82,7 +116,7 @@ def test_uniform_profile_composite_near_value_with_ci():
     assert comp.status == ScoreStatus.OK
     assert comp.value == pytest.approx(0.6, abs=1e-6)
     assert comp.ci is not None and comp.ci.low < comp.value < comp.ci.high
-    assert comp.gates_passed == {"scorability": True, "state_validity": True}
+    assert comp.gates_passed == {"scorability": True, "state_validity": True, "fluent_incompetence": True}
     assert comp.state_compromised_caveat is False
 
 
@@ -136,3 +170,35 @@ def test_ec_cs_weighting_inside_pillars():
 def test_pillar_map_covers_all_eight_dimensions_once():
     seen = [d for dims in PILLARS.values() for d in dims]
     assert sorted(d.value for d in seen) == sorted(d.value for d in Dimension)
+
+
+def test_within_pillar_non_compensation_d1():
+    """D1: a hollow dim cannot hide behind a strong pillar-mate (within-pillar power mean)."""
+    # create pillar: CD=0.55, CS=0.92 (CS is 1.5× weighted)
+    profile = _profile(0.92)
+    profile[Dimension.CD] = _ok(Dimension.CD, 0.55)
+    comp = compute_composite(profile, CLEAN)
+    assert comp.value is not None
+    # old arithmetic within-pillar gave ~0.875; power-mean-within gives ~0.848 — material drop
+    assert comp.value <= 0.86
+
+
+# ── D2: G_K fluent-incompetence penalty ─────────────────────────────────────
+
+
+def test_fluent_incompetence_applies_gk_penalty():
+    """D2: G_K=0.85 applied when fluent_incompetence=True; gate records failure."""
+    baseline = compute_composite(_profile(0.6), CLEAN)
+    penalized = compute_composite(_profile(0.6), CLEAN, fluent_incompetence=True)
+    assert penalized.gates_passed["fluent_incompetence"] is False
+    assert penalized.value == pytest.approx(baseline.value * 0.85, abs=1e-6)
+    assert penalized.ci is not None
+    assert penalized.ci.low == pytest.approx(baseline.ci.low * 0.85, abs=1e-6)
+    assert penalized.ci.high == pytest.approx(baseline.ci.high * 0.85, abs=1e-6)
+
+
+def test_clean_profile_not_penalized_by_fluent_gate():
+    """D2: A session without fluent_incompetence gets gate_passed=True and full value."""
+    clean = compute_composite(_profile(0.6), CLEAN)
+    assert clean.gates_passed["fluent_incompetence"] is True
+    assert clean.value == pytest.approx(0.6, abs=1e-6)

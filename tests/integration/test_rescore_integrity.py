@@ -330,3 +330,79 @@ async def test_r8_lease_watchdog_resets_and_audits(pool, clean_user):
         "SELECT COUNT(*) FROM scoring_lease_events WHERE chat_id=$1", fresh_id
     )
     assert fresh_audit == 0
+
+
+# ── R9: is_minor threads the live scoring path → minor protection enforced ─────
+# D-022 (#15): a minor-flagged chat ingested through the LIVE path must reach
+# enforce() with is_minor=True, so its report never carries a bare composite,
+# peer rank, or debt verdict. The adult control proves the withholding is caused
+# by the flag — not by a gate that would have nulled the composite anyway.
+
+def _minor_judge():
+    """Offline, deterministic judge: 0.5 across all dims (ES absent), so the
+    scorability gate passes and an ADULT chat yields a real composite value —
+    making the minor-vs-adult contrast meaningful."""
+    import json as _json
+
+    from contracts.schemas import Dimension
+    from src.trait.judge.client import JudgeClient
+
+    entry = {"score": 0.5, "confidence": 0.8, "evidence_turns": [0], "tom_tag": None}
+    data = {d.value: dict(entry) for d in Dimension}
+    data["ES"]["score"] = None
+    payload = _json.dumps(data)
+    return JudgeClient(generate=lambda s, u: payload, fallback=None, sleep=lambda _: None)
+
+
+async def _claim_record(pool, chat_id):
+    from src.db.queries import claim_pending_batch
+
+    async with pool.acquire() as conn:
+        batch = await claim_pending_batch(conn, batch_size=50)
+    return next(c for c in batch if c["id"] == chat_id)
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_r9_minor_flag_threads_scoring_path_and_withholds_composite(pool, clean_user):
+    from contracts.schemas import ScoreStatus
+    from src.api.pipeline import score_session_with_artifacts
+    from src.db.queries import upsert_chat
+    from src.worker.scorer import _build_canonical_session
+
+    # ── minor chat ────────────────────────────────────────────────────────────
+    minor = await upsert_chat(
+        pool, user_ref=clean_user, conversation_id="conv_r9_minor",
+        source="chatgpt_live", partner_model=_partner(),
+        turns=_pairs(6), turn_count=12, is_minor=True,
+    )
+    minor_claimed = await _claim_record(pool, minor["id"])
+    # The column persisted and RETURNING * carries it onto the worker's record.
+    assert minor_claimed["is_minor"] is True, "is_minor must persist on raw_chats"
+
+    minor_session = _build_canonical_session(minor_claimed, None)
+    assert minor_session.is_minor is True, "_build_canonical_session must thread is_minor"
+
+    minor_run = score_session_with_artifacts(minor_session, judge=_minor_judge())
+    mc = minor_run.response.composite
+    assert mc.value is None, "#15: no bare composite value to a minor"
+    assert mc.status == ScoreStatus.NOT_APPLICABLE, "minor composite is withheld, not scored"
+    assert minor_run.response.sustainability.debt_ewma.value is None, "#15: no debt verdict to a minor"
+
+    # ── adult control (same content) ───────────────────────────────────────────
+    adult = await upsert_chat(
+        pool, user_ref=clean_user, conversation_id="conv_r9_adult",
+        source="chatgpt_live", partner_model=_partner(),
+        turns=_pairs(6), turn_count=12,   # is_minor defaults False
+    )
+    adult_claimed = await _claim_record(pool, adult["id"])
+    assert adult_claimed["is_minor"] is False
+    adult_session = _build_canonical_session(adult_claimed, None)
+    assert adult_session.is_minor is False
+
+    adult_run = score_session_with_artifacts(adult_session, judge=_minor_judge())
+    # The contrast: identical content, but the adult is NOT withheld by #15 —
+    # proving the minor withholding above is caused by the flag, not the gates.
+    assert adult_run.response.composite.value is not None, (
+        "adult composite must compute on identical content — else the minor test "
+        "proves nothing about is_minor"
+    )

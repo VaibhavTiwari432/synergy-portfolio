@@ -318,6 +318,79 @@ async def test_artifact_blobs_round_trip_cleanly(pool, clean_user):
     assert back3["reliance"] == {}, "None artifact coalesces to {} — never NULL/dropped"
 
 
+# ── P5: Phase C research signals reach a persisted row ────────────────────────
+# C.2 — the Ŝ_human A/S-turn partition + ΔR (s_human_detail) lands on scores.csl.
+# C.4 — the question-complexity trio is queryable through research_question_quality.
+# Both are Tier R1 research data: captured + persisted, never conditioning a score.
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_phase_c_research_signals_persist(pool, clean_user):
+    from src.db.queries import upsert_csl, upsert_question_quality, upsert_score
+
+    turns = _turns(4)
+    row = await _ingest(pool, clean_user, "conv_phasec", 4)
+    chat_id = row["id"]
+
+    run = score_session_with_artifacts(_session(chat_id, turns), judge=_fake_judge())
+    full = json.loads(run.response.model_dump_json(by_alias=True))
+
+    # C.1: session intent is the dominant phase, research-only, absent-safe.
+    si = run.session_intent
+    assert si.get("method") == "dominant_phase" and si.get("rung") == "DESIGNED"
+    if si["intent"] is not None:
+        assert 0.0 < si["confidence"] <= 1.0, "confidence is the dominant phase's share"
+
+    # C.2: the falsification detail rides on the csl artifact the pipeline built.
+    shd = run.csl.get("s_human_detail")
+    assert shd is not None, "C.2: s_human_detail must be attached to the csl artifact"
+    assert set(shd) >= {"r_auto", "r_steer", "delta_r", "t_steered_out", "rung"}
+    assert shd["rung"] == "DESIGNED", "research-only rung; never a live claim"
+    # delta_r is derived, and absent-safe (None when either redundancy is absent)
+    if shd["r_auto"] is not None and shd["r_steer"] is not None:
+        assert abs(shd["delta_r"] - (shd["r_auto"] - shd["r_steer"])) < 1e-9
+    else:
+        assert shd["delta_r"] is None, "absent ≠ zero (#12)"
+
+    async with pool.acquire() as conn:
+        await upsert_score(
+            conn, chat_id=chat_id, prompt_version="test", tier=full["tier"],
+            profile=full["profile"], composite=full.get("composite"),
+            state_strip=full.get("state_strip"), state_validity=full.get("state_validity"),
+            flags=full.get("flags"), reaction_signatures=full.get("reaction_signatures"),
+            regime_overlay=full.get("regime_overlay"), sustainability=full.get("sustainability"),
+            report=full.get("report"), raw_profile=None, telemetry_metrics=run.telemetry_metrics,
+            event_log=run.event_log, provenance=run.provenance,
+            session_intent=run.session_intent.get("intent"),
+            session_intent_confidence=run.session_intent.get("confidence"),
+        )
+        await upsert_csl(conn, chat_id=chat_id, csl=run.csl)
+        await upsert_question_quality(conn, chat_id=chat_id, question_quality=run.question_quality)
+
+    # C.1 persisted: session_intent is queryable as a typed column on scores.
+    si_row = await pool.fetchrow(
+        "SELECT session_intent, session_intent_confidence FROM scores WHERE chat_id = $1",
+        chat_id,
+    )
+    assert si_row["session_intent"] == run.session_intent["intent"], "C.1 must reach a persisted row"
+
+    # C.2 persisted: s_human_detail is reachable inside the stored csl blob.
+    persisted_delta = await pool.fetchval(
+        "SELECT (csl->'s_human_detail'->>'rung') FROM scores WHERE chat_id = $1", chat_id
+    )
+    assert persisted_delta == "DESIGNED", "C.2: s_human_detail must reach a persisted row"
+
+    # C.4 persisted: the research view projects the trio for this chat.
+    view_row = await pool.fetchrow(
+        "SELECT mean_complexity, complexity_trend, originality, csl_status "
+        "FROM research_question_quality WHERE chat_id = $1",
+        chat_id,
+    )
+    assert view_row is not None, "C.4: scored chat must appear in research_question_quality"
+    assert view_row["mean_complexity"] is not None, "trio must be typed + queryable"
+    assert -1.0 <= view_row["complexity_trend"] <= 1.0
+    assert 0.0 <= view_row["originality"] <= 1.0
+
+
 # ── P4: deletion purges subject + all evidence ────────────────────────────────
 
 @pytest.mark.asyncio(loop_scope="module")

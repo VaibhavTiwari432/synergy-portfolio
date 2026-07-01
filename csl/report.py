@@ -66,6 +66,7 @@ class PanelABar:
     ai_share: float | None
     ci_low: float | None
     ci_high: float | None
+    n_eff: float | None  # C3: effective contributing opportunities; always present for OK bars
     censored: str | None  # e.g. "≥ 0.80" when saturated
 
 
@@ -181,7 +182,8 @@ def _panel_a(ownership: dict[str, OwnershipResult], cw: ACFCrosswalk) -> tuple[P
             bars.append(PanelABar(
                 level=level, label=label, status=ScoreStatus.NOT_APPLICABLE,
                 status_label=_STATE_LABEL[ScoreStatus.NOT_APPLICABLE],
-                your_share=None, ai_share=None, ci_low=None, ci_high=None, censored=None,
+                your_share=None, ai_share=None, ci_low=None, ci_high=None,
+                n_eff=None, censored=None,
             ))
             continue
         censored = None
@@ -194,6 +196,7 @@ def _panel_a(ownership: dict[str, OwnershipResult], cw: ACFCrosswalk) -> tuple[P
             your_share=r.human_pct, ai_share=r.ai_pct,
             ci_low=r.ci.low if r.ci else None,
             ci_high=r.ci.high if r.ci else None,
+            n_eff=r.n_eff if r.status == ScoreStatus.OK else None,
             censored=censored,
         ))
     return tuple(bars)

@@ -13,8 +13,8 @@ GET /v1/users/{user_ref}/chats
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,7 @@ from src.db.queries import (
     get_chats_for_user,
     replace_capture_artifacts,
     reconcile_captured_count,
+    requeue_failed_chat,
     upsert_chat,
     upsert_telemetry,
 )
@@ -74,6 +75,11 @@ class IngestRequest(BaseModel):
     captured_turn_count: int | None = None
     capture_complete: bool | None = None
     raw_retention_flag: str = "retain"
+    # D-022 (#15 minor protection): the extension sets this during onboarding. It
+    # threads ingest → raw_chats → worker → enforce() so a minor-flagged chat never
+    # receives a bare composite / peer rank / debt verdict. Absent → False (the
+    # adult default), matching prior behaviour for every legacy/unflagged ingest.
+    is_minor: bool = False
 
 
 class IngestResponse(BaseModel):
@@ -87,7 +93,7 @@ class IngestResponse(BaseModel):
 @router.post("/v1/ingest", response_model=IngestResponse)
 async def ingest_chat(
     body: IngestRequest,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> IngestResponse:
     turns_dicts = canonicalize_turn_indexes([t.model_dump() for t in body.turns])
     partner_dict = body.partner_model.model_dump()
@@ -113,28 +119,14 @@ async def ingest_chat(
             },
         ) from exc
 
-    # Completeness gate: a PROVEN-incomplete interception is quarantined here — it
-    # never becomes pending work. The structured 422 body lets the extension say
-    # "captured M of N", not "API unreachable" (cf. D-009).
-    incomplete_reason = capture_completeness_error(
+    # Phase 0: completeness is informational, not a hard reject. Incomplete chats
+    # are stored and the scoring layer flags them as INSUFFICIENT_SAMPLE or similar.
+    # This unlocks the "absent ≠ zero" invariant: sparse is not malformed (#12).
+    _incomplete_reason = capture_completeness_error(
         expected_turn_count=body.expected_turn_count,
         captured_turn_count=captured,
         capture_complete=body.capture_complete,
     )
-    if incomplete_reason is not None:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "reason": "capture_incomplete",
-                "capture_complete": False,
-                "expected_turn_count": body.expected_turn_count,
-                "captured_turn_count": captured,
-                "message": (
-                    f"Capture incomplete — {incomplete_reason}. "
-                    "Reload ChatGPT and try Analyse now again."
-                ),
-            },
-        )
 
     try:
         row = await upsert_chat(
@@ -148,6 +140,7 @@ async def ingest_chat(
             expected_turn_count=body.expected_turn_count,
             captured_turn_count=captured,
             capture_complete=body.capture_complete,
+            is_minor=body.is_minor,
         )
     except ValueError as exc:
         # Role-balance / defensive completeness failure → string detail (D-014 shape)
@@ -191,10 +184,41 @@ async def ingest_chat(
     )
 
 
+@router.post("/v1/users/{user_ref}/chats/{chat_id}/requeue")
+async def requeue_chat(
+    user_ref: str,
+    chat_id: str,
+    pool: asyncpg.Pool = Depends(_require_pool),
+) -> dict[str, Any]:
+    """Re-queue a failed chat for scoring without re-ingesting its transcript.
+
+    Returns {chat_id, status: 'pending'} on success.
+    Returns 409 if the chat exists but is not in 'failed' state (already
+    pending/scoring/scored — the caller should poll rather than re-queue).
+    Returns 404 if the chat does not exist or is not owned by this user."""
+    from uuid import UUID
+    try:
+        uid = UUID(chat_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid chat_id")
+
+    async with pool.acquire() as conn:
+        result = await requeue_failed_chat(conn, chat_id=uid, user_ref=user_ref)
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="chat not found")
+    if result != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail={"status": result, "message": f"chat is '{result}', not 'failed'"},
+        )
+    return {"chat_id": chat_id, "status": "pending"}
+
+
 @router.get("/v1/users/{user_ref}/chats")
 async def list_user_chats(
     user_ref: str,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     rows = await get_chats_for_user(pool, user_ref)
 

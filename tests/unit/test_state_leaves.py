@@ -10,6 +10,7 @@ from contracts.schemas import (
     MetacogLabel,
     PartnerModel,
     Turn,
+    TurnTags,
 )
 from src.state.epistemic_classifier import classify_epistemic
 from src.state.load_classifier import Z_THRESHOLD, classify_load
@@ -99,7 +100,8 @@ def test_epistemic_generative_vs_extractive_poles():
     assert series[0] > 0.5
     assert series[1] < 0
     assert series[2] < 0
-    assert all(-1.0 <= v <= 1.0 for v in series)
+    # B3: None is valid for unassessable turns; tagged turns remain bounded
+    assert all(v is None or -1.0 <= v <= 1.0 for v in series)
 
 
 def test_epistemic_substantial_contribution_nudges_positive():
@@ -177,3 +179,50 @@ def test_tom_slope_sign_tracks_trajectory():
                        "don't make things up; given your training cutoff, hedge"])
     _, slope_up = tom_slope(rising)
     assert slope_up > 0
+
+
+# ── B2 acceptance: untagged turns → None (absent ≠ PASSIVE) ─────────────────
+
+
+def test_metacog_untagged_turn_is_none_not_passive():
+    """B2: a turn with no recognised tags must yield None, not PASSIVE."""
+    s = _session(["a neutral remark"])
+    # inject empty tags to guarantee no pattern fires
+    result = classify_metacog(s, [TurnTags(turn_index=0, tags=[])])
+    assert result.labels == [None]
+    assert result.surrender_detected is False
+
+
+def test_metacog_untagged_only_session_zero_degraded_share():
+    """B2/L11: a session of entirely untagged turns → metacog all-None;
+    degraded_share must be 0.0, not 0/n (absent ≠ degraded denominator)."""
+    from src.state.estimator import ProxyEstimator
+    from src.merge.precision import degraded_share
+
+    s = _session(["x", "y", "z"])
+    empty_tags = [TurnTags(turn_index=t.index, tags=[]) for t in s.turns if t.role == "human"]
+    result = classify_metacog(s, empty_tags)
+    assert all(label is None for label in result.labels)
+
+    est = ProxyEstimator(classify_metacog=lambda sess, tags: result)
+    strip, _ = est.estimate(s, empty_tags)
+    assert all(v.metacog is None for v in strip)
+    assert degraded_share(strip) == 0.0
+
+
+# ── B3 acceptance: epistemic unassessable → None ─────────────────────────────
+
+
+def test_epistemic_untagged_no_content_is_none():
+    """B3: a turn with no tags and no substantial content must return None."""
+    s = _session(["a"])  # single word, no recognisable tag
+    result = classify_epistemic(s, [TurnTags(turn_index=0, tags=[])])
+    assert result == [None]
+
+
+def test_epistemic_session_mean_excludes_none_turns():
+    """B3: session mean computed only over assessable turns."""
+    from src.state.estimator import _epistemic_summary
+    series = [0.8, None, None, 0.4]  # two assessable, two not
+    mean, _ = _epistemic_summary(series)
+    assert mean == pytest.approx((0.8 + 0.4) / 2)

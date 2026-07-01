@@ -26,9 +26,12 @@ _BARE_QUESTION_RE = re.compile(r"^\s*(what|who|when|where|which|why|how)\b.{0,16
                                re.IGNORECASE | re.DOTALL)
 
 
-def classify_epistemic(session: CanonicalSession, tags: list[TurnTags]) -> list[float]:
+def classify_epistemic(session: CanonicalSession, tags: list[TurnTags]) -> list[float | None]:
+    """B3: returns None for turns with no tag signal and no substantial content
+    (absent ≠ neutral-0.0, non-negotiable #12). Session mean/slope computed
+    over assessable turns only in the estimator."""
     tags_by_turn = {tt.turn_index: frozenset(tt.tags) for tt in tags}
-    series: list[float] = []
+    series: list[float | None] = []
 
     for turn in session.turns:
         if turn.role != "human":
@@ -36,16 +39,21 @@ def classify_epistemic(session: CanonicalSession, tags: list[TurnTags]) -> list[
         turn_tags = tags_by_turn.get(turn.index, frozenset())
         generative = len(turn_tags & GENERATIVE_TAGS)
         extractive = len(turn_tags & EXTRACTIVE_TAGS)
+        word_count = len(re.findall(r"\w+", turn.text))
 
-        score = 0.0
+        score: float | None
         if generative + extractive > 0:
             score = (generative - extractive) / (generative + extractive)
-
-        word_count = len(re.findall(r"\w+", turn.text))
-        if word_count >= _SUBSTANTIAL_WORDS:
-            score += _TEXT_NUDGE
+            if word_count >= _SUBSTANTIAL_WORDS:
+                score += _TEXT_NUDGE
+            elif _BARE_QUESTION_RE.match(turn.text):
+                score -= _TEXT_NUDGE
+        elif word_count >= _SUBSTANTIAL_WORDS:
+            score = _TEXT_NUDGE           # substantial content, no tags: assessable as generative
         elif _BARE_QUESTION_RE.match(turn.text):
-            score -= _TEXT_NUDGE
+            score = -_TEXT_NUDGE          # bare question, no tags: assessable as extractive
+        else:
+            score = None                  # unassessable — no signal
 
-        series.append(max(-1.0, min(1.0, score)))
+        series.append(max(-1.0, min(1.0, score)) if score is not None else None)
     return series

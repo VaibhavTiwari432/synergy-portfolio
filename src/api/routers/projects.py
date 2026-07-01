@@ -28,6 +28,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+import asyncpg
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -89,7 +90,7 @@ def _decode_cursor(cursor: str) -> tuple[datetime, UUID]:
 
 # ── radar aggregation (per-dim; NEVER a composite) ─────────────────────────────
 
-def _aggregate_radar(score_rows) -> dict[str, dict[str, Any]]:
+def _aggregate_radar(score_rows: list[asyncpg.Record]) -> dict[str, dict[str, Any]]:
     """Per-dimension state across a project's scored chats. §3.7 rule:
     scored (≥3 OK contributions, mean + CI) / INSUFFICIENT_SAMPLE (1–2) /
     MEASUREMENT_SATURATED (no OK but every contribution saturated) / STRUCTURAL_NA.
@@ -179,7 +180,7 @@ class AssignSessionsRequest(BaseModel):
 async def create_project_route(
     user_ref: str,
     body: CreateProjectRequest,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
     name = body.name.strip()
@@ -200,7 +201,7 @@ async def list_projects_route(
     user_ref: str,
     limit: int = _DEFAULT_LIMIT,
     cursor: str | None = None,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     limit = max(1, min(limit, _MAX_LIMIT))
     before_created_at = before_id = None
@@ -237,7 +238,7 @@ async def list_projects_route(
 async def get_project_route(
     user_ref: str,
     project_id: UUID,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     row = await get_project(pool, user_ref=user_ref, project_id=project_id)
     if row is None:
@@ -273,7 +274,7 @@ async def update_project_route(
     user_ref: str,
     project_id: UUID,
     body: UpdateProjectRequest,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
     if_match: str | None = Header(default=None, alias="If-Match"),
 ) -> dict[str, Any]:
     expected = _require_if_match(if_match)
@@ -295,7 +296,7 @@ async def update_project_route(
 async def delete_project_route(
     user_ref: str,
     project_id: UUID,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
     if_match: str | None = Header(default=None, alias="If-Match"),
 ) -> dict[str, Any]:
     expected = _require_if_match(if_match)
@@ -316,7 +317,7 @@ async def assign_sessions_route(
     user_ref: str,
     project_id: UUID,
     body: AssignSessionsRequest,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     result = await add_project_sessions(
         pool, user_ref=user_ref, project_id=project_id, chat_ids=body.chat_ids,
@@ -331,7 +332,7 @@ async def unassign_session_route(
     user_ref: str,
     project_id: UUID,
     saf_session_id: UUID,
-    pool=Depends(_require_pool),
+    pool: asyncpg.Pool = Depends(_require_pool),
 ) -> dict[str, Any]:
     removed = await remove_project_session(
         pool, user_ref=user_ref, project_id=project_id, chat_id=saf_session_id,

@@ -19,7 +19,7 @@
 // OLD worker alive, so code changes silently never take effect. Inlining removes
 // that fetch entirely: the worker has no external dependency and always installs.
 // The utils remain separate files for the content-script / panel contexts (manifest).
-console.info('[SAF] background service worker build 0.2.0 starting');
+console.info('[SAF] background service worker build 0.5.1-toolbar-open starting');
 
 (function initStorage(globalScope) {
   const STORAGE_KEYS = Object.freeze({
@@ -317,16 +317,42 @@ console.info('[SAF] background service worker build 0.2.0 starting');
 
 (function initApiClient(globalScope) {
   const DEFAULT_ENDPOINT = 'http://localhost:8000';
+  const API_REQUEST_TIMEOUT_MS = 15000;
+
+  function _forceIpv4Local(endpoint) {
+    try {
+      const url = new URL(endpoint);
+      if (url.hostname === 'localhost' || url.hostname === '[::1]' || url.hostname === '::1') {
+        url.hostname = '127.0.0.1';
+        return url.toString().replace(/\/+$/, '');
+      }
+    } catch (_) { /* keep original endpoint */ }
+    return String(endpoint || '').replace(/\/+$/, '');
+  }
 
   async function _getConfig() {
     const storage = globalScope.SAFStorage;
     if (!storage) throw new Error('SAFStorage not loaded');
     const keys = storage.STORAGE_KEYS;
     const values = await storage.getMany([keys.API_ENDPOINT, keys.API_KEY]);
+    const rawEndpoint = String(values[keys.API_ENDPOINT] || '').trim() || DEFAULT_ENDPOINT;
     return {
-      endpoint: values[keys.API_ENDPOINT] || DEFAULT_ENDPOINT,
+      endpoint: _forceIpv4Local(rawEndpoint),
       key: values[keys.API_KEY] || '',
     };
+  }
+
+  async function _fetchWithTimeout(url, options = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) {
+    if (!globalScope.AbortController || timeoutMs <= 0) {
+      return fetch(url, options);
+    }
+    const controller = new globalScope.AbortController();
+    const timer = globalScope.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      globalScope.clearTimeout(timer);
+    }
   }
 
   async function _request(method, path, body) {
@@ -341,7 +367,7 @@ console.info('[SAF] background service worker build 0.2.0 starting');
     if (cfg.key) headers['X-API-Key'] = cfg.key;
 
     try {
-      const res = await fetch(`${cfg.endpoint}${path}`, {
+      const res = await _fetchWithTimeout(`${cfg.endpoint}${path}`, {
         method,
         headers,
         body: body != null ? JSON.stringify(body) : undefined,
@@ -388,7 +414,7 @@ console.info('[SAF] background service worker build 0.2.0 starting');
       let cfg;
       try { cfg = await _getConfig(); } catch { return false; }
       try {
-        const res = await fetch(`${cfg.endpoint}/v1/health`);
+        const res = await _fetchWithTimeout(`${cfg.endpoint}/v1/health`, {}, API_REQUEST_TIMEOUT_MS);
         return res.ok;
       } catch { return false; }
     },
@@ -403,13 +429,23 @@ const HEALTH_POLL_ALARM = 'saf_health_poll';
 const COLLECTOR_BAG_KEY = 'saf_collector_bag';
 const MAX_BAG_SIZE = 50;
 const AUTO_CAPTURE_DEBOUNCE_MS = 1200;
-const CONTENT_CAPTURE_TIMEOUT_MS = 45000;
+// Capture can legitimately run for minutes on a long chat — content.js's DOM-scroll
+// fallback budget alone is 240s. A fixed wall would guillotine a healthy long
+// capture (the old 45s ceiling did exactly that), so the capture is governed by a
+// progress-aware watchdog: the STALL timer resets on every SAF_ANALYSE_PROGRESS
+// event and only fires when the capture goes quiet; the ABSOLUTE ceiling (> content's
+// own budget) is the final backstop for a content script that hung or crashed.
+const CAPTURE_STALL_TIMEOUT_MS = 30000; // no progress for this long → fail
+const CAPTURE_ABSOLUTE_TIMEOUT_MS = 300000; // hard ceiling, > content's 240s scroll budget
 
 // In-memory: tabId → most recent capture snapshot sent by content.js
 const _latestCapture = new Map();
 const _latestReadyCapture = new Map();
 const _analyseProgress = new Map();
 const _pendingAutomaticCaptures = new Map();
+// tabId → resetStall(): a live capture's stall-watchdog reset, called on each
+// SAF_ANALYSE_PROGRESS event so a long-but-healthy capture is never killed mid-scan.
+const _captureWatchdogs = new Map();
 
 // In-memory: conversation_id → last content hash we forwarded to the API.
 // Best-effort only — MV3 workers sleep and lose this; the DB content_hash is
@@ -490,16 +526,33 @@ function _scheduleAutomaticCapture(capture) {
 function _sendAnalyseNowToTab(tabId) {
   return new Promise((resolve, reject) => {
     let settled = false;
-    const timer = setTimeout(() => {
+    let stallTimer = null;
+    const absoluteTimer = setTimeout(() => fail('capture_timeout'), CAPTURE_ABSOLUTE_TIMEOUT_MS);
+
+    const cleanup = () => {
+      if (stallTimer) clearTimeout(stallTimer);
+      clearTimeout(absoluteTimer);
+      if (tabId != null) _captureWatchdogs.delete(tabId);
+    };
+    function fail(reason) {
       if (settled) return;
       settled = true;
-      reject(new Error('capture_timeout'));
-    }, CONTENT_CAPTURE_TIMEOUT_MS);
+      cleanup();
+      reject(new Error(reason));
+    }
+    // Reset the stall window; called on each progress event (see SAF_ANALYSE_PROGRESS).
+    function armStall() {
+      if (settled) return;
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => fail('capture_timeout'), CAPTURE_STALL_TIMEOUT_MS);
+    }
+    armStall();
+    if (tabId != null) _captureWatchdogs.set(tabId, armStall);
 
     self.chrome.tabs.sendMessage(tabId, { type: 'SAF_ANALYSE_NOW' }, (res) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      cleanup();
       const err = self.chrome.runtime.lastError;
       if (err) reject(new Error(err.message || 'send_failed'));
       else resolve(res);
@@ -580,6 +633,41 @@ async function _updateHealth() {
 self.chrome.alarms.create(HEALTH_POLL_ALARM, { periodInMinutes: 1 });
 self.chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === HEALTH_POLL_ALARM) _updateHealth().catch(console.warn);
+});
+
+// Sweep pending captures from storage on SW activate (e.g. after extension update)
+self.addEventListener('activate', () => {
+  (async () => {
+    try {
+      const items = await SAFStorage.getMany(null);
+      for (const [key, value] of Object.entries(items || {})) {
+        if (key.startsWith('saf_pending_') && value?.transcript) {
+          const convId = value.convId;
+          const transcript = value.transcript;
+          if (convId && Array.isArray(transcript)) {
+            const capture = {
+              conversation_id: convId,
+              turns: transcript.map((turn) => ({
+                role: turn.role,
+                text: turn.content,
+                timestamp_ms: turn.timestamp,
+              })),
+              source: 'chatgpt_live',
+              capture_method: 'interception',
+              capture_complete: true,
+              captured_turn_count: transcript.length,
+              expected_turn_count: transcript.length,
+              partner_model: { family: 'openai', model_id: 'unknown', era_key: new Date().toISOString().slice(0, 7) },
+            };
+            await _handleCaptureReady(capture);
+            await SAFStorage.remove(key);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[SAF] Storage sweep failed:', e);
+    }
+  })().catch(() => {});
 });
 
 // ── collector bag ─────────────────────────────────────────────────────────────
@@ -700,14 +788,29 @@ function _captureValidationError(capture) {
   const turns = Array.isArray(capture?.turns) ? capture.turns : [];
   if (!turns.length) return 'capture has no turns';
 
+  // Assistant runs count once: a multi-part assistant response (tool call →
+  // result → answer, or a reasoning node before the answer) lands on ChatGPT's
+  // active path as several CONSECUTIVE assistant nodes for ONE user turn. They
+  // are one logical turn, so a run counts once — otherwise a long, tool-heavy
+  // chat is wrongly rejected as imbalanced. A human turn is never split this way,
+  // so consecutive USER nodes count individually: a run of them is a genuine
+  // imbalance (a lost assistant turn) that must still fail. Mirrors the server
+  // gate in src/db/queries.py::capture_validation_error.
   const counts = { user: 0, assistant: 0 };
+  let prevAssistant = false;
   for (const turn of turns) {
     const role = String(turn?.role || '').toLowerCase();
     const text = String(turn?.text || '').trim();
     if (!text) continue;
-    if (role === 'user' || role === 'human') counts.user += 1;
-    else if (role === 'assistant' || role === 'ai') counts.assistant += 1;
-    else return `unsupported turn role: ${role || '<empty>'}`;
+    if (role === 'user' || role === 'human') {
+      counts.user += 1;
+      prevAssistant = false;
+    } else if (role === 'assistant' || role === 'ai') {
+      if (!prevAssistant) counts.assistant += 1;
+      prevAssistant = true;
+    } else {
+      return `unsupported turn role: ${role || '<empty>'}`;
+    }
   }
 
   if (counts.user === 0) return 'capture has no user turns';
@@ -880,7 +983,39 @@ async function _handleCaptureReady(capture, { force = false } = {}) {
 // ── message router ────────────────────────────────────────────────────────────
 
 self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || typeof message.type !== 'string') return undefined;
+  try {
+    if (!message || typeof message.type !== 'string') return undefined;
+    if (!_isTrustedSafMessageSender(sender)) return undefined;
+
+    // ── network interception capture (chunked reassembly from interceptor.js) ──
+  if (message.type === 'SAF_CAPTURE') {
+    const { payload } = message;
+    if (!payload) return undefined;
+    (async () => {
+      const convId = payload.conversation_id;
+      const turns = payload.turns || [];
+      if (!convId || turns.length < 3) return;
+      const capture = {
+        conversation_id: convId,
+        turns: turns.map((turn) => ({
+          role: turn.role,
+          text: turn.content,
+          timestamp_ms: turn.timestamp,
+        })),
+        source: 'chatgpt_live',
+        capture_method: 'interception',
+        capture_complete: true,
+        captured_turn_count: turns.length,
+        expected_turn_count: turns.length,
+        partner_model: { family: 'openai', model_id: 'unknown', era_key: new Date().toISOString().slice(0, 7) },
+      };
+      const claim = _claimAutomaticCapture(capture);
+      if (claim.accepted) {
+        _scheduleAutomaticCapture(capture);
+      }
+    })().catch(console.warn);
+    return undefined;
+  }
 
   // ── content.js push messages ──────────────────────────────────────────────
   if (message.type === 'SAF_CAPTURE_UPDATED') {
@@ -911,6 +1046,10 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         capturedTurns: progress.captured_turns || progress.capture?.turns?.length || 0,
         conversationId: progress.capture?.conversation_id || null,
       });
+      // The capture is alive — reset the stall watchdog so a long-but-healthy
+      // capture runs to completion instead of being killed at a fixed wall.
+      const resetStall = _captureWatchdogs.get(tabId);
+      if (resetStall) resetStall();
     }
     return undefined;
   }
@@ -1134,12 +1273,11 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'SAF_PANEL_SAVE_SETTINGS': {
       return respond((async () => {
         const updates = {};
-        const { userRef, apiEndpoint, apiKey, openaiApiKey, consent } = message;
+        const { userRef, apiEndpoint, apiKey, consent } = message;
         if (userRef !== undefined) updates[SK.USER_REF] = userRef;
         if (apiEndpoint !== undefined) updates[SK.API_ENDPOINT] = apiEndpoint;
-        // Keys stored raw but never echoed back or logged
+        // SAF API key is stored raw but never echoed back or logged.
         if (apiKey !== undefined) updates[SK.API_KEY] = apiKey;
-        if (openaiApiKey !== undefined) updates[SK.OPENAI_API_KEY] = openaiApiKey;
         if (consent !== undefined) updates[SK.CONSENT_ENABLED] = Boolean(consent);
         if (Object.keys(updates).length) await SAFStorage.set(updates);
         await _updateHealth(); // reflect new endpoint immediately
@@ -1168,6 +1306,71 @@ self.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     default:
       return undefined;
   }
+  } catch (err) {
+    console.error('[SAF] Message handler crashed:', err);
+    sendResponse({ ok: false, error: 'handler_crash', message: 'Extension error. Reload the page and try again.' });
+    return true;
+  }
+});
+
+// ── toolbar icon click ─────────────────────────────────────────────────────────
+// manifest has no default_popup (panel.html is an in-page shadow-DOM template,
+// not a standalone popup document). Clicking the toolbar icon opens the in-page
+// SAF modal on a supported tab; on any other tab it opens ChatGPT so the user
+// lands somewhere the FAB exists.
+const _SAF_SUPPORTED_HOSTS = ['chatgpt.com', 'chat.openai.com', 'claude.ai'];
+const _pendingModalOpenAfterReload = new Set();
+const MODAL_OPEN_RETRY_MS = 400;
+const MODAL_OPEN_MAX_ATTEMPTS = 8;
+
+function _isSupportedSafTab(url) {
+  try {
+    return _SAF_SUPPORTED_HOSTS.includes(new URL(url).hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
+function _isTrustedSafMessageSender(sender) {
+  if (!sender) return false;
+  const runtimeId = self.chrome.runtime.id;
+  if (runtimeId && sender.id && sender.id !== runtimeId) return false;
+  if (sender.tab) return _isSupportedSafTab(sender.tab.url || sender.url);
+  return Boolean(runtimeId && sender.id === runtimeId);
+}
+
+function _requestModalOpen(tabId, attempt = 1) {
+  self.chrome.tabs.sendMessage(tabId, { type: 'SAF_OPEN_MODAL' }, () => {
+    if (!self.chrome.runtime.lastError) return;
+    if (attempt >= MODAL_OPEN_MAX_ATTEMPTS) return;
+    setTimeout(() => _requestModalOpen(tabId, attempt + 1), MODAL_OPEN_RETRY_MS);
+  });
+}
+
+self.chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!_pendingModalOpenAfterReload.has(tabId)) return;
+  if (changeInfo.status !== 'complete') return;
+  if (!_isSupportedSafTab(tab.url)) {
+    _pendingModalOpenAfterReload.delete(tabId);
+    return;
+  }
+  _pendingModalOpenAfterReload.delete(tabId);
+  _requestModalOpen(tabId);
+});
+
+self.chrome.action.onClicked.addListener((tab) => {
+  if (tab?.id != null && _isSupportedSafTab(tab.url)) {
+    self.chrome.tabs.sendMessage(tab.id, { type: 'SAF_OPEN_MODAL' }, () => {
+      // content script not injected yet (e.g. tab opened before reload) →
+      // reload so the content scripts attach, then the FAB is available.
+      if (self.chrome.runtime.lastError) {
+        _pendingModalOpenAfterReload.add(tab.id);
+        self.chrome.tabs.reload(tab.id, {}, () => void self.chrome.runtime.lastError);
+      }
+    });
+    return;
+  }
+  self.chrome.tabs.create({ url: 'https://chatgpt.com/' });
 });
 
 // Initial health check when service worker starts

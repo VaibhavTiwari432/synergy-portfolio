@@ -1,0 +1,323 @@
+{
+  "total_pairs": 234,
+  "labeled_pairs": 234,
+  "coverage": 1.0,
+  "mean_confidence": 0.7066022000805149,
+  "median_confidence": 0.8181818181818181,
+  "std_confidence": 0.3051993986312906,
+  "high_confidence_pairs": "161",
+  "high_confidence_fraction": 0.688034188034188,
+  "judge_agreement": 0.46987951807228917,
+  "judge_agreement_pairs": 39,
+  "judge_total_pairs": 83,
+  "judge_errors": [
+    {
+      "chat_id": "gc-001",
+      "dimension": "PR",
+      "weak_score": 0.5561669324827219,
+      "judge_score": 0.25,
+      "disagreement": 0.30616693248272187
+    },
+    {
+      "chat_id": "gc-003",
+      "dimension": "EC",
+      "weak_score": 0.30392156862745096,
+      "judge_score": 0.8,
+      "disagreement": 0.4960784313725491
+    },
+    {
+      "chat_id": "gc-003",
+      "dimension": "PR",
+      "weak_score": 0.4431464606508505,
+      "judge_score": 0.8,
+      "disagreement": 0.35685353934914954
+    },
+    {
+      "chat_id": "gc-003",
+      "dimension": "AL",
+      "weak_score": 0.038461538461538464,
+      "judge_score": 0.8,
+      "disagreement": 0.7615384615384616
+    },
+    {
+      "chat_id": "gc-004",
+      "dimension": "PR",
+      "weak_score": 0.41413650716541167,
+      "judge_score": 0.8,
+      "disagreement": 0.3858634928345884
+    },
+    {
+      "chat_id": "gc-004",
+      "dimension": "AL",
+      "weak_score": 0.0223463687150838,
+      "judge_score": 0.55,
+      "disagreement": 0.5276536312849163
+    },
+    {
+      "chat_id": "gc-005",
+      "dimension": "EC",
+      "weak_score": 0.39166666666666666,
+      "judge_score": 0.8,
+      "disagreement": 0.4083333333333334
+    },
+    {
+      "chat_id": "gc-005",
+      "dimension": "PR",
+      "weak_score": 0.49631849315068494,
+      "judge_score": 0.8,
+      "disagreement": 0.3036815068493151
+    },
+    {
+      "chat_id": "gc-005",
+      "dimension": "AL",
+      "weak_score": 0.125,
+      "judge_score": 0.8,
+      "disagreement": 0.675
+    },
+    {
+      "chat_id": "gc-006",
+      "dimension": "PR",
+      "weak_score": 0.4378175313059034,
+      "judge_score": 0.8,
+      "disagreement": 0.36218246869409665
+    },
+    {
+      "chat_id": "gc-006",
+      "dimension": "AL",
+      "weak_score": 0.24,
+      "judge_score": 0.8,
+      "disagreement": 0.56
+    },
+    {
+      "chat_id": "gc-007",
+      "dimension": "EC",
+      "weak_score": 0.2641025641025641,
+      "judge_score": 0.55,
+      "disagreement": 0.28589743589743594
+    },
+    {
+      "chat_id": "gc-007",
+      "dimension": "AL",
+      "weak_score": 0.18181818181818182,
+      "judge_score": 0.8,
+      "disagreement": 0.6181818181818182
+    },
+    {
+      "chat_id": "gc-008",
+      "dimension": "PR",
+      "weak_score": 0.4766775102747167,
+      "judge_score": 0.55,
+      "disagreement": 0.07332248972528332
+    },
+    {
+      "chat_id": "gc-008",
+      "dimension": "AL",
+      "weak_score": 0.1652892561983471,
+      "judge_score": 0.55,
+      "disagreement": 0.38471074380165293
+    },
+    {
+      "chat_id": "gc-009",
+      "dimension": "EC",
+      "weak_score": 0.3882036552054293,
+      "judge_score": 0.8,
+      "disagreement": 0.4117963447945707
+    },
+    {
+      "chat_id": "gc-009",
+      "dimension": "AL",
+      "weak_score": 0.2982456140350877,
+      "judge_score": 0.8,
+      "disagreement": 0.5017543859649123
+    },
+    {
+      "chat_id": "gc-011",
+      "dimension": "EC",
+      "weak_score": 0.5,
+      "judge_score": 0.25,
+      "disagreement": 0.25
+    },
+    {
+      "chat_id": "gc-011",
+      "dimension": "PR",
+      "weak_score": 0.3657700421940928,
+      "judge_score": 0.55,
+      "disagreement": 0.18422995780590723
+    },
+    {
+      "chat_id": "gc-012",
+      "dimension": "EC",
+      "weak_score": 0.3240816326530612,
+      "judge_score": 0.8,
+      "disagreement": 0.4759183673469388
+    },
+    {
+      "chat_id": "gc-012",
+      "dimension": "PR",
+      "weak_score": 0.4279141104294479,
+      "judge_score": 0.8,
+      "disagreement": 0.37208588957055216
+    },
+    {
+      "chat_id": "gc-012",
+      "dimension": "AL",
+      "weak_score": 0.0,
+      "judge_score": 0.8,
+      "disagreement": 0.8
+    },
+    {
+      "chat_id": "gc-016",
+      "dimension": "PR",
+      "weak_score": 0.3827460850111857,
+      "judge_score": 0.8,
+      "disagreement": 0.41725391498881437
+    },
+    {
+      "chat_id": "gc-016",
+      "dimension": "AL",
+      "weak_score": 0.2,
+      "judge_score": 0.8,
+      "disagreement": 0.6000000000000001
+    },
+    {
+      "chat_id": "gc-017",
+      "dimension": "EC",
+      "weak_score": 0.3611111111111111,
+      "judge_score": 0.55,
+      "disagreement": 0.18888888888888894
+    },
+    {
+      "chat_id": "gc-017",
+      "dimension": "PR",
+      "weak_score": 0.4917799125273352,
+      "judge_score": 0.8,
+      "disagreement": 0.3082200874726648
+    },
+    {
+      "chat_id": "gc-017",
+      "dimension": "AL",
+      "weak_score": 0.09090909090909091,
+      "judge_score": 0.8,
+      "disagreement": 0.7090909090909091
+    },
+    {
+      "chat_id": "gc-018",
+      "dimension": "EC",
+      "weak_score": 0.31890714243655416,
+      "judge_score": 0.8,
+      "disagreement": 0.4810928575634459
+    },
+    {
+      "chat_id": "gc-018",
+      "dimension": "AL",
+      "weak_score": 0.05405405405405406,
+      "judge_score": 0.8,
+      "disagreement": 0.745945945945946
+    },
+    {
+      "chat_id": "gc-019",
+      "dimension": "EC",
+      "weak_score": 0.4444444444444444,
+      "judge_score": 0.8,
+      "disagreement": 0.3555555555555556
+    },
+    {
+      "chat_id": "gc-019",
+      "dimension": "AL",
+      "weak_score": 0.3333333333333333,
+      "judge_score": 0.8,
+      "disagreement": 0.46666666666666673
+    },
+    {
+      "chat_id": "gc-020",
+      "dimension": "PR",
+      "weak_score": 0.5861837048424289,
+      "judge_score": 0.25,
+      "disagreement": 0.3361837048424289
+    },
+    {
+      "chat_id": "gc-020",
+      "dimension": "AL",
+      "weak_score": 0.5454545454545454,
+      "judge_score": 0.25,
+      "disagreement": 0.2954545454545454
+    },
+    {
+      "chat_id": "gc-021",
+      "dimension": "EC",
+      "weak_score": 0.2572390572390572,
+      "judge_score": 0.55,
+      "disagreement": 0.29276094276094283
+    },
+    {
+      "chat_id": "gc-022",
+      "dimension": "EC",
+      "weak_score": 0.3333333333333333,
+      "judge_score": 0.55,
+      "disagreement": 0.21666666666666673
+    },
+    {
+      "chat_id": "gc-022",
+      "dimension": "AL",
+      "weak_score": 0.0,
+      "judge_score": 0.55,
+      "disagreement": 0.55
+    },
+    {
+      "chat_id": "gc-023",
+      "dimension": "PR",
+      "weak_score": 0.5071722633972713,
+      "judge_score": 0.25,
+      "disagreement": 0.2571722633972713
+    },
+    {
+      "chat_id": "gc-024",
+      "dimension": "PR",
+      "weak_score": 0.425,
+      "judge_score": 0.8,
+      "disagreement": 0.37500000000000006
+    },
+    {
+      "chat_id": "gc-024",
+      "dimension": "AL",
+      "weak_score": 0.0,
+      "judge_score": 0.8,
+      "disagreement": 0.8
+    },
+    {
+      "chat_id": "gc-025",
+      "dimension": "PR",
+      "weak_score": 0.5356387478849407,
+      "judge_score": 0.25,
+      "disagreement": 0.2856387478849407
+    },
+    {
+      "chat_id": "gc-026",
+      "dimension": "EC",
+      "weak_score": 0.28571428571428575,
+      "judge_score": 0.8,
+      "disagreement": 0.5142857142857142
+    },
+    {
+      "chat_id": "gc-026",
+      "dimension": "AL",
+      "weak_score": 0.0,
+      "judge_score": 0.8,
+      "disagreement": 0.8
+    },
+    {
+      "chat_id": "gc-027",
+      "dimension": "AL",
+      "weak_score": 0.2857142857142857,
+      "judge_score": 0.8,
+      "disagreement": 0.5142857142857143
+    },
+    {
+      "chat_id": "gc-027",
+      "dimension": "ES",
+      "weak_score": 0.0,
+      "judge_score": 0.8,
+      "disagreement": 0.8
+    }
+  ]
+}

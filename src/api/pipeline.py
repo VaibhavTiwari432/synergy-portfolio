@@ -19,30 +19,49 @@ a time).
 
 from __future__ import annotations
 
+import logging
+import os
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
 from typing import Callable
+
+log = logging.getLogger(__name__)
 
 from src.provenance import EXTRACTOR_VERSION, provenance_stamp
 
 from contracts.schemas import (
     CanonicalSession,
+    Censored,
     ConfidenceInterval,
     Dimension,
     DimensionScore,
+    IntentTag,
     JudgeOutput,
     Provenance,
     Rung,
     ScoreResponse,
     ScoreStatus,
     SessionFlags,
+    StateValidity,
     StateVector,
     Sustainability,
     TurnTags,
 )
 from src.aggregate.gates import gate_dimension
+from src.aggregate.eligibility_gate import default_gate
 from src.aggregate.normalize import normalize_counts
 from src.aggregate.saturation import saturation_for
+from src.classifier.grain_router import (
+    GrainDecision,
+    ci_width_from_synergy_subset,
+    route_neurons,
+    synergy_ci_neuron_ids,
+)
+from src.classifier.provenance_classifier import (
+    ProvenanceDecision,
+    apply_provenance_weights,
+    neuron_provenance_weights,
+)
 from src.trait.question_quality import question_evidence_rows, score_questions
 from src.trait.reliance_metrics import reliance_evidence_rows, reliance_metrics
 from src.aggregate.softmin import compute_composite
@@ -51,6 +70,7 @@ from src.claims.tier_engine import detect_tier, enforce
 from src.dynamics.overlay import regime_overlay
 from src.dynamics.reactions import compute_reactions
 from src.dynamics.transitions import compute_transitions
+from src.eventlog.queries import split_log
 from src.eventlog.writer import append_neuron_firing, new_log
 from src.merge.precision import merge
 from src.state.epistemic_classifier import classify_epistemic
@@ -63,7 +83,11 @@ from src.sustainability.ewma import debt_ewma
 from src.sustainability.lambda_proxy import lambda_estimate
 from src.trait.evidence import assess_ec_evidence
 from src.trait.extractors.per_dimension import al, aui, ca, cd, cs, ec, es, pr
+from src.trait.judge.cascade_eval import compute_disagreement_metric as _disagree
 from src.trait.judge.client import JudgeClient
+from src.trait.extractors.per_dimension.ec_tobit import apply_tobit_to_ec_scores as _tobit_ec
+from src.trait.judge.per_criterion import score_all_neurons_replicated as _score_all_neurons
+from src.trait.judge.rubric_bank import DIM_OF as _JUDGE_DIM_OF, get_rubric as _get_judge_rubric
 from src.trait.phase_classifier import classify_phases
 from src.trait.tagger import tag_turns
 
@@ -86,6 +110,14 @@ _CI_FLOOR = 0.05
 _CI_SPAN = 0.45
 #: each theater-flagged verification widens EC's CI by this factor increment
 _THEATER_WIDENING_STEP = 0.10
+_ADR0019_ENV = "SAF_ADR0019_GATE_ENABLED"
+_SATURATION_NON_BLOCKING_FLAGS = frozenset({
+    "ci_from_self_confidence",
+    "ci_from_disagreement",
+    "ci_from_grain_router",
+    "low_judge_confidence",
+    "partial_neuron_coverage",
+})
 
 
 @dataclass(frozen=True)
@@ -113,6 +145,12 @@ class ScoreRun:
     #: Descriptive only: never an ARI score (#2), never in the ScoreResponse. The
     #: chain is failure-isolated — a CSL error never fails the ARI score.
     csl: dict = field(default_factory=dict)
+    #: Phase C.1 (D-013 Track 3) — session intent at score-time, derived as the
+    #: dominant Phase across human turns (confidence = its share). Research data
+    #: (Tier R1, rung DESIGNED): captured + persisted, NEVER conditions a score
+    #: (#2) and adds no neuron/dimension/pillar/latent (#1). Reuses the existing
+    #: frozen Phase construct — it introduces no new intent ontology.
+    session_intent: dict = field(default_factory=dict)
 
 
 def telemetry_metrics(session: CanonicalSession) -> dict:
@@ -181,14 +219,13 @@ def _neuron_firing_rows(
 ) -> list[dict]:
     """Flatten per-neuron extractor output into persistable rows.
 
-    One row per deterministic neuron the extractors actually evaluated (had an
-    opportunity for, or fired). value semantics follow the absent != zero rule
-    (non-negotiable #12):
-      - fired                       → value = firing strength
+    One row per neuron (deterministic or judge-typed) that was evaluated.
+    value semantics follow the absent != zero rule (non-negotiable #12):
+      - fired / scored              → value = firing strength (or strength_map[level])
       - opportunity present, no fire → value = 0.0  (observed 0-of-N, NOT absent)
       - no applicable opportunity    → row omitted (N/A; never a fabricated 0)
-    The 98 llm_judge neurons remain dimension-grain (judge is not per-neuron),
-    so they do not appear here — that is a known scope boundary, not a drop.
+    After A2/A3, firings includes all 98 judge-typed neurons from per-criterion
+    scoring; the unified matrix feeds CSL projection (A5).
     """
     evidence_by_neuron: dict[str, list[int]] = {}
     for ev in log.events:
@@ -259,7 +296,9 @@ def _build_csl_artifact(
     try:
         crosswalk = load_acf_crosswalk()
         matrix = NeuronMatrix.from_firing_rows(neuron_firing_rows)
-        human = project_to_acf(matrix, crosswalk)
+        # F1: state-conditioned precision pooling (per-turn π weights; no per-segment composite)
+        precision_map = {sv.turn_index: sv.precision for sv in state_strip}
+        human = project_to_acf(matrix, crosswalk, precision_map=precision_map)
         ai = extract_ai_contribution(session, crosswalk)
         ownership = compute_ownership(
             human, ai, CSPCState.from_state(state_strip, state_validity)
@@ -281,6 +320,28 @@ def _build_csl_artifact(
         return {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
 
 
+def _session_intent(phases: list) -> dict:
+    """Phase C.1 — session intent as the dominant Phase across human turns.
+
+    Deterministic + research-only (Tier R1): describes what the session was for
+    without inventing a new intent ontology — it reuses the frozen Phase construct
+    (EXPLORE/REFINE/EXTRACT/EVALUATE). `confidence` is the dominant phase's share
+    of classified turns. Empty session → intent/confidence None (absent ≠ zero,
+    #12). NEVER conditions a score (#2)."""
+    from collections import Counter
+
+    labels = [getattr(p, "value", p) for p in phases]
+    if not labels:
+        return {"intent": None, "confidence": None, "method": "dominant_phase", "rung": "DESIGNED"}
+    label, count = Counter(labels).most_common(1)[0]
+    return {
+        "intent": label,
+        "confidence": round(count / len(labels), 6),
+        "method": "dominant_phase",
+        "rung": "DESIGNED",
+    }
+
+
 def _turn_state_rows(state_strip: list[StateVector]) -> list[dict]:
     """One persistable row per human turn: the state proxies plus the per-turn
     precision π_t and cascade flags the estimator computed (Track 2). Enum labels
@@ -299,6 +360,90 @@ def _turn_state_rows(state_strip: list[StateVector]) -> list[dict]:
             "cascade_flags": list(v.cascade_flags),
         })
     return rows
+
+
+def _build_transcript_text(session: CanonicalSession) -> str:
+    """Flat text for per-criterion judge prompts."""
+    lines = []
+    for t in session.turns:
+        role = "Human" if t.role == "human" else "AI"
+        lines.append(f"[{role}]: {t.text}")
+    return "\n\n".join(lines)
+
+
+def _add_judge_neuron_firings(
+    results: dict[str, dict],
+    firings: dict[Dimension, dict[str, float]],
+    opportunities: dict[Dimension, dict[str, int]],
+) -> None:
+    """Convert per-criterion level indices → [0,1] strengths and merge into firings.
+
+    Only successful (non-error) neuron results are included. A neuron that was
+    scored counts as one opportunity even if the strength is 0.0 (absent ≠ zero).
+    """
+    for nid, result in results.items():
+        if result.get("error"):
+            continue
+        level = result.get("final_score_after_leniency_penalty")
+        dim_key = _JUDGE_DIM_OF.get(nid)
+        if dim_key is None:
+            continue
+        try:
+            dim = Dimension(dim_key)
+        except ValueError:
+            continue
+        if level is not None:
+            rb = _get_judge_rubric(nid)
+            sm = rb["strength_map"]
+            idx = max(0, min(len(sm) - 1, int(level)))
+            value = sm[idx]
+        else:
+            score = result.get("score")
+            if not isinstance(score, (int, float)):
+                continue
+            value = max(0.0, min(1.0, float(score)))
+        firings.setdefault(dim, {})[nid] = value
+        opportunities.setdefault(dim, {})[nid] = 1
+
+
+def _per_dim_neuron_stats(results: dict[str, dict]) -> dict[Dimension, dict[str, int]]:
+    """Per-dimension attempted/succeeded/failed counts from per_neuron_out results."""
+    stats: dict[Dimension, dict[str, int]] = {}
+    for nid, result in results.items():
+        dim_key = _JUDGE_DIM_OF.get(nid)
+        if dim_key is None:
+            continue
+        try:
+            dim = Dimension(dim_key)
+        except ValueError:
+            continue
+        entry = stats.setdefault(dim, {"attempted": 0, "succeeded": 0, "failed": 0})
+        entry["attempted"] += 1
+        if result.get("error"):
+            entry["failed"] += 1
+        else:
+            entry["succeeded"] += 1
+    return stats
+
+
+def _adr0019_enabled() -> bool:
+    return os.environ.get(_ADR0019_ENV, "1").strip().lower() not in {"0", "false", "off", "no"}
+
+
+def _scorable_judge_neurons(tags: list[TurnTags]) -> list[str] | None:
+    """ADR-0019 live wiring.
+
+    The current scaffold is permissive for any known intent. Empty/untagged
+    sessions stay on the legacy all-neuron path to avoid turning tagger
+    uncertainty into structural N/A.
+    """
+    if not _adr0019_enabled():
+        return None
+    intents = sorted({tag.value for tt in tags for tag in tt.tags})
+    if not intents:
+        return None
+    scorable = sorted(default_gate().determine_scorable_neurons(intents))
+    return scorable
 
 
 def _judge_run_record(judge_output: JudgeOutput) -> dict:
@@ -323,6 +468,11 @@ def _profile_from_judge(
     tags: list[TurnTags],
     extractor_firings: dict[Dimension, dict[str, float]] | None = None,
     extractor_opportunities: dict[Dimension, dict[str, int]] | None = None,
+    neuron_stats: dict[Dimension, dict[str, int]] | None = None,
+    per_neuron_disagreement: dict[str, float] | None = None,
+    grain_routes: dict[str, GrainDecision] | None = None,
+    provenance_decisions: dict[str, ProvenanceDecision] | None = None,
+    classifier_stats: dict | None = None,
 ) -> dict[Dimension, DimensionScore]:
     ec_evidence = assess_ec_evidence(session, tags)
     profile: dict[Dimension, DimensionScore] = {}
@@ -347,53 +497,142 @@ def _profile_from_judge(
             )
             continue
 
-        half = _CI_FLOOR + _CI_SPAN * (1.0 - js.confidence)
         flags: list[str] = []
         share = None
         if dim == Dimension.EC:
             share = ec_evidence.displayed_share
             flags.append("ec_low_calibration_confidence")  # stays until corpus grows (#19)
-            half *= 1.0 + _THEATER_WIDENING_STEP * ec_evidence.theater_counter
         if judge_output.judge_family_conflict:
             flags.append("judge_family_conflict")
 
-        # deterministic evidence enrichment: raw counts ride on the score so
-        # nothing the extractors saw is lost, even while the judge owns value
+        # A3: neuron-grain aggregate value (judge + deterministic unified)
         norm = normalized.get(dim)
         raw_counts: dict[str, int] = {}
+        dim_firings = (extractor_firings or {}).get(dim, {})
+        # only prefer neuron-grain when at least one judge-typed neuron contributed;
+        # if per-criterion scoring failed entirely fall back to the joint judge score
+        has_judge_neurons = any(nid in _JUDGE_DIM_OF for nid in dim_firings)
+
+        # A4: CI from per-neuron replication variance (real measurement noise, not
+        # between-neuron spread which reflects genuine facet heterogeneity).
+        # Falls back to between-neuron spread when replication data absent.
+        judge_nids_in_dim = [nid for nid in dim_firings if nid in _JUDGE_DIM_OF]
+        ci_nids = judge_nids_in_dim
+        routed_ci_nids: list[str] = []
+        if grain_routes and judge_nids_in_dim:
+            routed_ci_nids = synergy_ci_neuron_ids(judge_nids_in_dim, grain_routes)
+            if routed_ci_nids:
+                ci_nids = routed_ci_nids
+
+        if per_neuron_disagreement and ci_nids:
+            rep_vars = [per_neuron_disagreement[nid] for nid in ci_nids if nid in per_neuron_disagreement]
+            disagreement = sum(rep_vars) / len(rep_vars) if rep_vars else 0.0
+            half = _CI_FLOOR + _CI_SPAN * disagreement
+            if routed_ci_nids:
+                width = ci_width_from_synergy_subset(half * 2.0, judge_nids_in_dim, grain_routes or {})
+                half = width / 2.0
+                flags.append("ci_from_grain_router")
+            if js.confidence < 0.5:
+                flags.append("low_judge_confidence")
+            flags.append("ci_from_disagreement")  # item 3: CI source is observable variance
+        elif ci_nids and len(ci_nids) > 1:
+            judge_strengths = [dim_firings[nid] for nid in ci_nids]
+            disagreement = _disagree(judge_strengths)
+            half = _CI_FLOOR + _CI_SPAN * disagreement
+            if routed_ci_nids:
+                width = ci_width_from_synergy_subset(half * 2.0, judge_nids_in_dim, grain_routes or {})
+                half = width / 2.0
+                flags.append("ci_from_grain_router")
+            if js.confidence < 0.5:
+                flags.append("low_judge_confidence")
+            flags.append("ci_from_disagreement")
+        else:
+            # fallback: use joint confidence (per-criterion unavailable for this dim)
+            half = _CI_FLOOR + _CI_SPAN * (1.0 - js.confidence)
+            flags.append("ci_from_self_confidence")  # item 3: CI source is LLM self-report
+        if dim == Dimension.EC:
+            half *= 1.0 + _THEATER_WIDENING_STEP * ec_evidence.theater_counter
         if norm is not None and norm.status == ScoreStatus.OK:
             raw_counts = {
-                "extractor_opportunities": norm.applicable_opportunities,
-                "extractor_fired_pct": int(round(100 * (norm.normalized or 0.0))),
+                "neuron_opportunities": norm.applicable_opportunities,
+                "neuron_mean_pct": int(round(100 * (norm.normalized or 0.0))),
+                "joint_judge_pct": int(round(100 * js.score)) if js.score is not None else 0,
             }
+            if grain_routes and judge_nids_in_dim:
+                raw_counts["grain_synergy_ci_neurons"] = len(routed_ci_nids)
+                raw_counts["grain_total_judge_neurons"] = len(judge_nids_in_dim)
+            if provenance_decisions and judge_nids_in_dim:
+                prov_zeroed = sum(
+                    1 for nid in judge_nids_in_dim
+                    if provenance_decisions.get(nid) is not None
+                    and provenance_decisions[nid].weight == 0.0
+                )
+                if prov_zeroed:
+                    raw_counts["provenance_zeroed_neurons"] = prov_zeroed
+                    flags.append("copy_verbatim_weighted_out")
+            if classifier_stats:
+                eligible = classifier_stats.get("eligibility_scorable_neurons")
+                if isinstance(eligible, int):
+                    raw_counts["eligibility_scorable_neurons"] = eligible
+
+        # item 4: neuron success rate per dimension
+        dim_stats = (neuron_stats or {}).get(dim)
+        if dim_stats is not None:
+            raw_counts["neurons_attempted"] = dim_stats["attempted"]
+            raw_counts["neurons_succeeded"] = dim_stats["succeeded"]
+            raw_counts["neurons_failed"] = dim_stats["failed"]
+            if dim_stats["failed"] > 0:
+                flags.append("partial_neuron_coverage")
+
+        if (norm is not None and norm.status == ScoreStatus.OK
+                and norm.normalized is not None and has_judge_neurons):
+            value = norm.normalized
+            n_eff_val = float(norm.applicable_opportunities)
+        else:
+            value = js.score
+            n_eff_val = float(n_human)
+
+        # item 2: per-criterion vs joint divergence (only when per-criterion was used)
+        if (has_judge_neurons and norm is not None and norm.normalized is not None
+                and js.score is not None):
+            divergence = abs(norm.normalized - js.score)
+            raw_counts["pc_joint_divergence"] = int(round(100 * divergence))  # percentage points
+            if divergence > 0.25:
+                flags.append("large_per_criterion_joint_divergence")
+                log.warning(
+                    "[PIPELINE] %s: per-criterion/joint divergence=%.3f — "
+                    "evidence_turns may not match score",
+                    dim.value, divergence,
+                )
 
         # instrument saturation: a confident, well-sampled, unflagged ceiling-hit
         # becomes a censored "≥ tau" rather than a point value (v3 P1 / ADR-0010).
         # Precision only — the score value is never asserted past saturation.
-        censored = saturation_for(dim, js.score, float(n_human), js.confidence, flags)
+        saturation_flags = [flag for flag in flags if flag not in _SATURATION_NON_BLOCKING_FLAGS]
+        censored = saturation_for(dim, value, n_eff_val, js.confidence, saturation_flags)
         if censored is not None:
             profile[dim] = DimensionScore(
                 dim=dim,
                 status=ScoreStatus.MEASUREMENT_SATURATED,
                 censored=censored,
-                n_eff=float(n_human),
+                n_eff=n_eff_val,
                 raw_counts=raw_counts,
                 rung=Rung.MEASURABLE,
                 evidence_turns=js.evidence_turns,
                 provenance_share_displayed=share,
-                status_reason=f"score {js.score:g} >= ceiling tau {censored.bound:g}",
-                flags=flags,
+                status_reason=f"score {value:g} >= ceiling tau {censored.bound:g}",
+                flags=saturation_flags,
             )
             continue
 
         profile[dim] = DimensionScore(
             dim=dim,
             status=ScoreStatus.OK,
-            value=js.score,
+            value=value,
             ci=ConfidenceInterval(
-                low=max(0.0, js.score - half), high=min(1.0, js.score + half)
+                low=max(0.0, value - half), high=min(1.0, value + half)
             ),
-            n_eff=float(n_human),
+            n_eff=n_eff_val,
             raw_counts=raw_counts,
             rung=Rung.MEASURABLE,
             evidence_turns=js.evidence_turns,
@@ -401,6 +640,68 @@ def _profile_from_judge(
             flags=flags,
         )
     return profile
+
+
+# ── D2: fluent incompetence gate ──────────────────────────────────────────────
+# Behavioral (not state) gate: high-PR user who rarely verifies, and when they
+# do it is theater, and whose epistemic engagement is low. rule #2 preserved:
+# state_validity stays caveat-only; this gate fires on behavioral evidence.
+_TAU_PR_HIGH = 0.70
+_TAU_V = 0.10   # min fraction of human turns with VERIFY tag
+_TAU_A = 0.50   # max theater fraction before gate fires
+_TAU_GEN = 0.30  # min epistemic mean (positive = generative)
+
+
+def _build_event_log_artifact(log) -> list[dict]:
+    """D4: flat list (existing contract) + two-table split for reconciliation.
+
+    The returned list is the existing ScoreRun.event_log contract (flat, all events).
+    The two-table split (human_control_signals / ai_action_firings) is embedded as a
+    summary so callers can reconcile: len(human) + len(ai) == len(event_log).
+    """
+    all_events = [ev.model_dump(mode="json") for ev in log.events]
+    human_ctrl, ai_fire = split_log(log.events)
+    # ponytail: embedding split as first sentinel element keeps the flat contract intact
+    return [
+        {
+            "__d4_split__": True,
+            "human_control_count": len(human_ctrl),
+            "ai_action_count": len(ai_fire),
+            "total": len(all_events),
+        },
+        *all_events,
+    ]
+
+
+def _compute_fluent_incompetence(
+    profile: dict[Dimension, DimensionScore],
+    ec_evidence,
+    tags: list[TurnTags],
+    state_validity: StateValidity,
+    rel=None,
+) -> bool:
+    pr = profile.get(Dimension.PR)
+    if pr is None or pr.value is None or pr.value <= _TAU_PR_HIGH:
+        return False
+    n = len(tags)
+    if n == 0:
+        return False
+    ep_mean = state_validity.epistemic_mean
+    if ep_mean is None:
+        return False  # absent epistemic evidence → don't trigger (#12)
+    verify_ratio = sum(1 for tt in tags if IntentTag.VERIFY in frozenset(tt.tags)) / n
+    # FIX-4A: attribution_gap via weight_of_advice (rel.weight_of_advice proxies how much
+    # weight the human gives AI output vs. their own judgment; high WoA = low attribution)
+    attribution_gap = (rel.weight_of_advice if rel is not None and rel.weight_of_advice is not None else 0.0)
+    # FIX-4B: majority-vote conjunction (3 behavioral signals; gate fires when ≥2 present)
+    # Prevents the self-limiting AND that was near-impossible when verify_ratio ≈ 0
+    signals = [
+        pr.value > _TAU_PR_HIGH,
+        verify_ratio < _TAU_V,
+        attribution_gap > _TAU_A,
+    ]
+    behavioral_score = sum(signals)
+    return behavioral_score >= 2 and ep_mean < _TAU_GEN
 
 
 def score_session_with_artifacts(
@@ -426,10 +727,63 @@ def score_session_with_artifacts(
 
     # ── trait channel ──
     judge = judge or JudgeClient()
-    judge_output = judge.score_session(session)
-    raw_profile = _profile_from_judge(
-        judge_output, session, tags, firings, opportunities
+    # A2: per-neuron scoring (neuron-grain, replaces joint call as value source)
+    # FIX-1: K-rep median via score_all_neurons_replicated; per_neuron_disagreement
+    # feeds CI calibration in _profile_from_judge (replaces between-neuron spread)
+    scorable_neuron_ids = _scorable_judge_neurons(tags)
+    per_neuron_out = _score_all_neurons(
+        judge.neuron_fn(),
+        _build_transcript_text(session),
+        neuron_ids=scorable_neuron_ids,
     )
+    per_neuron_disagreement = per_neuron_out.get("per_neuron_disagreement")
+    _add_judge_neuron_firings(per_neuron_out["results"], firings, opportunities)
+    grain_routes = route_neurons(per_neuron_out["results"], tags=tags, phases=phases)
+    provenance_decisions = neuron_provenance_weights(session, per_neuron_out["results"])
+    provenance_zeroed = apply_provenance_weights(firings, provenance_decisions)
+    classifier_stats = {
+        "eligibility_scorable_neurons": (
+            len(scorable_neuron_ids) if scorable_neuron_ids is not None else len(per_neuron_out["results"])
+        ),
+        "provenance_zeroed_neurons": provenance_zeroed,
+    }
+    neuron_stats = _per_dim_neuron_stats(per_neuron_out["results"])
+    # joint call retained for provenance metadata (flags, raw_response, family check)
+    judge_output = judge.score_session(session)
+    if judge_output.judge_unavailable:
+        # All transports failed — storing all-N/A as "scored" is a false positive.
+        # Raise so the worker marks this chat "failed" and it stays re-scoreable.
+        raise RuntimeError(
+            "judge all-transport failure: every dimension N/A — "
+            "chat deferred for re-scoring when the judge is restored"
+        )
+    raw_profile = _profile_from_judge(
+        judge_output, session, tags, firings, opportunities,
+        neuron_stats=neuron_stats,
+        per_neuron_disagreement=per_neuron_disagreement,
+        grain_routes=grain_routes,
+        provenance_decisions=provenance_decisions,
+        classifier_stats=classifier_stats,
+    )
+    # FIX-2: wire Tobit CI onto EC dimension (D3 — was unit-tested but never called on live path)
+    _ec = raw_profile.get(Dimension.EC)
+    if _ec is not None and _ec.status == ScoreStatus.OK and _ec.value is not None:
+        _tobit = _tobit_ec({'ec_score': _ec.value})
+        _tobit_flags = list(_ec.flags or []) + ["ec_tobit_ci"]
+        if _tobit['censored']:
+            raw_profile[Dimension.EC] = _ec.model_copy(update={
+                'status': ScoreStatus.MEASUREMENT_SATURATED,
+                'value': None,
+                'ci': None,
+                'censored': Censored(bound=0.0, direction='low'),
+                'flags': _tobit_flags,
+                'status_reason': 'ec_tobit_censored_floor',
+            })
+        else:
+            raw_profile[Dimension.EC] = _ec.model_copy(update={
+                'ci': ConfidenceInterval(low=_tobit['ci_lo'], high=_tobit['ci_hi']),
+                'flags': _tobit_flags,
+            })
 
     # ── state channel (sibling, same inputs) ──
     estimator = estimator or ProxyEstimator(
@@ -444,7 +798,19 @@ def score_session_with_artifacts(
     merged = merge(raw_profile, state_validity, state_strip)
     profile = {dim: gate_dimension(score) for dim, score in merged.items()}
 
-    composite = compute_composite(profile, state_validity)
+    # ── sustainability (needed before D2 gate check) ──
+    ec_evidence = assess_ec_evidence(session, tags)
+    s_hat = s_human_hat(session)
+    sustainability = Sustainability(
+        s_human_hat=s_hat,
+        debt_ewma=debt_ewma(_history_signal(session)),
+        **{"lambda": lambda_estimate()},
+    )
+
+    # ── D2: fluent_incompetence gate (behavioral, not state; rule #2 preserved) ──
+    fluent_incompat = _compute_fluent_incompetence(profile, ec_evidence, tags, state_validity, rel=rel)
+
+    composite = compute_composite(profile, state_validity, fluent_incompetence=fluent_incompat)
 
     # ── dynamics (event log + tags only) ──
     events = list(log.events)
@@ -452,16 +818,8 @@ def score_session_with_artifacts(
     overlay = regime_overlay(events, tags)
     reactions = compute_reactions(events, tags, transitions)
 
-    # ── sustainability ──
-    ec_evidence = assess_ec_evidence(session, tags)
-    sustainability = Sustainability(
-        s_human_hat=s_human_hat(session),
-        debt_ewma=debt_ewma(_history_signal(session)),
-        **{"lambda": lambda_estimate()},
-    )
-
     flags = SessionFlags(
-        fluent_incompetence=None,  # requires extractor evidence (Stage 2)
+        fluent_incompetence=fluent_incompat,
         debt_flag=None,            # requires multi-session history
         accept_run_max=transitions.accept_run_max,
         accept_run_mean=transitions.accept_run_mean,
@@ -487,6 +845,28 @@ def score_session_with_artifacts(
     csl_artifact = _build_csl_artifact(
         session, tier, profile, neuron_firing_rows, state_strip, state_validity
     )
+    # Phase C.2 — falsification data for Ŝ_human, captured but NEVER used to
+    # condition a score (Tier R1: capture now, gate use). The A/S-turn partition
+    # (autonomous-redundancy r_auto vs steered-redundancy r_steer) and ΔR let us
+    # later test whether the steering term carries signal — if ΔR ≈ 0 across users
+    # the S_human metric is dropped. Stored on the (catch-all) csl artifact blob;
+    # additive even when the CSL chain itself errored (it is independent of it).
+    csl_artifact["s_human_detail"] = {
+        "r_auto": s_hat.r_auto,
+        "r_steer": s_hat.r_steer,
+        "delta_r": (
+            (s_hat.r_auto - s_hat.r_steer)
+            if (s_hat.r_auto is not None and s_hat.r_steer is not None)
+            else None
+        ),
+        "t_steered_out": s_hat.t_steered_out,
+        "value": s_hat.value,
+        "rung": "DESIGNED",
+        "note": (
+            "falsification data for S_human — drop the metric if delta_r ≈ 0 "
+            "across users; research-only, never conditions a score (#2)"
+        ),
+    }
 
     response = ScoreResponse(
         session_id=session.session_id,
@@ -506,7 +886,7 @@ def score_session_with_artifacts(
         raw_profile=raw_profile,
         telemetry_metrics=tel_metrics,
         neuron_firings=neuron_firing_rows,
-        event_log=[ev.model_dump(mode="json") for ev in log.events],
+        event_log=_build_event_log_artifact(log),
         judge_run=_judge_run_record(judge_output),
         provenance=provenance_stamp(
             judge_model_id=judge_output.judge_model,
@@ -523,6 +903,7 @@ def score_session_with_artifacts(
             "ec_evidence": reliance_evidence_rows(rel),
         },
         csl=csl_artifact,
+        session_intent=_session_intent(phases),
     )
 
 

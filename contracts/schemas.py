@@ -28,7 +28,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -188,6 +188,22 @@ class DebtMode(str, Enum):
     FLAT_FLOOR = "flat_floor"
     NONE = "none"
     INSUFFICIENT_HISTORY = "INSUFFICIENT_HISTORY"
+
+
+class GroundingFunction(str, Enum):
+    """Conversational-grounding function of one human turn (Clark & Brennan;
+    v3.21 §3.1 C2). Codex: src/trait/grounding.py. Evidence that conditions EC/CA
+    evidence PRECISION only — never a score value (#2); adds no neuron (#1).
+
+      INITIATION : the human turn introduces a new topic/constraint.
+      GROUNDING  : the human turn confirms/acknowledges without adding content.
+      REPAIR     : the human turn corrects or requests clarification on AI content.
+      NONE       : none of the above."""
+
+    INITIATION = "INITIATION"
+    GROUNDING = "GROUNDING"
+    REPAIR = "REPAIR"
+    NONE = "NONE"
 
 
 # "gold_json" is the internal gold-corpus format (data/gold/chats/*.json) —
@@ -579,9 +595,22 @@ class MetacogResult(_Frozen):
     """Metacog classifier output (Antigravity: src/state/metacog_classifier.py).
     surrender = accept-run >= 3 consecutive flat accepts (brief §3.5)."""
 
-    labels: list[MetacogLabel]  # one per human turn, in turn order
+    labels: list[MetacogLabel | None]  # one per human turn; None = untagged (absent ≠ PASSIVE)
     surrender_detected: bool
     surrender_onset_turn: int | None = None
+
+
+class VigilanceResult(_Frozen):
+    """Epistemic-vigilance pattern for a session (Sperber & Mercier; v3.21 §3.1
+    C3). Codex: src/trait/vigilance.py. A DISTRIBUTED pattern (justification
+    requests, source probing, prior-before-accept, challenge-then-accept) — hard
+    to fake across a whole session. The score CONDITIONS EC/CA evidence PRECISION
+    only; the score value never changes (#2). absent ≠ zero (#12: 0.0 means a
+    genuine absence of signals, score is always present for a non-empty session)."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    n_signals: int = Field(ge=0)
+    pattern_detected: bool
 
 
 class DimensionNormalization(_Frozen):
@@ -628,7 +657,8 @@ __all__ = [
     # enums
     "Dimension", "Rung", "Actor", "Provenance", "EventType", "IntentTag",
     "Phase", "ResponseClass", "LoadLabel", "MetacogLabel", "RegimeLabel",
-    "ScoreStatus", "DebtMode", "SourceFormat", "PartnerFamily", "Tier",
+    "ScoreStatus", "DebtMode", "GroundingFunction", "SourceFormat",
+    "PartnerFamily", "Tier",
     # constants
     "DIMENSION_NEURON_COUNTS", "DIMENSION_WEIGHTS",
     # core six
@@ -640,6 +670,6 @@ __all__ = [
     "RegimeOverlay", "SHumanHat", "DebtEwma", "LambdaStub", "Sustainability",
     "SessionFlags", "Composite", "Report",
     # leaf I/O
-    "TurnTags", "MetacogResult", "DimensionNormalization", "NormalizedScores",
-    "JudgeDimScore", "JudgeOutput",
+    "TurnTags", "MetacogResult", "VigilanceResult", "DimensionNormalization",
+    "NormalizedScores", "JudgeDimScore", "JudgeOutput",
 ]

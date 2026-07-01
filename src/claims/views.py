@@ -38,7 +38,7 @@ from src.claims.footer import (
     epistemic_footer,
     four_state_label,
 )
-from src.claims.report import TIER_CAVEATS, ForbiddenWordViolation, forbidden_word_scan
+from src.claims.report import ForbiddenWordViolation, forbidden_word_scan
 
 #: aggregate views span sessions of mixed tier → scan at the strictest tier (1)
 _STRICTEST_TIER: Tier = 1

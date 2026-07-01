@@ -46,16 +46,20 @@ STATE_CONDITIONED_FLAG = "state_conditioned_precision"
 
 
 def degraded_share(strip: list[StateVector]) -> float:
-    """Share of human turns whose state labels mark degraded evidence context.
-    Turns with no state labels contribute nothing (absent ≠ degraded)."""
+    """Share of ASSESSABLE turns whose state labels mark degraded evidence context.
+    Turns with no labels (both load=None and metacog=None) contribute neither
+    numerator nor denominator (absent ≠ degraded, non-negotiable #12)."""
     if not strip:
+        return 0.0
+    assessable = [v for v in strip if v.load is not None or v.metacog is not None]
+    if not assessable:
         return 0.0
     degraded = sum(
         1
-        for v in strip
+        for v in assessable
         if (v.load in _DEGRADED_LOADS) or (v.metacog in _DEGRADED_METACOG)
     )
-    return degraded / len(strip)
+    return degraded / len(assessable)
 
 
 def turn_precision(

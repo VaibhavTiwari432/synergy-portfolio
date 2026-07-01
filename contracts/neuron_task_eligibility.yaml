@@ -1,0 +1,518 @@
+# neuron_task_eligibility.yaml — ADR-0019 pre-filter eligibility matrix
+#
+# STATUS: CRITIC-REFINED (v1.1.0). Merged and optimized.
+# Aligned to mitigate cognitive debt, prevent pass-through vulnerabilities,
+# and optimize signal capture for real-time work distribution auditing.
+version: "1.1.0-critic-refined"
+intent_tags: [VERIFY, EXTRACT, INJECT_CONTEXT, OVERRIDE, SELF_AUDIT, DELEGATE, SCAFFOLD, PIVOT, DECOMPOSE, ACCEPT_FLAT]
+
+# 9 deterministic neurons fire from event evidence, not judge intent — the gate
+# does NOT filter them. Listed for completeness; do not add intent rules here.
+event_gated_exempt: [AL-08, EC-06, EC-07, EC-09, ES-01, PR-02, PR-05, PR-07, PR-14]
+
+eligibility_matrix:
+  # === AL (AI Literacy) ===
+  AL-01:
+    dimension: AL
+    title: "Decouples AI linguistic fluency from factual reliability"
+    triggers_on: [VERIFY, OVERRIDE, SELF_AUDIT]
+    needs_review: false
+  AL-02:
+    dimension: AL
+    title: "Understands AI as statistical pattern completion, not reasoning"
+    triggers_on: [VERIFY, OVERRIDE, SELF_AUDIT, PIVOT]
+    needs_review: false
+  AL-03:
+    dimension: AL
+    title: "Proactively re-anchors critical context across long conversations"
+    triggers_on: [INJECT_CONTEXT, DELEGATE, SCAFFOLD, PIVOT]
+    needs_review: false
+  AL-04:
+    dimension: AL
+    title: "Anticipates and pre-empts structural brittleness in complex prompts"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD, DECOMPOSE]
+    needs_review: false
+  AL-05:
+    dimension: AL
+    title: "Constructs domain environment before delegating specialized tasks"
+    triggers_on: [INJECT_CONTEXT, DELEGATE, SCAFFOLD]
+    needs_review: false
+  AL-06:
+    dimension: AL
+    title: "Plans for AI output variance and applies variance-reduction strategies"
+    triggers_on: [VERIFY, DELEGATE, SCAFFOLD]
+    needs_review: false
+  AL-07:
+    dimension: AL
+    title: "Maintains and applies a dynamic AI capability map across task types"
+    triggers_on: [DELEGATE, SCAFFOLD, PIVOT, DECOMPOSE]
+    needs_review: false
+  AL-09:
+    dimension: AL
+    title: "Evaluates model-task fit before delegating specialized work"
+    triggers_on: [DELEGATE, DECOMPOSE]
+    needs_review: false
+  AL-10:
+    dimension: AL
+    title: "Maintains an explicit model of AI's epistemic state and context window"
+    triggers_on: [INJECT_CONTEXT, SELF_AUDIT, DELEGATE]
+    needs_review: false
+  AL-11:
+    dimension: AL
+    title: "Applies modality-specific verification calibration"
+    triggers_on: [VERIFY, SELF_AUDIT]
+    needs_review: false
+  AL-12:
+    dimension: AL
+    title: "Distinguishes AI behavioral constraints from genuine capability limits"
+    triggers_on: [OVERRIDE, SELF_AUDIT, PIVOT]
+    needs_review: false
+  AL-13:
+    dimension: AL
+    title: "Implements prompt injection defenses when processing external content"
+    triggers_on: [VERIFY, INJECT_CONTEXT, OVERRIDE]
+    needs_review: true
+
+  # === AUI (Augmentation Instinct) ===
+  AUI-01:
+    dimension: AUI
+    title: "Identifies the precise cognitive friction threshold and delegates at the optimal moment"
+    triggers_on: [DELEGATE, PIVOT]
+    needs_review: false
+  AUI-02:
+    dimension: AUI
+    title: "Applies deliberate task-type differentiation routing rote to AI and nuanced to human"
+    triggers_on: [DELEGATE, DECOMPOSE]
+    needs_review: false
+  AUI-03:
+    dimension: AUI
+    title: "Matches AI modality to task structural requirements"
+    triggers_on: [INJECT_CONTEXT, DELEGATE, SCAFFOLD]
+    needs_review: false
+  AUI-04:
+    dimension: AUI
+    title: "Applies explicit interaction ROI thresholds to decide when to stop debugging AI"
+    triggers_on: [OVERRIDE, SELF_AUDIT, PIVOT]
+    needs_review: false
+  AUI-05:
+    dimension: AUI
+    title: "Uses AI as a structured external cognitive scratchpad to offload working memory"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  AUI-06:
+    dimension: AUI
+    title: "Monitors own cognitive saturation and offloads to AI at the optimal threshold"
+    triggers_on: [DELEGATE, PIVOT]
+    needs_review: false
+  AUI-07:
+    dimension: AUI
+    title: "Calibrates prompt crafting investment proportionally to expected output return"
+    triggers_on: [DELEGATE, SCAFFOLD, ACCEPT_FLAT]
+    needs_review: false
+  AUI-08:
+    dimension: AUI
+    title: "Monitors for and actively counters AI-delegation-driven skill atrophy"
+    triggers_on: [SELF_AUDIT, OVERRIDE, DELEGATE]
+    needs_review: true
+  AUI-09:
+    dimension: AUI
+    title: "Defines intervention criteria in advance and reclaims control at the optimal handoff moment"
+    triggers_on: [VERIFY, OVERRIDE, DELEGATE]
+    needs_review: false
+  AUI-10:
+    dimension: AUI
+    title: "Maintains explicit skill-gap self-awareness and heightens scrutiny in gap areas"
+    triggers_on: [VERIFY, SELF_AUDIT]
+    needs_review: true
+  AUI-11:
+    dimension: AUI
+    title: "Applies stakes-tiered verification depth across AI outputs"
+    triggers_on: [VERIFY, SELF_AUDIT, ACCEPT_FLAT]
+    needs_review: false
+  AUI-12:
+    dimension: AUI
+    title: "Designs minimum-necessary permission envelopes for autonomous AI agents"
+    triggers_on: [DELEGATE, SCAFFOLD]
+    needs_review: false
+
+  # === CA (Collaborative Agency) ===
+  CA-01:
+    dimension: CA
+    title: "Exercises confident volitional override of AI outputs that conflict with own judgment"
+    triggers_on: [OVERRIDE]
+    needs_review: false
+  CA-02:
+    dimension: CA
+    title: "Uses AI wait states productively; maintains cognitive momentum during generation"
+    triggers_on: [SELF_AUDIT, SCAFFOLD, DELEGATE]
+    needs_review: true
+  CA-03:
+    dimension: CA
+    title: "Maintains cognitive compartmentalization between distinct problems in a session"
+    triggers_on: [PIVOT, DECOMPOSE]
+    needs_review: false
+  CA-04:
+    dimension: CA
+    title: "Rapidly diagnoses and strategically recovers from AI failures"
+    triggers_on: [OVERRIDE, PIVOT]
+    needs_review: false
+  CA-05:
+    dimension: CA
+    title: "Systematically closes the feedback loop to progressively align AI performance"
+    triggers_on: [VERIFY, OVERRIDE, SELF_AUDIT]
+    needs_review: false
+  CA-06:
+    dimension: CA
+    title: "Maintains a dynamic, evidence-based trust model that updates on session performance signals"
+    triggers_on: [VERIFY, OVERRIDE, SELF_AUDIT]
+    needs_review: false
+  CA-07:
+    dimension: CA
+    title: "Actively resists AI goal drift and maintains fidelity to original human intent"
+    triggers_on: [OVERRIDE, PIVOT, SELF_AUDIT]
+    needs_review: true
+  CA-08:
+    dimension: CA
+    title: "Continuously monitors own cognitive state for biases and attentional drift during AI collaboration"
+    triggers_on: [SELF_AUDIT]
+    needs_review: true
+  CA-09:
+    dimension: CA
+    title: "Maintains auditability-grade workflow documentation throughout the session"
+    triggers_on: [VERIFY, SELF_AUDIT, DELEGATE]
+    needs_review: false
+  CA-10:
+    dimension: CA
+    title: "Governs selective attention by rejecting all AI scope expansions and tangential content"
+    triggers_on: [OVERRIDE, PIVOT, SELF_AUDIT]
+    needs_review: true
+  CA-11:
+    dimension: CA
+    title: "Regulates affect under AI failure to maintain strategic decision quality"
+    triggers_on: [OVERRIDE, PIVOT]
+    needs_review: false
+  CA-12:
+    dimension: CA
+    title: "Applies durable cross-session AI interaction heuristics to improve current performance"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD, DELEGATE]
+    needs_review: true
+  CA-13:
+    dimension: CA
+    title: "Preserves a defensible account of own intellectual contribution throughout AI collaboration"
+    triggers_on: [SELF_AUDIT, DELEGATE]
+    needs_review: false
+  CA-14:
+    dimension: CA
+    title: "Detects recurring AI failure patterns at first recurrence and adjusts strategy proactively"
+    triggers_on: [OVERRIDE, PIVOT]
+    needs_review: false
+  CA-15:
+    dimension: CA
+    title: "Actively resists AI sycophancy by treating AI validation as epistemically unreliable"
+    triggers_on: [VERIFY, SELF_AUDIT]
+    needs_review: false
+  CA-16:
+    dimension: CA
+    title: "Forms own hypothesis before reading AI output to preserve epistemic independence"
+    triggers_on: [VERIFY, EXTRACT, ACCEPT_FLAT]
+    needs_review: true
+  CA-17:
+    dimension: CA
+    title: "Sustains consistent critical scrutiny from first to last output in a session"
+    triggers_on: [VERIFY, SELF_AUDIT, ACCEPT_FLAT]
+    needs_review: true
+
+  # === CD (Creative Divergence) ===
+  CD-01:
+    dimension: CD
+    title: "Audits and rejects AI's statistically probable outputs to drive genuine novelty"
+    triggers_on: [VERIFY, OVERRIDE]
+    needs_review: false
+  CD-02:
+    dimension: CD
+    title: "Injects outside-distribution concepts to force AI creative novelty"
+    triggers_on: [INJECT_CONTEXT, PIVOT]
+    needs_review: false
+  CD-03:
+    dimension: CD
+    title: "Uses counterfactual probing to stress-test and expand creative hypotheses"
+    triggers_on: [VERIFY, PIVOT]
+    needs_review: false
+  CD-04:
+    dimension: CD
+    title: "Actively defends distinctive stylistic idiosyncrasies against AI normalization"
+    triggers_on: [OVERRIDE, SCAFFOLD]
+    needs_review: false
+  CD-05:
+    dimension: CD
+    title: "Evaluates AI creative output against an explicit, internalized aesthetic standard"
+    triggers_on: [VERIFY, SELF_AUDIT]
+    needs_review: false
+  CD-06:
+    dimension: CD
+    title: "Deliberately transcends constraints when breaking them yields superior creative outcomes"
+    triggers_on: [OVERRIDE, PIVOT]
+    needs_review: false
+  CD-07:
+    dimension: CD
+    title: "Injects productive conflict and sustains irresolution against AI's harmonizing tendency"
+    triggers_on: [OVERRIDE, PIVOT]
+    needs_review: false
+  CD-08:
+    dimension: CD
+    title: "Generates novel cross-domain analogies outside AI's statistical mapping"
+    triggers_on: [INJECT_CONTEXT, PIVOT]
+    needs_review: false
+  CD-09:
+    dimension: CD
+    title: "Preserves counterintuitive and structurally unconventional elements against AI normalization"
+    triggers_on: [VERIFY, OVERRIDE]
+    needs_review: false
+  CD-10:
+    dimension: CD
+    title: "Integrates authentic embodied experience that AI cannot generate"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  CD-11:
+    dimension: CD
+    title: "Constructs and applies a rich, specific audience model throughout the creative process"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+
+  # === CS (Contextual Synthesis) ===
+  CS-01:
+    dimension: CS
+    title: "Achieves full tonal integration between AI-generated and human-authored content"
+    triggers_on: [EXTRACT, SCAFFOLD]
+    needs_review: false
+  CS-02:
+    dimension: CS
+    title: "Validates and repairs logical dependencies broken by AI integration"
+    triggers_on: [VERIFY, OVERRIDE]
+    needs_review: false
+  CS-03:
+    dimension: CS
+    title: "Extracts high-signal content and strips AI verbosity and filler"
+    triggers_on: [EXTRACT, OVERRIDE, SCAFFOLD]
+    needs_review: true
+  CS-04:
+    dimension: CS
+    title: "Rewrites AI vocabulary and syntax to match a specific established human voice"
+    triggers_on: [EXTRACT, OVERRIDE]
+    needs_review: false
+  CS-05:
+    dimension: CS
+    title: "Produces accurate cross-domain translations of technical AI content for non-specialists"
+    triggers_on: [EXTRACT, SCAFFOLD]
+    needs_review: false
+  CS-06:
+    dimension: CS
+    title: "Makes all implicit inferential steps explicit for the target reader"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  CS-07:
+    dimension: CS
+    title: "Re-ranks AI-generated information by actual domain relevance"
+    triggers_on: [VERIFY, EXTRACT]
+    needs_review: false
+  CS-08:
+    dimension: CS
+    title: "Systematically resolves inconsistencies across multi-source AI outputs"
+    triggers_on: [VERIFY, EXTRACT]
+    needs_review: false
+  CS-09:
+    dimension: CS
+    title: "Maintains real-time attribution tracking across human and AI contributions"
+    triggers_on: [EXTRACT, SELF_AUDIT]
+    needs_review: false
+  CS-10:
+    dimension: CS
+    title: "Calibrates AI output register for the specific deployment audience"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  CS-11:
+    dimension: CS
+    title: "Restores accurate epistemic hedges to AI's over-assertive language"
+    triggers_on: [VERIFY, OVERRIDE]
+    needs_review: false
+
+  # === EC (Error Correction) ===
+  EC-01:
+    dimension: EC
+    title: "Challenges AI outputs and tests claims against external constraints"
+    triggers_on: [VERIFY]
+    needs_review: false
+  EC-02:
+    dimension: EC
+    title: "Demonstrates awareness of potential AI errors and flags them"
+    triggers_on: [VERIFY, SELF_AUDIT]
+    needs_review: true
+  EC-03:
+    dimension: EC
+    title: "Contributes independent reasoning beyond AI output"
+    triggers_on: [OVERRIDE, PIVOT]
+    needs_review: false
+  EC-04:
+    dimension: EC
+    title: "Applies multi-axis review on high-stakes AI recommendations"
+    triggers_on: [VERIFY, SELF_AUDIT]
+    needs_review: false
+  EC-05:
+    dimension: EC
+    title: "Requests and evaluates justification chains for AI claims"
+    triggers_on: [VERIFY, DECOMPOSE]
+    needs_review: false
+  EC-08:
+    dimension: EC
+    title: "Maintains independent evaluative stance on value judgments"
+    triggers_on: [VERIFY, OVERRIDE, SELF_AUDIT]
+    needs_review: false
+  EC-10:
+    dimension: EC
+    title: "Spontaneously corrects own prior errors and updates working model"
+    triggers_on: [OVERRIDE, SELF_AUDIT, PIVOT]
+    needs_review: false
+  EC-11:
+    dimension: EC
+    title: "Applies calibrated asymmetric skepticism to confident AI claims"
+    triggers_on: [VERIFY]
+    needs_review: false
+  EC-12:
+    dimension: EC
+    title: "Traces upstream AI errors through downstream outputs"
+    triggers_on: [VERIFY, DECOMPOSE]
+    needs_review: false
+  EC-13:
+    dimension: EC
+    title: "Systematically audits AI solutions against boundary conditions"
+    triggers_on: [VERIFY]
+    needs_review: false
+  EC-14:
+    dimension: EC
+    title: "Surfaces and challenges hidden premises in AI reasoning"
+    triggers_on: [VERIFY, DECOMPOSE]
+    needs_review: false
+
+  # === ES (Ethics Sensitivity) ===
+  ES-02:
+    dimension: ES
+    title: "Conducts structured bias audit on AI outputs affecting demographic groups"
+    triggers_on: [VERIFY, SELF_AUDIT]
+    needs_review: false
+  ES-03:
+    dimension: ES
+    title: "Evaluates AI outputs against applicable legal and regulatory frameworks"
+    triggers_on: [VERIFY]
+    needs_review: false
+  ES-04:
+    dimension: ES
+    title: "Refuses to accept AI as a primary authority; verifies against original sources"
+    triggers_on: [VERIFY, ACCEPT_FLAT]
+    needs_review: false
+  ES-05:
+    dimension: ES
+    title: "Evaluates AI outputs for intellectual property risk before use"
+    triggers_on: [VERIFY]
+    needs_review: false
+  ES-06:
+    dimension: ES
+    title: "Assesses dual-use risk before deploying AI-generated content"
+    triggers_on: [VERIFY, SELF_AUDIT]
+    needs_review: false
+  ES-07:
+    dimension: ES
+    title: "Identifies and removes manipulative rhetorical techniques from AI persuasive content"
+    triggers_on: [EXTRACT, OVERRIDE]
+    needs_review: false
+  ES-08:
+    dimension: ES
+    title: "Determines and implements AI disclosure requirements before deployment"
+    triggers_on: [SELF_AUDIT, DELEGATE]
+    needs_review: false
+  ES-09:
+    dimension: ES
+    title: "Checks AI recommendations against own values and long-term goals"
+    triggers_on: [VERIFY, SELF_AUDIT]
+    needs_review: false
+  ES-10:
+    dimension: ES
+    title: "Maintains principled independence on consequential decisions despite AI input"
+    triggers_on: [OVERRIDE, SELF_AUDIT]
+    needs_review: true
+  ES-11:
+    dimension: ES
+    title: "Assigns and documents clear accountability attribution for AI-assisted outputs"
+    triggers_on: [SELF_AUDIT, DELEGATE]
+    needs_review: false
+  ES-12:
+    dimension: ES
+    title: "Reasons about population-scale and systemic consequences of AI outputs"
+    triggers_on: [VERIFY, SELF_AUDIT]
+    needs_review: false
+  ES-13:
+    dimension: ES
+    title: "Investigates training data provenance and composition biases"
+    triggers_on: [VERIFY, EXTRACT]
+    needs_review: false
+  ES-14:
+    dimension: ES
+    title: "Stewards affected parties' consent, dignity, and interests in AI-generated representations"
+    triggers_on: [VERIFY, OVERRIDE]
+    needs_review: false
+
+  # === PR (Prompt Reasoning) ===
+  PR-01:
+    dimension: PR
+    title: "Provides rich context, constraints, and success criteria in prompts"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  PR-03:
+    dimension: PR
+    title: "Diagnoses and reformulates prompts iteratively after suboptimal responses"
+    triggers_on: [OVERRIDE, PIVOT]
+    needs_review: false
+  PR-04:
+    dimension: PR
+    title: "Shares own reasoning chain and co-reasons with AI"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  PR-06:
+    dimension: PR
+    title: "Constructs expert persona frames that constrain AI epistemic posture"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  PR-08:
+    dimension: PR
+    title: "Decomposes complex goals into atomic, non-overlapping sub-tasks"
+    triggers_on: [DECOMPOSE, SCAFFOLD]
+    needs_review: false
+  PR-09:
+    dimension: PR
+    title: "Defines explicit priority ranking for competing prompt constraints"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  PR-10:
+    dimension: PR
+    title: "Pre-resolves lexical and referential ambiguities before submission"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  PR-11:
+    dimension: PR
+    title: "Embeds structured verification criteria in prompts"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  PR-12:
+    dimension: PR
+    title: "Runs multi-cycle prompt refinement to convergence"
+    triggers_on: [SCAFFOLD, PIVOT]
+    needs_review: false
+  PR-13:
+    dimension: PR
+    title: "Optimizes prompt word choice for precision and output-space control"
+    triggers_on: [INJECT_CONTEXT, SCAFFOLD]
+    needs_review: false
+  PR-15:
+    dimension: PR
+    title: "Identifies and dispatches parallelizable sub-tasks simultaneously"
+    triggers_on: [DELEGATE, DECOMPOSE]
+    needs_review: false

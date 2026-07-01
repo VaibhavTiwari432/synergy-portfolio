@@ -83,9 +83,14 @@
                 <span id="saf-chat-counts">0 scored / 0 pending</span>
               </p>
             </div>
-            <button id="saf-chat-retry" class="saf-text-button" type="button" hidden>
-              Retry
-            </button>
+            <div class="saf-header-actions">
+              <button id="saf-analyse-current" class="saf-text-button saf-text-button--primary" type="button">
+                Analyse current
+              </button>
+              <button id="saf-chat-retry" class="saf-text-button" type="button" hidden>
+                Retry
+              </button>
+            </div>
           </header>
 
           <p id="saf-chat-status" class="saf-inline-status" role="status" aria-live="polite">
@@ -296,6 +301,8 @@
               </div>
             </div>
 
+            <p id="saf-portfolio-archetype-desc" class="saf-portfolio-desc" hidden></p>
+
             <figure class="saf-radar-figure">
               <svg
                 id="saf-portfolio-radar"
@@ -308,6 +315,22 @@
                 Past baseline coming soon — showing your current profile.
               </figcaption>
             </figure>
+
+            <div class="saf-portfolio-detail">
+              <div class="saf-portfolio-block">
+                <p class="saf-section-label">Trajectory</p>
+                <p id="saf-portfolio-trajectory" class="saf-portfolio-detail-value">—</p>
+              </div>
+              <div class="saf-portfolio-block">
+                <p class="saf-section-label">Growth focus</p>
+                <p id="saf-portfolio-growth" class="saf-portfolio-detail-value">—</p>
+              </div>
+            </div>
+
+            <footer class="saf-portfolio-footer">
+              <span id="saf-portfolio-since" class="saf-portfolio-since"></span>
+              <span id="saf-portfolio-rung" class="saf-rung-badge saf-rung--designed" hidden></span>
+            </footer>
           </section>
         </section>
 
@@ -331,6 +354,36 @@
           <p id="saf-settings-status" class="saf-inline-status" role="status" aria-live="polite">
             Loading settings...
           </p>
+
+          <section class="saf-connection-card" aria-labelledby="saf-connection-heading">
+            <h3 id="saf-connection-heading" class="saf-section-label">Connection</h3>
+            <label class="saf-field-row" for="saf-setting-user-ref">
+              <span class="saf-field-label">User ID</span>
+              <input id="saf-setting-user-ref" class="saf-project-input" type="text" autocomplete="off">
+            </label>
+            <label class="saf-field-row" for="saf-setting-api-endpoint">
+              <span class="saf-field-label">API endpoint</span>
+              <input id="saf-setting-api-endpoint" class="saf-project-input" type="url" placeholder="http://localhost:8000">
+            </label>
+            <label class="saf-field-row" for="saf-setting-api-key">
+              <span class="saf-field-label">API key</span>
+              <input id="saf-setting-api-key" class="saf-project-input" type="password" autocomplete="off" placeholder="Paste SAF_API_KEY from start_saf.ps1">
+            </label>
+            <button id="saf-settings-use-dev-key" class="saf-text-button" type="button" hidden>
+              Use dev key
+            </button>
+            <label class="saf-toggle-row" for="saf-setting-consent">
+              <span>
+                <span class="saf-toggle-title">Capture consent</span>
+                <span class="saf-toggle-copy">Allow SAF to send captured chats to your configured backend.</span>
+              </span>
+              <input id="saf-setting-consent" class="saf-toggle-input" type="checkbox">
+              <span class="saf-toggle-control" aria-hidden="true"></span>
+            </label>
+            <button id="saf-settings-save-connection" class="saf-text-button saf-text-button--primary" type="button">
+              Save connection
+            </button>
+          </section>
 
           <section class="saf-settings-list" aria-label="Settings controls">
             <label class="saf-toggle-row" for="saf-setting-auto-analyse">
@@ -435,17 +488,72 @@
         </button>
         <div id="saf-detail-empty" class="saf-drawer-empty">
           <img class="saf-empty-logo" data-saf-logo alt="" aria-hidden="true">
-          <p>Select a chat to see its profile</p>
+          <p>Select a chat to see its results</p>
         </div>
-        <section id="saf-detail-content" class="saf-detail-content" aria-label="Chat profile" hidden>
+      </aside>
+
+      <div id="saf-results-overlay" class="saf-results-overlay" hidden>
+        <section id="saf-detail-content" class="saf-detail-content saf-results-box" aria-label="Chat results" hidden>
+          <button id="saf-results-close" class="saf-results-close" type="button" aria-label="Close results">&#215;</button>
           <header class="saf-detail-header">
             <h2 id="saf-detail-title" class="saf-detail-title">Conversation</h2>
             <p id="saf-detail-meta" class="saf-detail-meta"></p>
           </header>
 
+          <section id="saf-composite-card" class="saf-composite-card" aria-label="Overall collaboration index" hidden>
+            <div class="saf-composite-main">
+              <div class="saf-composite-figure">
+                <span id="saf-composite-value" class="saf-composite-value">—</span>
+                <span id="saf-composite-rung" class="saf-composite-rung"></span>
+              </div>
+              <div class="saf-composite-meta">
+                <span class="saf-composite-label">Overall collaboration index</span>
+                <span id="saf-composite-ci" class="saf-composite-ci"></span>
+              </div>
+            </div>
+            <p id="saf-composite-sub" class="saf-composite-sub" hidden></p>
+          </section>
+
           <section class="saf-detail-section" aria-labelledby="saf-profile-heading">
             <h3 id="saf-profile-heading" class="saf-detail-section-title">Collaboration profile</h3>
             <div id="saf-dimension-list" class="saf-dimension-list"></div>
+          </section>
+
+          <section id="saf-state-section" class="saf-detail-section" aria-labelledby="saf-state-heading" hidden>
+            <h3 id="saf-state-heading" class="saf-detail-section-title">Session state (CSPC)</h3>
+            <p id="saf-state-summary" class="saf-state-summary" hidden></p>
+            <div id="saf-state-strip" class="saf-state-strip" aria-hidden="true"></div>
+            <div id="saf-state-readout" class="saf-state-readout"></div>
+            <p id="saf-state-note" class="saf-detail-note" hidden></p>
+          </section>
+
+          <section id="saf-csl-section" class="saf-detail-section" aria-labelledby="saf-csl-heading" hidden>
+            <div class="saf-csl-head">
+              <h3 id="saf-csl-heading" class="saf-detail-section-title">Cognitive work</h3>
+              <span class="saf-rung-badge saf-rung--designed" title="Designed — uncertified pending per-level reliability.">DSGN</span>
+            </div>
+            <p class="saf-detail-note">Displayed contribution per cognitive level — descriptive, never a score.</p>
+            <div id="saf-csl-levels" class="saf-csl-levels"></div>
+            <p id="saf-csl-note" class="saf-detail-note saf-csl-note" hidden></p>
+          </section>
+
+          <section id="saf-evidence-section" class="saf-detail-section" aria-labelledby="saf-evidence-heading" hidden>
+            <details class="saf-evidence">
+              <summary id="saf-evidence-heading" class="saf-detail-section-title saf-evidence-summary">Evidence &amp; deductions</summary>
+              <p class="saf-detail-note">What the system observed and how each score was derived. Read-only.</p>
+              <div class="saf-evidence-block">
+                <h4 class="saf-evidence-title">Cognitive work evidence</h4>
+                <div id="saf-evidence-work" class="saf-evidence-table-wrap"></div>
+              </div>
+              <div class="saf-evidence-block">
+                <h4 class="saf-evidence-title">Dimension evidence</h4>
+                <div id="saf-evidence-dims" class="saf-evidence-table-wrap"></div>
+              </div>
+              <div class="saf-evidence-block">
+                <h4 class="saf-evidence-title">Deduction log</h4>
+                <div id="saf-evidence-log" class="saf-evidence-table-wrap"></div>
+              </div>
+            </details>
           </section>
 
           <section id="saf-trend-section" class="saf-detail-section" aria-labelledby="saf-trend-heading" hidden>
@@ -505,7 +613,7 @@
             </div>
           </section>
         </section>
-      </aside>
+      </div>
     </section>
   </div>
 </template>

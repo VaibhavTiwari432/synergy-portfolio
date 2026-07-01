@@ -132,9 +132,16 @@ def test_degraded_share_counts_only_degraded_labels():
         (LoadLabel.HIGH_ICL, MetacogLabel.PASSIVE),   # ICL is productive load — not degraded
         (LoadLabel.HIGH_ECL, None),
         (None, MetacogLabel.SURRENDER),
-        (None, None),                                  # absent ≠ degraded
+        (None, None),                                  # absent ≠ degraded; excluded from denom (L11)
     ])
-    assert degraded_share(strip) == 2 / 5
+    # 4 assessable turns (at least one non-None label); (None,None) excluded from denom
+    assert degraded_share(strip) == 2 / 4
+
+
+def test_degraded_share_no_label_turns_excluded_from_denominator():
+    """L11/B2: turns with no assessable labels must not inflate the denominator."""
+    strip = _strip([(None, None)] * 10)
+    assert degraded_share(strip) == 0.0  # no assessable turns → 0, not 0/10
 
 
 def test_widening_factor_composition():

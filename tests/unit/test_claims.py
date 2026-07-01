@@ -188,6 +188,41 @@ def test_minor_report_form():
     assert not any("composite" in t for t in report.inferred)
 
 
+def _profile_with_ec_flag() -> dict[Dimension, DimensionScore]:
+    profile = _profile()
+    ec = profile[Dimension.EC]
+    profile[Dimension.EC] = DimensionScore(
+        dim=Dimension.EC, status=ec.status, value=ec.value,
+        ci=ec.ci, n_eff=ec.n_eff, rung=ec.rung,
+        flags=["ec_low_calibration_confidence"],
+    )
+    return profile
+
+
+def test_ec_calibration_flag_surfaces_in_report_inferred(  # item 1
+):
+    inputs = _report_inputs()
+    inputs["profile"] = _profile_with_ec_flag()
+    report = generate_report(**inputs)
+    joined = " ".join(report.inferred)
+    assert "EC" in joined
+    assert "MAE 0.41" in joined
+    assert "directional only" in joined
+
+
+def test_ec_calibration_note_absent_when_flag_not_set():
+    report = generate_report(**_report_inputs())  # plain profile, no ec flag
+    assert not any("MAE 0.41" in t for t in report.inferred)
+
+
+def test_proxy_state_caveat_always_present_in_inferred(  # item 5
+):
+    report = generate_report(**_report_inputs())
+    joined = " ".join(report.inferred)
+    assert "rule-based buckets" in joined
+    assert "non-negotiable #9" in joined
+
+
 # ── tier engine ──────────────────────────────────────────────────────────────
 
 

@@ -1,0 +1,46 @@
+name: discovery
+
+# The self-exploration / discovery pass (v3.21 Part 5). NON-BLOCKING: every probe
+# exits 0 and surfaces findings as ::warning:: lines; this job never fails the
+# build. A real hit prints a paste-ready P-NNN [AUTO-PROPOSED] stub for triage
+# into PROPOSALS.md. Probes are offline (deterministic fake judge, no DB/keys).
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # nightly at 02:00 UTC
+  pull_request:
+    types: [opened, synchronize]
+  workflow_dispatch:
+
+jobs:
+  discovery:
+    runs-on: ubuntu-latest
+    continue-on-error: true   # findings are warnings, never a gate
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        # Same lean set as ci.yml — enough to import the pipeline + parse contracts.
+        run: pip install pydantic pyyaml fastapi httpx sqlalchemy asyncpg
+
+      - name: D1 — unwired evidence
+        run: python scripts/discovery/unwired_evidence.py
+
+      - name: D2 — dropped signals
+        run: python scripts/discovery/dropped_signals.py
+
+      - name: D3 — determinism probe
+        run: python scripts/discovery/determinism_probe.py
+
+      - name: D6 — forbidden words
+        run: python scripts/discovery/forbidden_words.py
+
+      - name: D7 — R2 audit
+        run: python scripts/discovery/r2_audit.py
+
+      - name: D4 — coverage probe
+        run: python scripts/discovery/coverage_probe.py

@@ -48,18 +48,20 @@
   const MANUAL_SCROLL_SETTLE_MS = 180;
   // The DOM scroll harvest is bounded by ELAPSED TIME, not a fixed step count: a
   // long chat virtualizes thousands of turns and a fixed step cap either stops
-  // short (truncated/imbalanced capture → hard reject → "not available") or, with
-  // a high cap, blows past the background's CONTENT_CAPTURE_TIMEOUT_MS (45 s) and
-  // shows "capture timed out". The budget keeps the harvest safely under that
-  // timeout while still reaching the bottom of any chat that fits in the window.
-  const MANUAL_SCROLL_BUDGET_MS = 26000;
-  const MANUAL_SCROLL_MAX_STEPS = 1200; // hard safety ceiling; the budget governs.
+  // short (truncated/imbalanced capture -> hard reject -> "not available") or,
+  // if allowed to run forever, can hang. This fallback now aligns with the
+  // progress-aware background watchdog: keep moving for long captures, but fail
+  // closed if the scroll fallback cannot prove it reached the bottom.
+  const MANUAL_SCROLL_BUDGET_MS = 240000;
+  const MANUAL_SCROLL_MAX_STEPS = 1600; // hard safety ceiling; the budget governs.
   const MIN_SCROLL_HARVEST_DELTA = 80;
   // A long chat's /backend-api/conversation/<id> response is larger and resolves
   // LATER than a short one's. Poll for the passively-intercepted tree before
   // demoting to the DOM scroll, so a late-arriving complete capture is preferred
-  // over a partial virtualized-DOM harvest (ADR-0007 / D-015 §1-§6). Kept short so
-  // poll + scroll budget stays under the background CONTENT_CAPTURE_TIMEOUT_MS.
+  // over a partial virtualized-DOM harvest (ADR-0007 / D-015 sections 1-6).
+  // Stall watchdog (30s, reset on progress) + absolute ceiling (300s).
+  // Long captures survive as long as they report progress; hung captures
+  // fail closed after 300s total. Panel shows retry prompt on timeout.
   const INTERCEPTION_POLL_MS = 300;
   const INTERCEPTION_QUICK_TICKS = 3;  // ~0.9 s: catch an already-cached/replayed tree
   const INTERCEPTION_POLL_TICKS = 12;  // ~3.6 s fallback poll after the backend fetch
@@ -723,6 +725,9 @@
       const deadline = now() + MANUAL_SCROLL_BUDGET_MS;
       let previousHeight = -1;
       let stableAtBottom = 0;
+      let reachedBottom = false;
+      let budgetExhausted = false;
+      let stepLimitReached = false;
 
       try {
         scrollToY(root, 0);
@@ -743,19 +748,27 @@
 
           if (atBottom && heightStable) {
             stableAtBottom += 1;
-            if (stableAtBottom >= 2) break;
+            if (stableAtBottom >= 2) {
+              reachedBottom = true;
+              break;
+            }
           } else {
             stableAtBottom = 0;
           }
 
-          // Time budget, not a fixed step count: stop before the background's
-          // capture timeout rather than truncating a long chat at an arbitrary step.
+          // Time budget, not a fixed step count: keep scanning while capture is
+          // making progress, but stop before the fallback can hang indefinitely.
           if (now() >= deadline) {
+            budgetExhausted = true;
             warnOnce(
               "scroll_budget_exhausted",
               "DOM scroll budget exhausted before reaching the end of the chat",
             );
             break;
+          }
+
+          if (step === MANUAL_SCROLL_MAX_STEPS - 1) {
+            stepLimitReached = true;
           }
 
           previousHeight = currentHeight;
@@ -766,7 +779,13 @@
 
         state.domOrderOffset = Math.floor(Number(root.scrollTop || 0) * 1000);
         await captureVisibleConversation(reportMiss);
-        return { loaded: true, capturedTurns: orderedRecords().length };
+        return {
+          loaded: true,
+          capturedTurns: orderedRecords().length,
+          reachedBottom,
+          budgetExhausted,
+          stepLimitReached,
+        };
       } finally {
         state.domOrderOffset = 0;
         scrollToY(root, originalTop);
@@ -828,6 +847,14 @@
         notifyAnalyseProgress("captured", 85, "Full chat captured.");
         return true;
       }
+      if (state.backendFetchStatus === "ok_but_incomplete") {
+        notifyAnalyseProgress(
+          "error",
+          0,
+          "Full chat tree was incomplete. Reload ChatGPT and try again.",
+        );
+        return false;
+      }
 
       // 3) Backend fetch unavailable (e.g. cookie auth rejected). Keep polling for a
       //    passively-intercepted tree the page may still be fetching, re-sending the
@@ -847,7 +874,27 @@
         } catch (_) { /* never break capture on postMessage failure */ }
       }
       notifyAnalyseProgress("capturing", 8, "Scanning visible chat...");
-      await scrollToLoadThenExtract(true);
+      const scrollResult = await scrollToLoadThenExtract(true);
+      if (!scrollResult.reachedBottom) {
+        markSelectorMiss(
+          scrollResult.budgetExhausted
+            ? "scrollBudgetExhausted"
+            : scrollResult.stepLimitReached
+              ? "scrollStepLimitReached"
+              : "scrollIncomplete",
+          scrollResult.budgetExhausted
+            ? "DOM scroll budget exhausted before reaching the end of the chat"
+            : scrollResult.stepLimitReached
+              ? "DOM scroll step limit reached before reaching the end of the chat"
+              : "DOM scroll fallback did not prove it reached the end of the chat",
+        );
+        notifyAnalyseProgress(
+          "error",
+          0,
+          "Full chat was not available from ChatGPT. Reload and analyse again.",
+        );
+        return false;
+      }
       // D-015 §7: the scroll harvest is a best-effort FALLBACK — it cannot PROVE
       // completeness against virtualization, so completeness is UNKNOWN (null), never
       // true and never false. null routes the server to its legacy role-balance gate.
@@ -1021,6 +1068,18 @@
       return null;
     }
 
+    function isExpectedInterceptionUrl(value) {
+      const expected = backendConversationEndpoint();
+      if (!expected) return false;
+      try {
+        const actual = new URL(String(value || ""), ownOrigin());
+        const target = new URL(expected);
+        return actual.origin === target.origin && actual.pathname === target.pathname;
+      } catch (_) {
+        return false;
+      }
+    }
+
     // The short-lived access token the ChatGPT web app itself obtains from its own
     // cookie-authed /api/auth/session endpoint. ChatGPT's /backend-api authorizes
     // with `Authorization: Bearer <token>`, not the cookie alone, so a cookie-only
@@ -1062,10 +1121,32 @@
             ? { accept: "application/json", authorization: authHeader }
             : { accept: "application/json" },
         });
+
+      // A large chat's backend response can take >30s. Without periodic progress
+      // events the background's stall watchdog (30s) kills the capture. Send a
+      // heartbeat every 8s so the watchdog stays alive while the fetch runs.
+      let heartbeatTimer = null;
+      let heartbeatPct = 42;
+      const stopHeartbeat = () => {
+        if (heartbeatTimer !== null) { clearTimeoutRef(heartbeatTimer); heartbeatTimer = null; }
+      };
+      const armHeartbeat = () => {
+        heartbeatTimer = setTimeoutRef(() => {
+          notifyAnalyseProgress("capturing", Math.min(heartbeatPct, 65), "Fetching the full chat…");
+          heartbeatPct += 3;
+          armHeartbeat();
+        }, 8000);
+      };
+      armHeartbeat();
+
       try {
         let res = await attempt(null);
         // Cookie alone rejected → retry once with the page's own bearer token.
-        if (res && (res.status === 401 || res.status === 403)) {
+        // Project/gizmo conversations (/g/g-p-*/c/*) return 404 (not 401) under
+        // cookie-only auth even though they exist — ChatGPT authorizes the tree
+        // read with the page's bearer token. A genuine 404 just 404s again and we
+        // fall through to the DOM scroll, so adding it here costs nothing.
+        if (res && (res.status === 401 || res.status === 403 || res.status === 404)) {
           const token = await fetchSessionAccessToken();
           if (token) {
             state.backendFetchStatus = "retry_with_token";
@@ -1089,6 +1170,8 @@
         state.backendFetchStatus = "error";
         warnOnce("backend_fetch_error", `backend conversation fetch failed: ${error.message}`);
         return null;
+      } finally {
+        stopHeartbeat();
       }
     }
 
@@ -1099,6 +1182,7 @@
       if (!data || typeof data !== "object") return;
       // §1 source/kind guard — trust nothing that fails this.
       if (data.source !== INTERCEPT_SOURCE || data.kind !== INTERCEPT_KIND) return;
+      if (!isExpectedInterceptionUrl(data.url)) return;
       try {
         syncConversation();
         ingestInterception(data.convo, data.url);
@@ -1632,6 +1716,81 @@
     platformFromUrl,
     queryUsingFallbacks,
   });
+
+  // ── Chunk reassembly buffer ────────────────────────────────────────────────
+  const _chunkBuffer = new Map();
+
+  globalScope.addEventListener('message', (event) => {
+    if (event.source !== globalScope) return;
+    const msg = event.data;
+    if (!msg || !msg.type) return;
+
+    switch (msg.type) {
+      case 'SAF_CONVERSATION_READY': {
+        const { convId, turns } = msg;
+        if (!convId || !Array.isArray(turns) || turns.length < 3) return;
+        _forwardToBackground(convId, turns);
+        break;
+      }
+      case 'SAF_CONVERSATION_CHUNK': {
+        const { convId, chunkIndex, totalChunks, turns } = msg;
+        if (!convId) return;
+        let buf = _chunkBuffer.get(convId);
+        if (!buf) { buf = { chunks: new Array(totalChunks), received: 0, totalChunks }; _chunkBuffer.set(convId, buf); }
+        buf.chunks[chunkIndex] = turns;
+        buf.received++;
+        break;
+      }
+      case 'SAF_CONVERSATION_CHUNK_END': {
+        const { convId, totalChunks } = msg;
+        const buf = _chunkBuffer.get(convId);
+        if (!buf || buf.received !== totalChunks) {
+          console.warn('[SAF] Chunk assembly incomplete for', convId);
+          _chunkBuffer.delete(convId);
+          return;
+        }
+        _chunkBuffer.delete(convId);
+        const turns = buf.chunks.flat();
+        if (turns.length < 3) return;
+        _forwardToBackground(convId, turns);
+        break;
+      }
+      default: break;
+    }
+  });
+
+  function _forwardToBackground(convId, turns) {
+    const transcript = _nodesToTranscript(turns);
+    if (!transcript.length) return;
+    globalScope.chrome?.runtime?.sendMessage?.({
+      type: 'SAF_CAPTURE',
+      payload: { conversation_id: convId, turns: transcript, captured_at: Date.now(), provenance: 'network_intercept', confidence: 1.0 },
+    }).catch(err => {
+      console.warn('[SAF] sendMessage failed, buffering:', err);
+      _bufferToStorage(convId, transcript);
+    });
+  }
+
+  function _nodesToTranscript(nodes) {
+    const turns = [];
+    for (const node of nodes) {
+      const msg = node?.message;
+      if (!msg) continue;
+      const role = msg.author?.role;
+      if (role !== 'user' && role !== 'assistant') continue;
+      const text = (msg.content?.parts ?? []).filter(p => typeof p === 'string').join('');
+      if (!text.trim()) continue;
+      turns.push({ id: node.id, role, content: text, timestamp: msg.create_time ?? null,
+        metadata: { model: msg.metadata?.model_slug ?? null, finish_reason: msg.metadata?.finish_details?.type ?? null } });
+    }
+    return turns;
+  }
+
+  async function _bufferToStorage(convId, transcript) {
+    try {
+      await globalScope.chrome?.storage?.local?.set?.({ [`saf_pending_${convId}`]: { convId, transcript, ts: Date.now() } });
+    } catch (e) { console.error('[SAF] Storage buffer failed:', e); }
+  }
 
   globalScope.SAFContentCapture = api;
   if (typeof module !== "undefined" && module.exports) {
