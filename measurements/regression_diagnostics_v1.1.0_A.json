@@ -1,0 +1,276 @@
+{
+  "framing": "regression + diagnostics (NOT validation; no synergy_index)",
+  "matrix_version": "1.1.0-critic-refined",
+  "generated_at": "2026-06-29T22:04:30.004691+00:00",
+  "diagnostics": {
+    "n_chats": 26,
+    "gate_effect": {
+      "baseline_judge_calls": 2548,
+      "actual_judge_calls": 1579,
+      "cost_reduction_pct": 38.0,
+      "note": "0% until matrix cells tightened (ADR-0019 \u00a77 Q1)"
+    },
+    "neuron_grain_split": {
+      "SYNERGY": 42,
+      "TASK_MANAGEMENT": 26,
+      "AI_OUTPUT_SHAPING": 6,
+      "HUMAN_CONTROL": 8,
+      "OUTPUT_QUALITY": 16
+    },
+    "synergy_context_chats": 25,
+    "provenance_distribution": {
+      "HUMAN_ORIGINAL": 892,
+      "COPY": 25,
+      "AI_ASSISTED": 94,
+      "VERBATIM": 3
+    },
+    "copy_paste_detected": 28,
+    "per_chat": [
+      {
+        "chat_id": "gc-001",
+        "scorable_neurons": 76,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 9
+        }
+      },
+      {
+        "chat_id": "gc-002",
+        "scorable_neurons": 67,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 16,
+          "COPY": 1
+        }
+      },
+      {
+        "chat_id": "gc-003",
+        "scorable_neurons": 51,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 52
+        }
+      },
+      {
+        "chat_id": "gc-004",
+        "scorable_neurons": 97,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 137,
+          "AI_ASSISTED": 19,
+          "COPY": 20,
+          "VERBATIM": 3
+        }
+      },
+      {
+        "chat_id": "gc-005",
+        "scorable_neurons": 72,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 8
+        }
+      },
+      {
+        "chat_id": "gc-006",
+        "scorable_neurons": 95,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 25
+        }
+      },
+      {
+        "chat_id": "gc-007",
+        "scorable_neurons": 35,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 8,
+          "AI_ASSISTED": 3
+        }
+      },
+      {
+        "chat_id": "gc-008",
+        "scorable_neurons": 97,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 121
+        }
+      },
+      {
+        "chat_id": "gc-009",
+        "scorable_neurons": 72,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 57
+        }
+      },
+      {
+        "chat_id": "gc-010",
+        "scorable_neurons": 83,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 6
+        }
+      },
+      {
+        "chat_id": "gc-011",
+        "scorable_neurons": 21,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 24
+        }
+      },
+      {
+        "chat_id": "gc-012",
+        "scorable_neurons": 67,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 54,
+          "AI_ASSISTED": 16
+        }
+      },
+      {
+        "chat_id": "gc-013",
+        "scorable_neurons": 42,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 69,
+          "COPY": 3,
+          "AI_ASSISTED": 52
+        }
+      },
+      {
+        "chat_id": "gc-016",
+        "scorable_neurons": 31,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 20
+        }
+      },
+      {
+        "chat_id": "gc-017",
+        "scorable_neurons": 46,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 11
+        }
+      },
+      {
+        "chat_id": "gc-018",
+        "scorable_neurons": 95,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 37
+        }
+      },
+      {
+        "chat_id": "gc-019",
+        "scorable_neurons": 69,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 6
+        }
+      },
+      {
+        "chat_id": "gc-020",
+        "scorable_neurons": 58,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 11
+        }
+      },
+      {
+        "chat_id": "gc-021",
+        "scorable_neurons": 50,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 9,
+          "AI_ASSISTED": 2,
+          "COPY": 1
+        }
+      },
+      {
+        "chat_id": "gc-022",
+        "scorable_neurons": 31,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 11
+        }
+      },
+      {
+        "chat_id": "gc-023",
+        "scorable_neurons": 97,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 167,
+          "AI_ASSISTED": 2
+        }
+      },
+      {
+        "chat_id": "gc-024",
+        "scorable_neurons": 10,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 6
+        }
+      },
+      {
+        "chat_id": "gc-025",
+        "scorable_neurons": 10,
+        "gate_applied": true,
+        "synergy_context": false,
+        "provenance": {
+          "HUMAN_ORIGINAL": 4
+        }
+      },
+      {
+        "chat_id": "gc-026",
+        "scorable_neurons": 69,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 7
+        }
+      },
+      {
+        "chat_id": "gc-027",
+        "scorable_neurons": 40,
+        "gate_applied": true,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 7
+        }
+      },
+      {
+        "chat_id": "gc-028",
+        "scorable_neurons": 98,
+        "gate_applied": false,
+        "synergy_context": true,
+        "provenance": {
+          "HUMAN_ORIGINAL": 10
+        }
+      }
+    ]
+  }
+}
