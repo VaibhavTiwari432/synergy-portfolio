@@ -15,7 +15,7 @@ extension capture spine; Scope C added projects/portfolio. See
 ## Read first (in order)
 
 1. [specs/v3/AGENT_REBUILD_BRIEF_v3.md](specs/v3/AGENT_REBUILD_BRIEF_v3.md) — the mission file (scope, architecture, build plan)
-2. [specs/v3/SAF_ARI_Master_Spec.md](specs/v3/SAF_ARI_Master_Spec.md) — the authoritative spec
+2. [specs/v3.21/SAF_ARI_v3.21_Unified_Master_Specification.md](specs/v3.21/SAF_ARI_v3.21_Unified_Master_Specification.md) — the authoritative spec
 3. [CLAUDE.md](CLAUDE.md) — the non-negotiables (all agents bound) + current v3/v3.1 addendum
 4. [TEAM.md](TEAM.md) — multi-agent build order + file ownership map
 5. [DISCREPANCY.md](DISCREPANCY.md) — conflict log (check OPEN items)
