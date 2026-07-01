@@ -19,10 +19,8 @@ import json
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
-from contracts.schemas import Dimension
-from src.trait.judge.parser import parse_judge_response
-from src.trait.judge.prompt import JUDGE_PROMPT_VERSION, SYSTEM_PROMPT, build_user_prompt
-from src.trait.judge.rubric_bank import get_rubric, list_all_neurons, neurons_by_dimension
+from src.trait.judge.prompt import SYSTEM_PROMPT
+from src.trait.judge.rubric_bank import get_rubric, list_all_neurons
 
 log = logging.getLogger(__name__)
 
@@ -258,7 +256,6 @@ async def score_dimension(
         {neuron_id: score_value} for all neurons in the dimension
     """
     rubric_text = format_dimension_rubric(dimension_name, neuron_ids)
-    schema = build_dimension_schema(neuron_ids)
 
     # Build the prompt
     system_prompt = SYSTEM_PROMPT

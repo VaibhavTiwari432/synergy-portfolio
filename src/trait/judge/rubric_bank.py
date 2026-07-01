@@ -22,9 +22,8 @@ strength_map design:
 
 from __future__ import annotations
 
-from typing import Any, Dict, FrozenSet, List
+from typing import Any, Dict, FrozenSet
 
-from contracts.schemas import Dimension
 
 # ── contract constants ─────────────────────────────────────────────────────────
 

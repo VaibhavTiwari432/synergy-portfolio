@@ -5,12 +5,21 @@ POST a malformed chat (no turns) → expect 422 MALFORMED reject.
 
 This tests the Phase 0 requirement: "Never reject for sparsity — store + flag."
 The completeness gate is informational, not a hard reject (absent ≠ zero, #12).
+
+Run:  PHASE1_GATE=1 pytest tests/integration/test_storage_gate.py -v
 """
+
+import os
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.main import create_app
+
+pytestmark = pytest.mark.skipif(
+    os.environ.get("PHASE1_GATE") != "1",
+    reason="Set PHASE1_GATE=1 to run storage-gate tests (requires Postgres)",
+)
 
 
 @pytest.mark.integration

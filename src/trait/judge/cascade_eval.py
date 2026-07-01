@@ -19,7 +19,7 @@ Non-negotiable:
 from __future__ import annotations
 
 import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Any
 
 
 # Calibration parameters (derived from Item #5 human IRR ceiling; placeholder values here)
@@ -309,7 +309,7 @@ if __name__ == '__main__':
         target_phi=0.70,
     )
 
-    print(f"\nBatch summary:")
+    print("\nBatch summary:")
     print(f"  Total neurons: {batch_result['summary']['n_neurons']}")
     print(f"  Total reps: {batch_result['summary']['total_reps']}")
     print(f"  Escalations: {batch_result['summary']['escalations']}")
@@ -318,7 +318,7 @@ if __name__ == '__main__':
 
     # Compute savings
     savings = compute_savings(batch_result['summary']['total_reps'], fixed_n_reps=5, n_neurons=10)
-    print(f"\nSavings vs fixed-N=5:")
+    print("\nSavings vs fixed-N=5:")
     print(f"  Fixed approach: {savings['fixed_n_approach']} calls")
     print(f"  Cascaded approach: {savings['cascaded_approach']} calls")
     print(f"  Savings: {savings['savings_absolute']} calls ({savings['savings_percent']:.1f}%)")

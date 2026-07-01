@@ -292,7 +292,6 @@ def disagreement_cascade(
     initial_scores = [r.composite.value if r.composite.value is not None else 0.5
                       for r in initial_results]
     variance = np.var(initial_scores)
-    median_initial = np.median(initial_scores)
 
     # Decision: escalate if variance is high
     escalate = variance > escalation_variance_threshold

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.stats import norm
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from collections import defaultdict
 
 

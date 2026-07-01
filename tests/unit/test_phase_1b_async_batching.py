@@ -12,7 +12,8 @@ from src.trait.judge.per_criterion import (
     score_dimension,
     score_all_neurons,
 )
-from src.trait.judge.rubric_bank import neurons_by_dimension, Dimension
+from contracts.schemas import Dimension
+from src.trait.judge.rubric_bank import neurons_by_dimension
 
 
 def test_group_by_dimension():
